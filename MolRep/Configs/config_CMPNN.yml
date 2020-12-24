@@ -1,0 +1,73 @@
+model:
+  - CMPNN
+device:
+  - cuda
+batch_size:
+  - 50
+  - 32
+  - 64
+learning_rate:
+  - 0.0001
+  - 0.00001
+l2:
+  - 0
+hidden_size:
+  - 300
+  - 256
+bias:
+  - False
+  - True
+depth:
+  - 3
+  - 2
+  - 5
+dropout:
+  - 0.0
+  - 0.1
+activation:
+  - ReLU
+undirected:
+  - False
+  - True
+ffn_hidden_size:
+  - 300
+  - 256
+  - 512
+ffn_num_layers:
+  - 2
+  - 3
+  - 5
+atom_messages:
+  - False
+no_cache:
+  - False
+optimizer:
+  - Adam
+scheduler:
+  -
+    class: NoamLR
+    args:
+      warmup_epochs: [2.0]
+      step_size: 10
+      max_lr: [0.0001]
+      init_lr: [0.00001]
+      final_lr: [0.00001]
+early_stopper:
+  - null
+gradient_clipping:
+  - null
+num_epochs:
+  - 30
+  - 10
+  - 100
+num_lrs:
+  - 1
+features_only:
+  - False
+atom_descriptors:
+  - None
+use_input_features:
+  - False
+
+shuffle:
+  - True
