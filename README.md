@@ -86,11 +86,11 @@ Where `<your_cuda_version>` is an optional argument that can be either `cpu`, `c
 
 ### Training
 
-To train a model by K-fold, run [5-fold-training_example.ipynb]().
+To train a model by K-fold, run [5-fold-training_example.ipynb](https://github.com/Jh-SYSU/MolRep/blob/main/Examples/5-fold-training_example.ipynb).
 
 ### Testing 
 
-To test a pretrained model, run [testing-example.ipynb]().
+To test a pretrained model, run [testing-example.ipynb](https://github.com/Jh-SYSU/MolRep/blob/main/Examples/testing-example.ipynb).
 
 
 ### Results
