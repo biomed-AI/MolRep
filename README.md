@@ -26,7 +26,7 @@ To install the required packages, follow there instructions (tested on a linux t
 
     source install.sh [<your_cuda_version>]
 
-Where `<your_cuda_version>` is an optional argument that can be either `cpu`, `cu92`, `cu100`, `cu101`. If you do not provide a cuda version, the script will default to `cpu`. The script will create a virtual environment named `ADMET_comparison`, with all the required packages needed to run our code. **Important:** do NOT run this command using `bash` instead of `source`!
+Where `<your_cuda_version>` is an optional argument that can be either `cpu`, `cu92`, `cu100`, `cu101`. If you do not provide a cuda version, the script will default to `cpu`. The script will create a virtual environment named `MolRep`, with all the required packages needed to run our code. **Important:** do NOT run this command using `bash` instead of `source`!
 
 ## Data
 
