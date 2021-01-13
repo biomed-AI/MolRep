@@ -6,7 +6,7 @@
  MolRep is a Python package for fairly measuring algorithmic progress on chemical property datasets. It currently provides a complete re-evaluation of 16 state-of-the-art deep representation models over 16 benchmark property datsaets.
 
 <p align='center'>
-<img src="https://github.com/biomed-AI/MolRep/blob/main/ADMET-TOC.jpg" alt="architecture" width="600"/>
+<img src="https://github.com/biomed-AI/MolRep/blob/main/ADMET-TOC.jpg" alt="architecture"/>
 </p>
 
 If you found this package useful, please cite [arxiv]() for now:
@@ -34,6 +34,8 @@ To install the required packages, follow there instructions (tested on a linux t
 Where `<your_cuda_version>` is an optional argument that can be either `cpu`, `cu92`, `cu100`, `cu101`. If you do not provide a cuda version, the script will default to `cpu`. The script will create a virtual environment named `MolRep`, with all the required packages needed to run our code. **Important:** do NOT run this command using `bash` instead of `source`!
 
 ## Data
+
+Data could be download from [Google_Driver](https://drive.google.com/drive/folders/1vGlhE3TJ4AhvUCa3ODdFw3O-zOMH1s7J?usp=sharing)
 
 ### Current Dataset
 |Dataset|Task|Task type|#Molecule|Splits|Metric|Reference|
