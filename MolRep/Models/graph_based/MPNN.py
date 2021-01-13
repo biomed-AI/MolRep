@@ -26,14 +26,13 @@ from MolRep.Featurization.MPNN_embeddings import index_select_ND, get_activation
 class MPNN(nn.Module):
     """A :class:`MPNN` is a model which contains a message passing network following by feed-forward layers."""
 
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, configs=None):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
         """
 
         """
         super(MPNN, self).__init__()
 
         self.model_configs = model_configs
-        self.dataset_name = configs.dataset_name
         self.dim_features = dim_features
         self.dim_target = dim_target
 
@@ -52,11 +51,11 @@ class MPNN(nn.Module):
         if self.regression:
             self.relu = nn.ReLU()
 
-        self.dropout = nn.Dropout(configs.dropout)
-        if configs.features_only:
+        self.dropout = nn.Dropout(model_configs['dropout'])
+        if model_configs['features_only']:
             self.first_linear_dim = self.dim_features
         else:
-            self.first_linear_dim = int(configs.hidden_size) * 1
+            self.first_linear_dim = int(model_configs['hidden_size']) * 1
             self.first_linear_dim += self.dim_features
         ffn = [
                 self.dropout,

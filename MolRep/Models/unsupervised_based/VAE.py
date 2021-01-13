@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 
 class VAE(nn.Module):
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, configs=None):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
         super().__init__()
 
         self.task_type = dataset_configs["task_type"]

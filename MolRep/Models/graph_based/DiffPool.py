@@ -84,16 +84,14 @@ class DiffPool(nn.Module):
     """
     Computes multiple DiffPoolLayers
     """
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, configs=None):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=400):
         super().__init__()
 
-        self.max_num_nodes = configs.max_num_nodes
+        self.max_num_nodes = max_num_nodes
         num_diffpool_layers = model_configs['num_layers']
         gnn_dim_hidden = model_configs['gnn_dim_hidden']  # embedding size of first 2 SAGE convolutions
         dim_embedding = model_configs['dim_embedding']  # embedding size of 3rd SAGE convolutions (eq. 5, dim of Z)
         dim_embedding_MLP = model_configs['dim_embedding_MLP']  # hidden neurons of last 2 MLP layers
-
-        self.configs = configs
 
         self.num_diffpool_layers = num_diffpool_layers
 

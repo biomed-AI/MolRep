@@ -26,14 +26,13 @@ from MolRep.Featurization.MPNN_embeddings import index_select_ND, get_activation
 class DMPNN(nn.Module):
     """A :class:`DMPNN` is a model which contains a message passing network following by feed-forward layers."""
 
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, configs=None):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
         """
 
         """
         super(DMPNN, self).__init__()
 
         self.model_configs = model_configs
-        self.dataset_name = configs.dataset_name
         self.dim_features = dim_features
         self.dim_target = dim_target
 

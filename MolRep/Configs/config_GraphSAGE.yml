@@ -19,9 +19,7 @@ num_epochs:
 optimizer:
   - Adam
 scheduler:
-  - null
-loss:
-  - MSERegressionLoss
+  - NoamLR
 gradient_clipping:
   - null
 early_stopper:
@@ -43,7 +41,7 @@ dim_embedding:
 num_layers:
   - 3
   - 5
-'aggregation':
+aggregation:
   - add
   - max
   - mean

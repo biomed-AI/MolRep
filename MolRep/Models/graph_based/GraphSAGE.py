@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 
 class GraphSAGE(nn.Module):
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, configs=None):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
         super().__init__()
 
         num_layers = model_configs['num_layers']

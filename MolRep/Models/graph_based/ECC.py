@@ -64,7 +64,7 @@ class ECC(nn.Module):
 
     """
 
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, configs=None):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
         super().__init__()
         self.model_configs = model_configs
         self.dropout = model_configs['dropout']

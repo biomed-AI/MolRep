@@ -22,90 +22,40 @@ from rdkit.Chem import AllChem
 from rdkit.Chem import MolFromSmiles
 from sklearn.metrics import pairwise_distances
 
-from MolRep.Utils.utils import *
 
 class MATEmbeddings():
-    def __init__(self, dataset_path, features_dir=None, model_name=None,
-                 add_dummy_node=True, one_hot_formal_charge=False, use_data_saving=True,
-                  configs=None, dataset_configs=None, logger=None):
-        """
-        Args:
-            - dataset_path (str): A path to the CSV file containing the data. It should have two columns:
-                                the first one contains SMILES strings of the compounds,
-                                the second one contains labels.
-            - features_dir (str): A path to save processed features.
-            - add_dummy_node (bool): If True, a dummy node will be added to the molecular graph. Defaults to True.
-            - one_hot_formal_charge (bool): If True, formal charges on atoms are one-hot encoded. Defaults to False.
-            - use_data_saving (bool): If True, saved features will be loaded from the dataset directory; if no feature file
-                                    is present, the features will be saved after calculations. Defaults to True.
-        """
+    def __init__(self, data_df, model_name, features_path, dataset_config,
+                 add_dummy_node=True, one_hot_formal_charge=False, use_data_saving=True,):
 
-        self.dataset_name = configs.dataset_name
-        self.model_name = configs.model_name
-        self.dataset_path = Path(dataset_path) / Path(dataset_configs["path"])
-        self.features_dir = Path(dataset_path).parent if features_dir is None else Path(features_dir)
+        self.model_name = model_name
+        self.whole_data_df = data_df
+        self.features_path = features_path
+        self.dataset_config = dataset_config
 
         self.add_dummy_node = add_dummy_node
         self.one_hot_formal_charge = one_hot_formal_charge
         self.use_data_saving = use_data_saving
 
-        self.task_type = dataset_configs["task_type"]
-        self.multi_class = self.task_type == 'Multiclass-Classification'
-        self.multiclass_num_classes = dataset_configs["multiclass_num_classes"] if self.multi_class else None
-        self.configs = configs
-        self.logger = logger
+        self.smiles_col = self.dataset_config["smiles_column"]
+        self.target_cols = self.dataset_config["target_columns"]
 
-        self.smiles_col = dataset_configs["smiles_column"]
-        self.target_cols = dataset_configs["target_columns"]
-        self.num_tasks = len(self.target_cols)
+    @property
+    def dim_features(self):
+        return self._dim_features
 
-        self.output_dir = self.features_dir # / f"processed" / f"{self.dataset_name}"
-        create_dir_if_not_exists(self.output_dir)
-
-        if self.dataset_path.suffix == '.csv':
-            self.whole_data_df = pd.read_csv(self.dataset_path)
-        elif self.dataset_path.suffix == '.sdf':
-            self.whole_data_df = self.load_sdf_files(self.dataset_path)
-        else: 
-            raise self.logger.error(f"File Format must be in ['CSV', 'SDF']")
-
-        valid_smiles = filter_invalid_smiles(list(self.whole_data_df.loc[:,self.smiles_col]))
-        self.whole_data_df = self.whole_data_df[self.whole_data_df[self.smiles_col].isin(valid_smiles)].reset_index(drop=True)
-
-        self.configs.output_size = self.num_tasks * self.multiclass_num_classes if self.multi_class else self.num_tasks
-        self.configs.train_data_size = len(self.whole_data_df)
-
-
-    def load_sdf_files(self, input_file, clean_mols=True):
-        suppl = Chem.SDMolSupplier(str(input_file), clean_mols, False, False)
-
-        df_rows = []
-        for ind, mol in enumerate(suppl):
-            if mol is None:
-                continue
-            smiles = Chem.MolToSmiles(mol)
-            df_row = [ind+1, smiles, mol]
-            df_rows.append(df_row)
-        mol_df = pd.DataFrame(df_rows, columns=('mol_id', 'smiles', 'mol')).set_index('mol_id')
-        try:
-            raw_df = pd.read_csv(str(input_file) + '.csv').set_index('gdb9_index')
-        except KeyError:
-            raw_df = pd.read_csv(str(input_file) + '.csv').set_index('mol_id')
-        return pd.concat([mol_df, raw_df], axis=1, join='inner').reset_index(drop=True)
+    @property
+    def max_num_nodes(self):
+        return None
 
     def process(self):
         """
         Load and featurize data stored in a CSV file.
         """
 
-        output_path = self.output_dir / f"{self.model_name}.pt"
-
-        if self.use_data_saving and os.path.exists(output_path):
-            self.logger.info(f"Processed features existed.")
-            self.logger.info(f"Processed features stored at '{self.output_dir}'")
-
-            x_all, y_all = pickle.load(open(output_path, "rb"))
-            self.configs.dim_features = x_all[0][0].shape[1]
+        features_path = self.features_path
+        if self.use_data_saving and os.path.exists(features_path):
+            x_all, y_all = pickle.load(open(features_path, "rb"))
+            self._dim_features = x_all[0][0].shape[1]
 
         else:
             data_x = self.whole_data_df.loc[:,self.smiles_col].values
@@ -114,10 +64,9 @@ class MATEmbeddings():
             x_all, y_all = self.load_data_from_smiles(data_x, data_y, add_dummy_node=self.add_dummy_node,
                                                       one_hot_formal_charge=self.one_hot_formal_charge)
 
-            self.configs.dim_features = x_all[0][0].shape[1]
-            if self.use_data_saving and not os.path.exists(output_path):
-                self.logger.info(f"Saving features at '{output_path}'")
-                pickle.dump((x_all, y_all), open(output_path, "wb"))
+            self._dim_features = x_all[0][0].shape[1]
+            if self.use_data_saving and not os.path.exists(features_path):
+                pickle.dump((x_all, y_all), open(features_path, "wb"))
 
     def load_data_from_smiles(self, x_smiles, labels, add_dummy_node=True, one_hot_formal_charge=False):
         """
@@ -205,7 +154,8 @@ class MATEmbeddings():
 
         attributes += self.one_hot_vector(
             atom.GetAtomicNum(),
-            [5, 6, 7, 8, 9, 15, 16, 17, 20, 35, 53, 999]
+            # [5, 6, 7, 8, 9, 15, 16, 17, 20, 35, 53, 999]
+            list(np.arange(1000))
         )
 
         attributes += self.one_hot_vector(

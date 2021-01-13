@@ -10,12 +10,10 @@ class DGCNN(nn.Module):
     Uses fixed architecture
     """
 
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, configs=None):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
         super(DGCNN, self).__init__()
 
         self.ks = {"0.6": 79 , "0.9": 120}
-
-        self.configs = configs
 
         self.k = self.ks[str(model_configs['k'])] 
         self.embedding_dim = model_configs['embedding_dim']

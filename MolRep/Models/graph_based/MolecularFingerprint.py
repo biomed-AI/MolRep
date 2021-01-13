@@ -1,3 +1,4 @@
+
 import torch
 from torch.nn import ReLU
 from torch_geometric.nn import global_add_pool
@@ -5,12 +6,13 @@ from torch_geometric.nn import global_add_pool
 
 class MolecularFingerprint(torch.nn.Module):
 
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, configs=None):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
         super(MolecularFingerprint, self).__init__()
         hidden_dim = model_configs['hidden_units']
 
         self.mlp = torch.nn.Sequential(torch.nn.Linear(dim_features, hidden_dim), ReLU(),
                                        torch.nn.Linear(hidden_dim, dim_target), ReLU())
+
         self.task_type = dataset_configs["task_type"]
         self.multiclass_num_classes = dataset_configs["multiclass_num_classes"] if self.task_type == 'Multi-Classification' else None
 
@@ -32,7 +34,7 @@ class MolecularFingerprint(torch.nn.Module):
         if self.classification and not self.training:
             x = self.sigmoid(x)
         if self.multiclass:
-            x = x.reshape((x.size(0), -1, self.num_classes)) # batch size x num targets x num classes per target
+            x = x.reshape((x.size(0), -1, self.multiclass_num_classes)) # batch size x num targets x num classes per target
             if not self.training:
                 x = self.multiclass_softmax(x) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
 

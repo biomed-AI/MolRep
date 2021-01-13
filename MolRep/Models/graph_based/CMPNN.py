@@ -25,7 +25,7 @@ import torch.nn.functional as F
 class CMPNN(nn.Module):
     """A CMPNN is a model which contains a message passing network following by feed-forward layers."""
 
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, configs=None):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
         """
         Initializes the CMPNN.
         :param classification: Whether the model is a classification model.

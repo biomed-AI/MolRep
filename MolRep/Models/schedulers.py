@@ -5,16 +5,16 @@ from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
-def build_lr_scheduler(optimizer, configs, model_configs):
+def build_lr_scheduler(optimizer, model_configs, num_samples=0):
     sched_dict = model_configs['scheduler']
     if sched_dict is None:
         return None
 
     sched_s = sched_dict['class']
     if sched_s == 'ECCLR':
-        return ECCLR(optimizer, model_configs, configs)
+        return ECCLR(optimizer, model_configs)
     elif sched_s == 'NoamLR':
-        return NoamLR(optimizer, model_configs, configs)
+        return NoamLR(optimizer, model_configs, num_samples)
     elif sched_s == 'StepLR':
         return StepLR(optimizer, sched_dict['args']['step_size'])
     elif sched_s == 'ReduceLROnPlateau':
@@ -25,7 +25,7 @@ def build_lr_scheduler(optimizer, configs, model_configs):
 
 class ECCLR(StepLR):
 
-    def __init__(self, optimizer, model_configs, configs):
+    def __init__(self, optimizer, model_configs):
         self.gamma = model_configs['scheduler']['args']['gamma']
         self.step_size = model_configs['scheduler']['args']['step_size']  # does not matter
         super(ECCLR, self).__init__(optimizer, step_size=self.step_size, gamma=self.gamma, last_epoch=-1)
@@ -48,7 +48,7 @@ class NoamLR(_LRScheduler):
     total_epochs * steps_per_epoch). This is roughly based on the learning rate
     schedule from Attention is All You Need, section 5.3 (https://arxiv.org/abs/1706.03762).
     """
-    def __init__(self, optimizer, model_configs, configs):
+    def __init__(self, optimizer, model_configs, num_samples):
         """
         Initializes the learning rate scheduler.
         :param optimizer: A PyTorch optimizer.
@@ -61,7 +61,7 @@ class NoamLR(_LRScheduler):
         """
         warmup_epochs = model_configs['scheduler']['args']['warmup_epochs']
         total_epochs = [model_configs['num_epochs']] * model_configs['num_lrs']
-        steps_per_epoch = configs.train_data_size // model_configs['batch_size']
+        steps_per_epoch = num_samples // model_configs['batch_size']
         init_lr = model_configs['scheduler']['args']['init_lr']
         max_lr = model_configs['scheduler']['args']['max_lr']
         final_lr = model_configs['scheduler']['args']['final_lr']

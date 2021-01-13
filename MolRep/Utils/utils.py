@@ -9,10 +9,13 @@ Created on 2020.05.19
 
 import os
 import json
+import yaml
+import pickle
 import logging
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from pathlib import Path
 
 import torch 
 import torch.nn as nn
@@ -37,6 +40,12 @@ def json_to_df(json_path):
         json_content = json.load(f)
         df = pd.DataFrame(json_content)
     return df
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
 
 def create_dir_if_not_exists(dir_path):
     if not os.path.exists(dir_path):
@@ -77,6 +86,22 @@ def create_logger(configs):
     logger.addHandler(handler)
     logger.addHandler(stream_handler)
     return logger
+
+
+def read_config_file(dict_or_filelike):
+    if isinstance(dict_or_filelike, dict):
+        return dict_or_filelike
+
+    path = Path(dict_or_filelike)
+    if path.suffix == ".json":
+        return json.load(open(path, "r"))
+    elif path.suffix in [".yaml", ".yml"]:
+        return yaml.load(open(path, "r"), Loader=yaml.FullLoader)
+    elif path.suffix in [".pkl", ".pickle"]:
+        return pickle.load(open(path, "rb"))
+
+    raise ValueError("Only JSON, YaML and pickle files supported.")
+
 
 def getDate():
     ret = time.strftime('%m-%d-%H:%M', time.localtime(time.time()))

@@ -8,10 +8,9 @@ from torch_geometric.nn import GINConv, global_add_pool, global_mean_pool
 
 class GIN(torch.nn.Module):
 
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, configs=None):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
         super(GIN, self).__init__()
 
-        self.configs = configs
         self.dropout = model_configs['dropout']
         self.embeddings_dim = [model_configs['hidden_units'][0]] + model_configs['hidden_units']
         self.no_layers = len(self.embeddings_dim)

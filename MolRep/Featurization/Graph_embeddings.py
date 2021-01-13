@@ -8,7 +8,6 @@ Code based on:
 Errica et al "A Fair Comparison of Graph Neural Networks for Graph Classification" -> https://github.com/diningphil/gnn-comparison
 """
 
-
 import os
 import pandas as pd
 import numpy as np
@@ -23,89 +22,38 @@ from networkx import normalized_laplacian_matrix
 from MolRep.Featurization.utils.graph_utils import *
 from MolRep.Utils.utils import *
 
-
 class GraphEmbeddings():
-    def __init__(self, dataset_path, features_dir=None, use_node_attrs=True,
-                 use_node_degree=False, use_one=False, max_reductions=10, precompute_kron_indices=True,
-                 save_temp_data=True, configs=None, dataset_configs=None, logger=None):
-        """
-        Args:
-            - dataset_path (str): A path to the CSV file containing the data. It should have two columns:
-                                the first one contains SMILES strings of the compounds,
-                                the second one contains labels.
-            - features_dir (str): A path to save processed features.
-            - use_node_attrs (bool): If True, a dummy node will be added to the molecular graph. Defaults to True.
-            - use_node_degree (bool): If True, formal charges on atoms are one-hot encoded. Defaults to False.
-            - use_one (bool): If True, saved features will be loaded from the dataset directory; if no feature file
-                                    is present, the features will be saved after calculations. Defaults to True.
-            - max_reductions (int): max reductions for KRON_REDUCTIONS.
-            - precompute_kron_indices (bool): whether to precompute kron indices.
-            - save_temp_data (bool): whether to save txt file when generating features.
-            - configs (Namespace): Namespace of basic configuration.
-            - dataset_configs (dict): Namespace of dataset configuration.
-            - logger (logging): logging.
-        """
+    def __init__(self, data_df, model_name, features_path, dataset_config,
+                 use_node_attrs=True, use_node_degree=False, use_one=False, max_reductions=10, precompute_kron_indices=True,
+                 save_temp_data=False):
 
-        self.model_name = configs.model_name
-        self.dataset_name = configs.dataset_name
-        self.dataset_path = Path(dataset_path) / Path(dataset_configs["path"])
-        self.features_dir = Path(dataset_path).parent if features_dir is None else Path(features_dir)
-        self.temp_dir = self.features_dir / "raw" / self.dataset_name
-        self.configs = configs
+        self.model_name = model_name
+        self.whole_data_df = data_df
+        self.features_path = features_path
+        self.dataset_config = dataset_config
 
         self.use_node_degree = use_node_degree
         self.use_node_attrs = use_node_attrs
         self.use_one = use_one
 
-        self.task_type = dataset_configs["task_type"]
-        self.multi_class = self.task_type == 'Multiclass-Classification'
-        self.multiclass_num_classes = dataset_configs["multiclass_num_classes"] if self.task_type == 'Multi-Classification' else None
-
-        self.smiles_col = dataset_configs["smiles_column"]
-        self.target_cols = dataset_configs["target_columns"]
-        self.num_tasks = len(self.target_cols)
+        self.temp_dir = self.features_path.parent / 'raw'
+        if not self.temp_dir.exists():
+            os.makedirs(self.temp_dir)
 
         self.KRON_REDUCTIONS = max_reductions
         self.precompute_kron_indices = precompute_kron_indices
         self.save_temp_data = save_temp_data
-        self.logger = logger
 
-        self.output_dir = self.features_dir #/ f"processed" / f"{self.dataset_name}"
-        create_dir_if_not_exists(self.output_dir)
-        create_dir_if_not_exists(self.temp_dir)
+        self.smiles_col = self.dataset_config["smiles_column"]
+        self.target_cols = self.dataset_config["target_columns"]
 
-        if self.dataset_path.suffix == '.csv':
-            self.whole_data_df = pd.read_csv(self.dataset_path)
-        elif self.dataset_path.suffix == '.sdf':
-            self.whole_data_df = self.load_sdf_files(self.dataset_path)
-        else: 
-            raise self.logger.error(f"File Format must be in ['CSV', 'SDF']")
+    @property
+    def dim_features(self):
+        return self._dim_features
 
-        valid_smiles = filter_invalid_smiles(list(self.whole_data_df.loc[:,self.smiles_col]))
-        self.whole_data_df = self.whole_data_df[self.whole_data_df[self.smiles_col].isin(valid_smiles)].reset_index(drop=True)
-
-        self.configs.output_size = self.num_tasks * self.multiclass_num_classes if self.multi_class else self.num_tasks
-        self.configs.train_data_size = len(self.whole_data_df)
-
-    def load_sdf_files(self, input_file, clean_mols=True):
-        suppl = Chem.SDMolSupplier(str(input_file), clean_mols, False, False)
-
-        df_rows = []
-        for ind, mol in enumerate(suppl):
-            if mol is None:
-                continue
-            smiles = Chem.MolToSmiles(mol)
-            df_row = [ind+1, smiles, mol]
-            df_rows.append(df_row)
-        mol_df = pd.DataFrame(df_rows, columns=('mol_id', 'smiles', 'mol')).set_index('mol_id')
-        try:
-            raw_df = pd.read_csv(str(input_file) + '.csv').set_index('gdb9_index')
-        except KeyError:
-            raw_df = pd.read_csv(str(input_file) + '.csv')
-            new = raw_df.mol_id.str.split('_', n = 1, expand=True)
-            raw_df['mol_id'] = new[1]
-            raw_df.set_index('mol_id')
-        return pd.concat([mol_df, raw_df], axis=1, join='inner').reset_index(drop=True)
+    @property
+    def max_num_nodes(self):
+        return self._max_num_nodes
 
     def load_data_from_df(self):
         temp_dir = self.temp_dir
@@ -156,19 +104,16 @@ class GraphEmbeddings():
         Load and featurize data stored in a CSV file.
         """
 
-        output_path = self.output_dir / f"{self.model_name}.pt"
-        if os.path.exists(output_path):
-            self.logger.info(f"Processed features existed.")
-            self.logger.info(f"Loading features stored at '{output_path}'")
-
-            dataset = torch.load(output_path)
-            self.configs.dim_features = dataset[0].x.size(1)
+        features_path = self.features_path
+        if os.path.exists(features_path):
+            dataset = torch.load(features_path)
+            self._dim_features = dataset[0].x.size(1)
 
             self.load_data_from_df()
             graphs_data, num_node_labels, num_edge_labels = parse_tu_data(self.model_name, self.temp_dir)
 
             # dynamically set maximum num nodes (useful if using dense batching, e.g. diffpool)
-            self.configs.max_num_nodes = max([len(v) for (k, v) in graphs_data['graph_nodes'].items()])
+            self._max_num_nodes = max([len(v) for (k, v) in graphs_data['graph_nodes'].items()])
 
         else:
             self.load_data_from_df()
@@ -176,7 +121,7 @@ class GraphEmbeddings():
             targets = graphs_data.pop("graph_labels")
 
             # dynamically set maximum num nodes (useful if using dense batching, e.g. diffpool)
-            self.configs.max_num_nodes = max([len(v) for (k, v) in graphs_data['graph_nodes'].items()])
+            self._max_num_nodes = max([len(v) for (k, v) in graphs_data['graph_nodes'].items()])
 
             dataset = []
             for i, target in enumerate(targets, 1):
@@ -191,13 +136,11 @@ class GraphEmbeddings():
                 data = self._to_data(G)
                 dataset.append(data)
 
-            self.configs.dim_features = dataset[0].x.size(1)
-            torch.save(dataset, output_path)
-            self.logger.info(f"Saving features at '{output_path}'")
+            self._dim_features = dataset[0].x.size(1)
+            torch.save(dataset, features_path)
 
         if self.save_temp_data == False:
             del_file(self.temp_dir)
-
 
     def _to_data(self, G):
         datadict = {}

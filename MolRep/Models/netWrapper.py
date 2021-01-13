@@ -9,9 +9,11 @@ Errica, Federico, et al. "A fair comparison of graph neural networks for graph c
 """
 
 import time
+from datetime import timedelta
 
 import numpy as np
 import pandas as pd
+
 
 import torch
 from MolRep.Models.metrics import *
@@ -19,13 +21,20 @@ from MolRep.Utils.utils import *
 
 from collections import defaultdict
 
+def format_time(avg_time):
+    avg_time = timedelta(seconds=avg_time)
+    total_seconds = int(avg_time.total_seconds())
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours:02d}:{minutes:02d}:{int(seconds):02d}.{str(avg_time.microseconds)[:3]}"
+
+
 class NetWrapper:
-    def __init__(self, model, configs, dataset_configs, model_config, loss_function=None):
+    def __init__(self, model, dataset_configs, model_config, loss_function=None):
         self.model = model
         self.loss_fun = loss_function
-        self.model_name = configs.model_name
-        self.dataset_name = configs.dataset_name
-        self.log_file = configs.log_file
+        self.model_name = model_config.exp_name
+        self.dataset_name = dataset_configs["name"]
         self.num_epochs = model_config['num_epochs']
 
         self.metric_type = dataset_configs["metric_type"]
@@ -34,12 +43,10 @@ class NetWrapper:
         self.num_tasks = len(self.target_cols)
 
         self.device = torch.device(model_config['device'])
-        self.classifer_model = model_config['classifier_model'] if 'classifier_model' in model_config.config_dict.keys() else None
 
-
-    def train_test_one_fold(self, train_loader, valid_loader=None, test_loader=None, scaler=None,
-                            scheduler=None, clipping=None, optimizer=None, early_stopping=None,
-                            target_idx=-1, log_every=1, logger=None):
+    def train(self, train_loader, valid_loader=None, test_loader=None, scaler=None,
+              scheduler=None, clipping=None, optimizer=None, early_stopping=None,
+              log_every=10, logger=None):
         '''
         Args:
             - train_loader (DataLoader):
@@ -48,64 +55,63 @@ class NetWrapper:
             - scheduler ():
         '''
 
-        # Training for Machine learning Methods
-        if self.model_name in ['Mol2Vec', 'N_Gram_Graph'] and self.classifier_model in ['RandomForest', 'XGboost']:
-            
-            begin = time.time()
-            train_x, train_y = get_xy(train_loader, target_idx)
-            self.model.fit_model(train_x, train_y)
-            y_preds = self.model.predict(train_x)
-            metric = get_metric(train_y, y_preds, self.metric_type)
+        early_stopper = early_stopping() if early_stopping is not None else None
 
-            if valid_loader is not None:
-                val_x, val_y = get_xy(valid_loader, target_idx)
-                val_y_preds = self.model.predict(val_x)
-                val_metric = get_metric(val_y, val_y_preds, self.metric_type)
+        val_loss, val_metric = -1, -1
+        test_loss, test_metric = None, None
 
-            end = time.time()
-            duration = end - begin
-
-            logger.info(f'[TRAIN] train %s: %.6f' % (self.metric_type, metric))
-            if valid_loader is not None:
-                logger.info(f'[VALID] valid %s: %.6f' % (self.metric_type, val_metric))
-            logger.info(f"- Elapsed time: {str(duration)[:4]}s , Time estimation in a fold: {str(duration*(len(self.target_cols))/60)[:4]}min")
-
-
-            test_x, test_y = get_xy(test_loader, target_idx)
-            test_y_preds = self.model.predict(test_x)
-            test_metric = get_metric(test_y, test_y_preds, self.metric_type)
-            logger.info(f'[TEST] test %s: %.6f' % (self.metric_type, metric))
-
-            return test_metric, None
-
+        time_per_epoch = []
 
         # Training for Deep learning Methods
-        for i in range(self.num_epochs):
+        for i in range(1, self.num_epochs+1):
             begin = time.time()
-            metric, loss = self.train_one_epoch(train_loader, optimizer, scheduler, clipping=clipping, logger=logger)
-
-            if valid_loader is not None:
-                val_metric, val_loss = self.test_on_epoch_end(valid_loader, scaler, logger=logger)
-
+            train_metric, train_loss = self.train_one_epoch(train_loader, optimizer, clipping=clipping)
             end = time.time()
             duration = end - begin
+            time_per_epoch.append(end)
 
-            if i % log_every == 0:
-                logger.info(f'[TRAIN] Epoch: %d, train loss: %.6f train %s: %.6f' % (
-                    i+1, loss, self.metric_type, metric))
+            if scheduler is not None:
+                scheduler.step(i)
+
+            if test_loader is not None:
+                _, _, test_metric, test_loss = self.test_on_epoch_end(test_loader, scaler)
+
+            if valid_loader is not None:
+                _, _, val_metric, val_loss = self.test_on_epoch_end(valid_loader, scaler)
+                if early_stopper is not None and early_stopper.stop(i, val_loss, val_metric,
+                                                                    test_loss, test_metric,
+                                                                    train_loss, train_metric):
+                    msg = f'Stopping at epoch {i}, best is {early_stopper.get_best_vl_metrics()}'
+                    if logger is not None:
+                        logger.log(msg)
+                        print(msg)
+                    else:
+                        print(msg)
+                    break
+
+            if i % log_every == 0 or i == 1:
+                logger.log(f'[TRAIN] Epoch: %d, train loss: %.6f train %s: %.6f' % (
+                    i, train_loss, self.metric_type, train_metric))
                 if valid_loader is not None:
-                    logger.info(f'[VALID] Epoch: %d, valid loss: %.6f valid %s: %.6f' % (
-                        i+1, val_loss, self.metric_type, val_metric))
-                logger.info(f"- Elapsed time: {str(duration)[:4]}s , Time estimation in a fold: {str(duration*self.num_epochs/60)[:4]}min")
+                    logger.log(f'[VALID] Epoch: %d, valid loss: %.6f valid %s: %.6f' % (
+                        i, val_loss, self.metric_type, val_metric))
+                if test_loader is not None:
+                    logger.log(f'[TEST] Epoch: %d, test loss: %.6f test %s: %.6f' % (
+                        i, test_loss, self.metric_type, test_metric))
+                logger.log(f"- Elapsed time: {str(duration)[:4]}s , Time estimation in a fold: {str(duration*self.num_epochs/60)[:4]}min")
+
+        time_per_epoch = torch.tensor(time_per_epoch)
+        avg_time_per_epoch = float(time_per_epoch.mean())
+
+        elapsed = format_time(avg_time_per_epoch)
+
+        if early_stopper is not None:
+            train_loss, train_metric, val_loss, val_metric, test_loss, test_metric, best_epoch = early_stopper.get_best_vl_metrics()
+
+        return train_loss, train_metric, val_loss, val_metric, test_loss, test_metric, elapsed
 
 
-        _, metric, loss = self.test_on_epoch_end(test_loader, scaler, logger=logger)
-        logger.info(f'[TEST] test loss: %.6f test %s: %.6f' % (
-            loss, self.metric_type, metric))
-        return metric, loss
-
-
-    def train_one_epoch(self, train_loader, optimizer, scheduler=None, clipping=None, early_stopping=None, logger=None):
+    def train_one_epoch(self, train_loader, optimizer, clipping=None, early_stopping=None):
         model = self.model.to(self.device)
         model.train()
 
@@ -113,7 +119,7 @@ class NetWrapper:
         y_preds, y_labels = [], []
         for _, data in enumerate(train_loader):
 
-            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool']:
+            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint']:
                 target_batch = data.y
                 data = data.to(self.device)
 
@@ -124,6 +130,10 @@ class NetWrapper:
             elif self.model_name == 'MAT':
                 target_batch = data[-1]
                 data = [features.to(self.device) for features in data]
+            
+            elif self.model_name == 'CoMPT':
+                target_batch = data[-1]
+                data = [features.to(self.device) for features in data[:-1]]
 
             elif self.model_name in ['BiLSTM', 'SALSTM', 'Transformer']:
                 target_batch = data[-1]
@@ -134,7 +144,7 @@ class NetWrapper:
                 data = tuple(d.to(self.device) for d in data[0])
 
             else:
-                raise self.logger.error(f"Model Name must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', \
+                raise print(f"Model Name must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', \
                                                 'MPNN', 'DMPNN', 'CMPNN', 'MAT', 'BiLSTM', 'SALSTM', 'Transformer', 'VAE', 'Mol2Vec', 'N-Gram-Graph']")
 
             mask = torch.Tensor([[not np.isnan(x) for x in tb] for tb in target_batch])
@@ -156,8 +166,6 @@ class NetWrapper:
 
             loss.backward()
             optimizer.step()
-            if scheduler is not None:
-                scheduler.step()
 
             y_preds.extend(output[0].data.cpu().numpy().tolist())
             y_labels.extend(target_batch)
@@ -169,24 +177,28 @@ class NetWrapper:
 
         results = self.evaluate_predictions(preds=y_preds, targets=y_labels,
                                             num_tasks=self.num_tasks, metric_type=self.metric_type,
-                                            task_type=self.task_type, logger=logger)
+                                            task_type=self.task_type)
 
         return results, loss_all / len(train_loader.dataset)
 
-    def test_on_epoch_end(self, test_loader, scaler=None, logger=None):
+    def test_on_epoch_end(self, test_loader, scaler=None):
         model = self.model.to(self.device)
         model.eval()
 
         loss_all = 0
         y_preds, y_labels = [], []
         for _, data in enumerate(test_loader):
-            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool']:
+            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint']:
                 target_batch = data.y
                 data = data.to(self.device)
 
             elif self.model_name == 'MAT':
                 target_batch = data[-1]
                 data = [features.to(self.device) for features in data]
+
+            elif self.model_name == 'CoMPT':
+                target_batch = data[-1]
+                data = [features.to(self.device) for features in data[:-1]]
 
             elif self.model_name in ['MPNN', 'DMPNN', 'CMPNN']:
                 mol_batch, features_batch, target_batch, atom_descriptors_batch = data
@@ -201,9 +213,8 @@ class NetWrapper:
                 data = data[0].to(self.device)
 
             else:
-                raise self.logger.error(f"Model Name must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', \
+                raise print(f"Model Name must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', \
                                                 'MPNN', 'DMPNN', 'CMPNN', 'MAT', 'BiLSTM', 'SALSTM', 'Transformer', 'VAE', 'Mol2Vec', 'N-Gram-Graph']")
-
 
             output = model(data)
             if not isinstance(output, tuple):
@@ -232,12 +243,12 @@ class NetWrapper:
 
         results = self.evaluate_predictions(preds=y_preds, targets=y_labels,
                                             num_tasks=self.num_tasks, metric_type=self.metric_type,
-                                            task_type=self.task_type, logger=logger)
+                                            task_type=self.task_type)
 
-        return y_preds, results, loss_all / len(test_loader.dataset)
+        return y_preds, y_labels, results, loss_all / len(test_loader.dataset)
 
 
-    def evaluate_predictions(self, preds, targets, num_tasks, metric_type, task_type, logger=None):
+    def evaluate_predictions(self, preds, targets, num_tasks, metric_type, task_type):
 
         # Filter out empty targets
         # valid_preds and valid_targets have shape (num_tasks, data_size)
@@ -256,10 +267,10 @@ class NetWrapper:
                 nan = False
                 if all(target == 0 for target in valid_targets[i]) or all(target == 1 for target in valid_targets[i]):
                     nan = True
-                    logger.info('Warning: Found a task with targets all 0s or all 1s')
+                    print('Warning: Found a task with targets all 0s or all 1s')
                 if all(pred == 0 for pred in valid_preds[i]) or all(pred == 1 for pred in valid_preds[i]):
                     nan = True
-                    logger.info('Warning: Found a task with predictions all 0s or all 1s')
+                    print('Warning: Found a task with predictions all 0s or all 1s')
 
                 if nan:
                     results.append(float('nan'))
@@ -267,18 +278,8 @@ class NetWrapper:
 
             if len(valid_targets[i]) == 0:
                 continue
-
+            
             results.append(get_metric(valid_targets[i], valid_preds[i], metric_type=metric_type))
 
         scores = np.nanmean(results)
         return scores
-
-    def get_xy(loader, target_idx):
-
-        x_all, y_all = loader
-        target_y = y_all[:, target_idx]
-    
-        nan_rows = np.where(np.isnan(target_y))[0]
-        x_valid = [x_all[i] for i in range(len(x_all)) if i not in nan_rows]
-        y_valid = [target_y[i] for i in range(len(target_y)) if i not in nan_rows]
-        return x_valid, y_valid

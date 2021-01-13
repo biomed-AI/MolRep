@@ -3,23 +3,22 @@ from torch import nn
 import numpy as np
 
 
-def get_loss_func(dataset_configs, configs):
+def get_loss_func(task_type, model_name):
     """
     Gets the loss function corresponding to a given dataset type.
     :param args: Namespace containing the dataset type ("classification" or "regression").
     :return: A PyTorch loss function.
     """
-    task_type = dataset_configs['task_type']
-    if task_type == 'Classification' and configs.model_name == 'DiffPool':
+    if task_type == 'Classification' and model_name == 'DiffPool':
         return DiffPoolBinaryclassClassificationLoss()
 
-    if task_type == 'Regression' and configs.model_name == 'DiffPool':
+    if task_type == 'Regression' and model_name == 'DiffPool':
         return DiffPoolRegressionLoss()
 
-    if task_type == 'Classification' and configs.model_name == 'VAE':
+    if task_type == 'Classification' and model_name == 'VAE':
         return VAEClassificationLoss()
 
-    if task_type == 'Regression' and configs.model_name == 'VAE':
+    if task_type == 'Regression' and model_name == 'VAE':
         return VAERegressionLoss()
 
     if task_type == 'Classification':
@@ -31,7 +30,7 @@ def get_loss_func(dataset_configs, configs):
     if task_type == 'Multiclass-Classification':
         return CrossEntropyClassificationLoss()
 
-    raise ValueError(f'Task type "{task_type}" and Model "{configs.model_name}" not supported.')
+    raise ValueError(f'Task type "{task_type}" and Model "{model_name}" not supported.')
 
 
 class ClassificationLoss(nn.Module):
