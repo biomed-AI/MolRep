@@ -5,6 +5,10 @@
 ## Summary
  MolRep is a Python package for fairly measuring algorithmic progress on chemical property datasets. It currently provides a complete re-evaluation of 16 state-of-the-art deep representation models over 16 benchmark property datsaets.
 
+<p align='center'>
+<img src="https://github.com/biomed-AI/MolRep/blob/main/ADMET-TOC.eps" alt="architecture" width="600"/>
+</p>
+
 If you found this package useful, please cite [arxiv]() for now:
 ```
 
