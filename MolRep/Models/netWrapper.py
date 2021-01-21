@@ -90,15 +90,23 @@ class NetWrapper:
                     break
 
             if i % log_every == 0 or i == 1:
-                logger.log(f'[TRAIN] Epoch: %d, train loss: %.6f train %s: %.6f' % (
-                    i, train_loss, self.metric_type, train_metric))
+                msg = f'[TRAIN] Epoch: %d, train loss: %.6f train %s: %.6f' % (
+                    i, train_loss, self.metric_type, train_metric)
+                logger.log(msg)
+                print(msg)
                 if valid_loader is not None:
-                    logger.log(f'[VALID] Epoch: %d, valid loss: %.6f valid %s: %.6f' % (
-                        i, val_loss, self.metric_type, val_metric))
+                    msg = f'[VALID] Epoch: %d, valid loss: %.6f valid %s: %.6f' % (
+                        i, val_loss, self.metric_type, val_metric)
+                    logger.log(msg)
+                    print(msg)
                 if test_loader is not None:
-                    logger.log(f'[TEST] Epoch: %d, test loss: %.6f test %s: %.6f' % (
-                        i, test_loss, self.metric_type, test_metric))
-                logger.log(f"- Elapsed time: {str(duration)[:4]}s , Time estimation in a fold: {str(duration*self.num_epochs/60)[:4]}min")
+                    msg = f'[TEST] Epoch: %d, test loss: %.6f test %s: %.6f' % (
+                        i, test_loss, self.metric_type, test_metric)
+                    logger.log(msg)
+                    print(msg)
+                msg = f"- Elapsed time: {str(duration)[:4]}s , Time estimation in a fold: {str(duration*self.num_epochs/60)[:4]}min"
+                logger.log(msg)
+                print(msg)
 
         time_per_epoch = torch.tensor(time_per_epoch)
         avg_time_per_epoch = float(time_per_epoch.mean())
@@ -110,6 +118,16 @@ class NetWrapper:
 
         return train_loss, train_metric, val_loss, val_metric, test_loss, test_metric, elapsed
 
+    def test(self, test_loader=None, scaler=None,
+             scheduler=None, log_every=10, logger=None):
+        
+        y_preds, y_labels, test_metric, test_loss = self.test_on_epoch_end(test_loader, scaler)
+
+        msg = f'[TEST] test loss: %.6f test %s: %.6f' % ( test_loss, self.metric_type, test_metric)
+        logger.log(msg)
+        print(msg)
+
+        return y_preds, y_labels, test_metric
 
     def train_one_epoch(self, train_loader, optimizer, clipping=None, early_stopping=None):
         model = self.model.to(self.device)

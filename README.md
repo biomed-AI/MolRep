@@ -9,7 +9,7 @@
 <img src="https://github.com/biomed-AI/MolRep/blob/main/ADMET-TOC.jpg" alt="architecture"/>
 </p>
 
-If you found this package useful, please cite [arxiv]() for now:
+If you found this package useful, please cite [biorxiv](https://doi.org/10.1101/2021.01.13.426489) for now:
 ```
 
 ```

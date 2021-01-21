@@ -128,7 +128,6 @@ class KFoldAssessment:
 
         # Mitigate bad random initializations
         for i in range(5):
-            print('i:', i)
             model_path = str(os.path.join(experiment.exp_path, f'experiment_run_{i}.pt'))
             training_score, test_score = experiment.run_test(dataset_getter, logger, other=model_path)
             print(f'Final training run {i + 1}: {training_score}, {test_score}')

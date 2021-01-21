@@ -10,6 +10,9 @@ class DataLoaderWrapper:
 
     def set_inner_k(self, k):
         self.inner_k = k
+    
+    def set_outer_k(self, k):
+        self.outer_k = k
 
     @property
     def get_dataset(self):

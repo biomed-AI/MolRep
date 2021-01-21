@@ -7,6 +7,7 @@ from MolRep.Models.netWrapper import NetWrapper
 from MolRep.Models.schedulers import build_lr_scheduler
 
 from MolRep.Utils.config_from_dict import Config, DatasetConfig
+from MolRep.Utils.utils import *
 
 class Experiment:
     """
@@ -102,15 +103,13 @@ class EndToEndExperiment(Experiment):
                                                                 shuffle=shuffle)
         test_loader = dataset_getter.get_test(dataset, self.model_config['batch_size'], shuffle=shuffle)
 
-        print("data split size:", len(train_loader), len(val_loader), len(test_loader))
-
+        
         model = model_class(dim_features=dataset.dim_features, dim_target=dataset.dim_target, model_configs=self.model_config, dataset_configs=self.dataset_config)
         net = NetWrapper(model, dataset_configs=self.dataset_config, model_config=self.model_config,
                          loss_function=loss_fn)
         optimizer = optim_class(model.parameters(),
                                 lr=self.model_config['learning_rate'], weight_decay=self.model_config['l2'])
         scheduler = build_lr_scheduler(optimizer, model_configs=self.model_config, num_samples=dataset.num_samples)
-
 
         train_loss, train_metric, val_loss, valid_metric, test_loss, test_metric, _ = \
             net.train(train_loader=train_loader, valid_loader=val_loader, test_loader=test_loader, 
@@ -123,3 +122,37 @@ class EndToEndExperiment(Experiment):
 
         return train_metric, test_metric
 
+
+    def run_independent_test(self, dataset_getter, logger, other=None):
+        """
+        This function returns the training and test accuracy. DO NOT USE THE TEST FOR TRAINING OR EARLY STOPPING!
+        :return: (training accuracy, test accuracy)
+        """
+        dataset = dataset_getter.get_dataset
+        shuffle = self.model_config['shuffle'] if 'shuffle' in self.model_config else True
+
+        model_class = self.model_config.model
+        optim_class = self.model_config.optimizer
+        stopper_class = self.model_config.early_stopper
+        clipping = self.model_config.gradient_clipping
+
+        loss_fn = get_loss_func(self.dataset_config['task_type'], self.model_config.exp_name)
+        shuffle = self.model_config['shuffle'] if 'shuffle' in self.model_config else True
+
+
+        test_loader = dataset_getter.get_test(dataset, self.model_config['batch_size'], shuffle=shuffle)
+
+        model = model_class(dim_features=dataset.dim_features, dim_target=dataset.dim_target, model_configs=self.model_config, dataset_configs=self.dataset_config)
+        net = NetWrapper(model, dataset_configs=self.dataset_config, model_config=self.model_config,
+                         loss_function=loss_fn)
+        optimizer = optim_class(model.parameters(),
+                                lr=self.model_config['learning_rate'], weight_decay=self.model_config['l2'])
+        scheduler = build_lr_scheduler(optimizer, model_configs=self.model_config, num_samples=dataset.num_samples)
+
+        if other is not None:
+            model = load_checkpoint(path=other, model=model, cuda=True)
+            scaler, features_scaler = load_scalers(path=other)
+
+        y_preds, y_labels, test_metric = net.test(test_loader=test_loader, scaler=scaler, logger=logger)
+
+        return y_preds, y_labels, test_metric

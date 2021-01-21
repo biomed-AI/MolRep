@@ -209,12 +209,14 @@ class DatasetWrapper:
 
             if self.holdout_test_size == 0:
                 train_o_split, test_split = all_idxs, []
+            elif self.holdout_test_size == -1:
+                train_o_split, test_split = [], all_idxs
             else:
                 if self.split_type == 'random':
                     train_o_split, test_split = train_test_split(all_idxs,
                                                                  test_size=self.holdout_test_size,
                                                                  random_state=self.seed)
-                if self.split_type == 'stratified':
+                elif self.split_type == 'stratified':
                     train_o_split, test_split = train_test_split(all_idxs,
                                                                  stratify=targets,
                                                                  test_size=self.holdout_test_size,
@@ -237,6 +239,8 @@ class DatasetWrapper:
             if self.inner_k is None:  # holdout model selection strategy
                 if self.holdout_test_size == 0:
                     train_i_split, val_i_split = train_o_split, []
+                elif self.holdout_test_size == -1:
+                    train_i_split, val_i_split = [], []
                 else:
                     if self.split_type == 'random':
                         train_i_split, val_i_split = train_test_split(train_o_split,
