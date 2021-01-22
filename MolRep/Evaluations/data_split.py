@@ -21,7 +21,7 @@ def specific_split(all_indices, cell_type, test_size=0, random_state=0):
 
 def scaffold_split(data,
                    test_size,
-                   balanced = False,
+                   balanced = True,
                    random_state = 0):
     """
     Splits a :class:`~chemprop.data.MoleculeDataset` by scaffold so that no molecules sharing a scaffold are in different splits.
@@ -32,30 +32,30 @@ def scaffold_split(data,
     :return: A tuple containing the train, validation, and test splits of the data.
     """
 
-    sizes = [1-test_size, 0, test_size]
+    sizes = [1-test_size, test_size]
     # Split
-    train_size, val_size, test_size = sizes[0] * len(data), sizes[1] * len(data), sizes[2] * len(data)
+    train_size, test_size = sizes[0] * len(data), sizes[1] * len(data)
 
-    train, val, test = [], [], []
-    train_scaffold_count, val_scaffold_count, test_scaffold_count = 0, 0, 0
+    train, test = [], []
+    train_scaffold_count, test_scaffold_count = 0, 0
 
 
     # Map from scaffold to index in the data
     scaffold_to_indices = scaffold_to_smiles(data, use_indices=True)
 
     # Seed randomness
-    random = Random(seed)
+    random = Random(random_state)
 
     if balanced:  # Put stuff that's bigger than half the val/test size into train, rest just order randomly
         index_sets = list(scaffold_to_indices.values())
         big_index_sets = []
         small_index_sets = []
         for index_set in index_sets:
-            if len(index_set) > val_size / 2 or len(index_set) > test_size / 2:
+            if len(index_set) > test_size / 2:
                 big_index_sets.append(index_set)
             else:
                 small_index_sets.append(index_set)
-        random.seed(seed)
+        random.seed(random_state)
         random.shuffle(big_index_sets)
         random.shuffle(small_index_sets)
         index_sets = big_index_sets + small_index_sets
@@ -68,14 +68,11 @@ def scaffold_split(data,
         if len(train) + len(index_set) <= train_size:
             train += index_set
             train_scaffold_count += 1
-        elif len(val) + len(index_set) <= val_size:
-            val += index_set
-            val_scaffold_count += 1
         else:
             test += index_set
             test_scaffold_count += 1
     
-    return train, val, test
+    return train, test
 
 
 def generate_scaffold(mol: Union[str, Chem.Mol], include_chirality: bool = False) -> str:

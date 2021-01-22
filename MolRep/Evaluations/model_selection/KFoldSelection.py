@@ -142,8 +142,11 @@ class KFoldSelector:
         k_fold_dict['avg_VL_score'] = vl_scores.mean()
         k_fold_dict['std_VL_score'] = vl_scores.std()
 
-        logger.log('TR avg is ' + str(k_fold_dict['avg_TR_score']) + ' std is ' + str(k_fold_dict['std_TR_score']) +
-                   ' VL avg is ' + str(k_fold_dict['avg_VL_score']) + ' std is ' + str(k_fold_dict['std_VL_score']))
+
+        log_str = f"TR avg is %.4f std is %.4f; VL avg is %.4f std is %.4f" % (
+            k_fold_dict['avg_TR_score'], k_fold_dict['std_TR_score'], k_fold_dict['avg_VL_score'], k_fold_dict['std_VL_score']
+        )
+        logger.log(log_str)
 
         with open(config_filename, 'w') as fp:
             json.dump(k_fold_dict, fp)

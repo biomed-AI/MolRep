@@ -81,32 +81,22 @@ class NetWrapper:
                 if early_stopper is not None and early_stopper.stop(i, val_loss, val_metric,
                                                                     test_loss, test_metric,
                                                                     train_loss, train_metric):
-                    msg = f'Stopping at epoch {i}, best is {early_stopper.get_best_vl_metrics()}'
                     if logger is not None:
-                        logger.log(msg)
-                        print(msg)
+                        logger.log(f'Stopping at epoch {i}, best is {early_stopper.get_best_vl_metrics()}')
                     else:
-                        print(msg)
+                        print(f'Stopping at epoch {i}, best is {early_stopper.get_best_vl_metrics()}')
                     break
 
             if i % log_every == 0 or i == 1:
-                msg = f'[TRAIN] Epoch: %d, train loss: %.6f train %s: %.6f' % (
-                    i, train_loss, self.metric_type, train_metric)
-                logger.log(msg)
-                print(msg)
+                logger.log(f'[TRAIN] Epoch: %d, train loss: %.6f train %s: %.6f' % (
+                    i, train_loss, self.metric_type, train_metric))
                 if valid_loader is not None:
-                    msg = f'[VALID] Epoch: %d, valid loss: %.6f valid %s: %.6f' % (
-                        i, val_loss, self.metric_type, val_metric)
-                    logger.log(msg)
-                    print(msg)
+                    logger.log(f'[VALID] Epoch: %d, valid loss: %.6f valid %s: %.6f' % (
+                        i, val_loss, self.metric_type, val_metric))
                 if test_loader is not None:
-                    msg = f'[TEST] Epoch: %d, test loss: %.6f test %s: %.6f' % (
-                        i, test_loss, self.metric_type, test_metric)
-                    logger.log(msg)
-                    print(msg)
-                msg = f"- Elapsed time: {str(duration)[:4]}s , Time estimation in a fold: {str(duration*self.num_epochs/60)[:4]}min"
-                logger.log(msg)
-                print(msg)
+                    logger.log(f'[TEST] Epoch: %d, test loss: %.6f test %s: %.6f' % (
+                        i, test_loss, self.metric_type, test_metric))
+                logger.log(f"- Elapsed time: {str(duration)[:4]}s , Time estimation in a fold: {str(duration*self.num_epochs/60)[:4]}min")
 
         time_per_epoch = torch.tensor(time_per_epoch)
         avg_time_per_epoch = float(time_per_epoch.mean())
@@ -122,10 +112,7 @@ class NetWrapper:
              scheduler=None, log_every=10, logger=None):
         
         y_preds, y_labels, test_metric, test_loss = self.test_on_epoch_end(test_loader, scaler)
-
-        msg = f'[TEST] test loss: %.6f test %s: %.6f' % ( test_loss, self.metric_type, test_metric)
-        logger.log(msg)
-        print(msg)
+        logger.log(f'[TEST] test loss: %.6f test %s: %.6f' % ( test_loss, self.metric_type, test_metric))
 
         return y_preds, y_labels, test_metric
 

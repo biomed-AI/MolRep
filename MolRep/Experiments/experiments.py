@@ -1,5 +1,5 @@
 
-
+import os
 import random
 
 from MolRep.Models.losses import get_loss_func
@@ -18,6 +18,9 @@ class Experiment:
         self.model_config = Config.from_dict(model_configuration)
         self.dataset_config = dataset_config
         self.exp_path = exp_path
+
+        if not os.path.exists(exp_path):
+            os.makedirs(exp_path)
 
     def run_valid(self, get_train_val, logger, other=None):
         """
@@ -79,6 +82,9 @@ class EndToEndExperiment(Experiment):
                                                                             early_stopping=stopper_class,
                                                                             logger=logger)
 
+        if other is not None and 'model_path' in other.keys():
+            save_checkpoint(path=other['model_path'], model=model, scaler=scaler)
+
         return train_metric, val_metric
 
 
@@ -117,8 +123,8 @@ class EndToEndExperiment(Experiment):
                       early_stopping=stopper_class, scaler=scaler,
                       logger=logger)
 
-        if other is not None:
-            save_checkpoint(path=other, model=model, scaler=scaler)
+        if other is not None and 'model_path' in other.keys():
+            save_checkpoint(path=other['model_path'], model=model, scaler=scaler)
 
         return train_metric, test_metric
 
@@ -149,9 +155,10 @@ class EndToEndExperiment(Experiment):
                                 lr=self.model_config['learning_rate'], weight_decay=self.model_config['l2'])
         scheduler = build_lr_scheduler(optimizer, model_configs=self.model_config, num_samples=dataset.num_samples)
 
-        if other is not None:
-            model = load_checkpoint(path=other, model=model, cuda=True)
-            scaler, features_scaler = load_scalers(path=other)
+
+        if other is not None and 'model_path' in other.keys():
+            model = load_checkpoint(path=other['model_path'], model=model)
+            scaler, features_scaler = load_scalers(path=other['model_path'])
 
         y_preds, y_labels, test_metric = net.test(test_loader=test_loader, scaler=scaler, logger=logger)
 

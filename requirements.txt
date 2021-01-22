@@ -15,9 +15,6 @@ kiwisolver==1.3.0
 llvmlite==0.34.0
 MarkupSafe==1.1.1
 matplotlib==3.3.2
-mkl-fft==1.2.0
-mkl-random==1.1.1
-mkl-service==2.3.0
 networkx==2.4
 numba==0.51.2
 numpy @ file:///tmp/build/80754af9/numpy_and_numpy_base_1603479632437/work
@@ -35,13 +32,6 @@ scipy==1.5.3
 six==1.15.0
 smart-open==4.0.1
 threadpoolctl==2.1.0
-torch==1.5.0
-torch-cluster==1.5.7
-torch-geometric==1.6.1
-torch-scatter==2.0.5
-torch-sparse==0.6.7
-torch-spline-conv==1.2.0
-torchvision==0.6.0a0+82fd1c8
 tqdm==4.51.0
 urllib3==1.25.11
-xgboost==1.3.0
+xgboost==1.3.3

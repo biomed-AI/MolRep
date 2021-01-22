@@ -6,7 +6,7 @@ import pandas as pd
 
 from pathlib import Path
 from sklearn.model_selection import train_test_split, StratifiedKFold, KFold
-from MolRep.Evaluations.data_split import specific_split
+from MolRep.Evaluations.data_split import scaffold_split
 
 from MolRep.Featurization.Graph_embeddings import GraphEmbeddings
 from MolRep.Featurization.MPNN_embeddings import MPNNEmbeddings
@@ -25,8 +25,8 @@ from MolRep.Utils.utils import filter_invalid_smiles, NumpyEncoder
 
 class DatasetWrapper:
 
-    def __init__(self, dataset_config, model_name, kfold_class=KFold, outer_k=10, inner_k=None, seed=42, holdout_test_size=0.1, 
-                    split_dir='MolRep/Splits', features_dir='MolRep/Data'):
+    def __init__(self, dataset_config, model_name, outer_k=10, inner_k=None, seed=42, holdout_test_size=0.1, 
+                    split_dir='Splits', features_dir='Data'):
 
         self.dataset_config = dataset_config
         self.dataset_path = self.dataset_config["path"]
@@ -34,7 +34,6 @@ class DatasetWrapper:
         self.split_type = self.dataset_config["split_type"]
         self.model_name = model_name
 
-        self.kfold_class = kfold_class
         self.outer_k = outer_k
         self.inner_k = inner_k
         self.holdout_test_size = holdout_test_size
@@ -47,6 +46,7 @@ class DatasetWrapper:
 
         self.seed = seed
 
+        self.kfold_class = KFold if self.split_type == 'random' else StratifiedKFold
         self._load_raw_data()
 
         self.features_dir = Path(features_dir)
@@ -58,7 +58,7 @@ class DatasetWrapper:
         self._process()
 
         self.split_dir = Path(split_dir)
-        self.splits_filename = self.split_dir / self.dataset_name / f"{self.model_name}_{self.split_type}_splits_seed{self.seed}.json"
+        self.splits_filename = self.split_dir / f"{self.dataset_name}_{self.split_type}_splits_seed{self.seed}.json"
         if not self.splits_filename.parent.exists():
             os.makedirs(self.splits_filename.parent)
 
@@ -221,15 +221,12 @@ class DatasetWrapper:
                                                                  stratify=targets,
                                                                  test_size=self.holdout_test_size,
                                                                  random_state=self.seed)
-                # elif self.split_type == 'scaffold':
-                #     train_o_split, test_split = scaffold_split(smiles,
-                #                                                test_size=self.holdout_test_size,
-                #                                                random_state=self.seed)
-                elif self.split_type == 'specific':
-                    train_o_split, test_split = specific_split(all_idxs,
-                                                               cell_type=self.cell_types,
+                elif self.split_type == 'scaffold':
+                    train_o_split, test_split = scaffold_split(smiles,
                                                                test_size=self.holdout_test_size,
                                                                random_state=self.seed)
+                else:
+                    assert f"{self.split_type} must be in [random, stratified, scaffold]."
 
 
             split = {"test": all_idxs[test_split], 'model_selection': []}
@@ -246,53 +243,156 @@ class DatasetWrapper:
                         train_i_split, val_i_split = train_test_split(train_o_split,
                                                                       test_size=self.holdout_test_size,
                                                                       random_state=self.seed)
-                    # elif self.split_type == 'scaffold':
-                    #     train_i_split, val_i_split = scaffold_split(train_o_split,
-                    #                                                 test_size=self.holdout_test_size,
-                    #                                                 random_state=self.seed)
-                    elif self.split_type == 'specific':
-                        train_i_split, val_i_split = specific_split(train_o_split,
+                    elif self.split_type == 'scaffold':
+                        train_i_split, val_i_split = scaffold_split(train_o_smiles,
                                                                     test_size=self.holdout_test_size,
                                                                     random_state=self.seed)
+                    elif self.split_type == 'stratified':
+                        train_i_split, val_i_split = train_test_split(train_o_split,
+                                                                      stratify=train_o_targets,
+                                                                      test_size=self.holdout_test_size,
+                                                                      random_state=self.seed)
+                    else:
+                        assert f"{self.split_type} must be in [random, stratified, scaffold]."
 
                 split['model_selection'].append(
                     {"train": train_i_split, "validation": val_i_split})
 
             else:  # cross validation model selection strategy
-                inner_kfold = self.kfold_class(n_splits=self.inner_k, shuffle=True, random_state=self.seed)
-                for train_ik_split, val_ik_split in inner_kfold.split(train_o_split):
-                    split['model_selection'].append(
-                        {"train": train_o_split[train_ik_split], "validation": train_o_split[val_ik_split]})
+                if self.split_type == 'scaffold':
+                    scaffold_test_size = (len(train_o_smiles) / self.inner_k) / len(train_o_smiles)
+                    for inner_i in range(self.inner_k):
+                        train_ik_split, val_ik_split = scaffold_split(train_o_smiles, test_size=scaffold_test_size,
+                                                                        balanced=True, random_state=self.seed)
+                        split['model_selection'].append(
+                            {"train": train_ik_split, "validation": val_ik_split})
+                else:
+                    inner_kfold = self.kfold_class(n_splits=self.inner_k, shuffle=True, random_state=self.seed)
+                    if self.split_type == 'stratified':
+                        for train_ik_split, val_ik_split in inner_kfold.split(train_o_split, train_o_targets):
+                            split['model_selection'].append(
+                                {"train": train_o_split[train_ik_split], "validation": train_o_split[val_ik_split]})
+                    else:
+                        for train_ik_split, val_ik_split in inner_kfold.split(train_o_split):
+                            split['model_selection'].append(
+                                {"train": train_o_split[train_ik_split], "validation": train_o_split[val_ik_split]})
 
             self.splits.append(split)
 
         else:  # cross validation assessment strategy
-            outer_kfold = self.kfold_class(n_splits=self.outer_k, shuffle=True, random_state=self.seed)
 
-            for train_ok_split, test_ok_split in outer_kfold.split(all_idxs):
-                split = {"test": all_idxs[test_ok_split], 'model_selection': []}
+            if self.split_type == 'scaffold':
+                scaffold_test_size = (len(smiles) / self.outer_k) / len(smiles)
+                for outer_i in range(self.outer):
+                    train_ok_split, test_ok_split = scaffold_split(train_o_smiles, test_size=scaffold_test_size,
+                                                                        balanced=True, random_state=self.seed)
+                    split = {"test": all_idxs[test_ok_split], 'model_selection': []}
 
-                if self.inner_k is None:  # holdout model selection strategy
-                    assert self.holdout_test_size is not None
-                    if self.split_type == 'random':
-                        train_i_split, val_i_split = train_test_split(train_ok_split,
-                                                                      test_size=self.holdout_test_size,
-                                                                      random_state=self.seed)
-                    # else:
-                    #     train_i_split, val_i_split = scaffold_split(train_ok_split,
-                    #                                                 test_size=self.holdout_test_size,
-                    #                                                 random_state=self.seed)
+                    train_ok_smiles = smiles[train_ok_split]
+                    train_ok_targets = targets[train_ok_split]
+                    if self.inner_k is None:  # holdout model selection strategy
+                        assert self.holdout_test_size is not None
+                        if self.split_type == 'random':
+                            train_i_split, val_i_split = train_test_split(train_ok_split,
+                                                                            test_size=self.holdout_test_size,
+                                                                            random_state=self.seed)
+                        elif self.split_type == 'scaffold':
+                            train_i_split, val_i_split = scaffold_split(train_ok_smiles,
+                                                                        test_size=self.holdout_test_size,
+                                                                        random_state=self.seed)
+                        elif self.split_type == 'stratified':
+                            train_i_split, val_i_split = train_test_split(train_ok_split,
+                                                                            stratify=train_ok_targets,
+                                                                            test_size=self.holdout_test_size,
+                                                                            random_state=self.seed)
+                        else:
+                            assert f"{self.split_type} must be in [random, stratified, scaffold]."
 
-                    split['model_selection'].append(
-                        {"train": train_i_split, "validation": val_i_split})
-
-                else:  # cross validation model selection strategy
-                    inner_kfold = self.kfold_class(n_splits=self.inner_k, shuffle=True, random_state=self.seed)
-                    for train_ik_split, val_ik_split in inner_kfold.split(train_ok_split):
                         split['model_selection'].append(
-                            {"train": train_ok_split[train_ik_split], "validation": train_ok_split[val_ik_split]})
+                            {"train": train_i_split, "validation": val_i_split})
+                    
+                    else:
+                        if self.split_type == 'scaffold':
+                            scaffold_test_size = (len(train_ok_smiles) / self.inner_k) / len(train_ok_smiles)
+                            for inner_i in range(self.inner_k):
+                                train_ik_split, val_ik_split = scaffold_split(train_ok_smiles, test_size=scaffold_test_size,
+                                                                                balanced=True, random_state=self.seed)
+                                split['model_selection'].append(
+                                    {"train": train_ik_split, "validation": val_ik_split})
+                        else:
+                            inner_kfold = self.kfold_class(n_splits=self.inner_k, shuffle=True, random_state=self.seed)
+                            for train_ik_split, val_ik_split in inner_kfold.split(train_ok_split):
+                                split['model_selection'].append(
+                                    {"train": train_ok_split[train_ik_split], "validation": train_ok_split[val_ik_split]})
 
-                self.splits.append(split)
+                    self.splits.append(split)
+
+            else:
+                outer_kfold = self.kfold_class(n_splits=self.outer_k, shuffle=True, random_state=self.seed)
+                if self.split_type == 'stratified':
+                    for train_ok_split, test_ok_split in outer_kfold.split(all_idxs, targets):
+                        split = {"test": all_idxs[test_ok_split], 'model_selection': []}
+
+                        train_ok_smiles = smiles[train_ok_split]
+                        train_ok_targets = targets[train_ok_split]
+                        if self.inner_k is None:  # holdout model selection strategy
+                            assert self.holdout_test_size is not None
+                            if self.split_type == 'random':
+                                train_i_split, val_i_split = train_test_split(train_ok_split,
+                                                                            test_size=self.holdout_test_size,
+                                                                            random_state=self.seed)
+                            elif self.split_type == 'scaffold':
+                                train_i_split, val_i_split = scaffold_split(train_ok_smiles,
+                                                                            test_size=self.holdout_test_size,
+                                                                            random_state=self.seed)
+
+                            split['model_selection'].append(
+                                {"train": train_i_split, "validation": val_i_split})
+
+                        else:  # cross validation model selection strategy
+                            inner_kfold = self.kfold_class(n_splits=self.inner_k, shuffle=True, random_state=self.seed)
+                            if self.split_type == 'stratified':
+                                for train_ik_split, val_ik_split in inner_kfold.split(train_ok_split, train_ok_targets):
+                                    split['model_selection'].append(
+                                        {"train": train_ok_split[train_ik_split], "validation": train_ok_split[val_ik_split]})
+                            else:
+                                for train_ik_split, val_ik_split in inner_kfold.split(train_ok_split):
+                                    split['model_selection'].append(
+                                        {"train": train_ok_split[train_ik_split], "validation": train_ok_split[val_ik_split]})
+
+                        self.splits.append(split)
+                else:
+                    for train_ok_split, test_ok_split in outer_kfold.split(all_idxs):
+                        split = {"test": all_idxs[test_ok_split], 'model_selection': []}
+
+                        train_ok_smiles = smiles[train_ok_split]
+                        train_ok_targets = targets[train_ok_split]
+                        if self.inner_k is None:  # holdout model selection strategy
+                            assert self.holdout_test_size is not None
+                            if self.split_type == 'random':
+                                train_i_split, val_i_split = train_test_split(train_ok_split,
+                                                                            test_size=self.holdout_test_size,
+                                                                            random_state=self.seed)
+                            elif self.split_type == 'scaffold':
+                                train_i_split, val_i_split = scaffold_split(train_ok_smiles,
+                                                                            test_size=self.holdout_test_size,
+                                                                            random_state=self.seed)
+
+                            split['model_selection'].append(
+                                {"train": train_i_split, "validation": val_i_split})
+
+                        else:  # cross validation model selection strategy
+                            inner_kfold = self.kfold_class(n_splits=self.inner_k, shuffle=True, random_state=self.seed)
+                            if self.split_type == 'stratified':
+                                for train_ik_split, val_ik_split in inner_kfold.split(train_ok_split, train_ok_targets):
+                                    split['model_selection'].append(
+                                        {"train": train_ok_split[train_ik_split], "validation": train_ok_split[val_ik_split]})
+                            else:
+                                for train_ik_split, val_ik_split in inner_kfold.split(train_ok_split):
+                                    split['model_selection'].append(
+                                        {"train": train_ok_split[train_ik_split], "validation": train_ok_split[val_ik_split]})
+
+                        self.splits.append(split)
 
         with open(self.splits_filename, "w") as f:
             json.dump(self.splits, f, cls=NumpyEncoder)
@@ -302,7 +402,7 @@ class DatasetWrapper:
 
         testset_indices = self.splits[outer_idx]["test"]
 
-        if len(test_data) == 0:
+        if len(testset_indices) == 0:
             test_loader = None
 
         else:
@@ -421,7 +521,5 @@ class DatasetWrapper:
 
         if len(validset_indices) == 0:
             valid_loader = None
-        
-        # print('train, valid:', len(train_loader), len(valid_loader))
         
         return train_loader, valid_loader, scaler

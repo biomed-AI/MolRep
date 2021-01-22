@@ -1,3 +1,5 @@
+
+
 class Logger:
     def __init__(self, filepath, mode, lock=None):
         """
@@ -19,6 +21,7 @@ class Logger:
 
         try:
             with open(self.filepath, self.mode) as f:
+                print(str)
                 f.write(str + '\n')
         except Exception as e:
             print(e)

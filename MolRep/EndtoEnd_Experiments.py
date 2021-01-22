@@ -9,6 +9,7 @@ import os
 import torch
 import warnings
 warnings.filterwarnings("ignore")
+from pathlib import Path
 
 from MolRep.Utils.config_from_dict import Config, Grid, DatasetConfig
 
@@ -26,10 +27,16 @@ from MolRep.Experiments.experiments import EndToEndExperiment
 from sklearn.model_selection import train_test_split, StratifiedKFold, KFold
 
 def endtoend(config_file, dataset_name, 
-                outer_k, outer_processes, inner_k, inner_processes, holdout_test_size, output_dir, debug=False, data_stats=None):
+                outer_k, outer_processes, inner_k, inner_processes, 
+                output_dir, datasets_dir, holdout_test_size=0.1, debug=False, data_stats=None):
 
     # Needed to avoid thread spawning, conflicts with multi-processing. You may set a number > 1 but take into account
     # the number of processes on the machine
+
+    data_dir = Path(datasets_dir).parent / f"Data"
+    split_dir = Path(datasets_dir).parent / f"Splits"
+
+
     torch.set_num_threads(1)
     outer_k = int(outer_k) if outer_k != 'None' else None
     inner_k = int(inner_k) if inner_k != 'None' else None
@@ -39,11 +46,13 @@ def endtoend(config_file, dataset_name,
     model_configurations = Grid(config_file)
     model_configuration = Config(**model_configurations[0])
     dataset_configuration = DatasetConfig(dataset_name, data_dict=data_stats)
+    dataset_configuration.set_dataset_full_path(os.path.join(datasets_dir, dataset_configuration['path']))
 
     exp_path = os.path.join(output_dir, f'{model_configuration.exp_name}_{dataset_configuration.exp_name}_assessment')
 
     dataset = DatasetWrapper(dataset_config=dataset_configuration,
-                             model_name=model_configuration.exp_name, kfold_class=KFold,
+                             model_name=model_configuration.exp_name,
+                             split_dir=split_dir, features_dir=data_dir,
                              outer_k=outer_k, inner_k=inner_k, holdout_test_size=holdout_test_size)
     model_selector = KFoldSelector(folds=inner_k, max_processes=inner_processes)
     risk_assesser = KFoldAssessment(outer_k, model_selector, exp_path, model_configurations, dataset_configuration,

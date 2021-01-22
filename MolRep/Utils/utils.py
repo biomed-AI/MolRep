@@ -64,10 +64,6 @@ def delete_file_if_exists(path_file):
     if os.path.exists(path_file) and os.path.isfile(path_file):
         os.remove(path_file)
 
-def make_log(log_str, fp):
-    fp.write(log_str)
-    fp.write('\n')
-    print(log_str)
 
 def create_logger(configs):
     logger = logging.getLogger(__name__)
@@ -180,8 +176,6 @@ def load_checkpoint(path: str,
     if current_args is not None:
         args = current_args
 
-    args.cuda = cuda if cuda is not None else args.cuda
-
     # Build model
     model_state_dict = model.state_dict()
 
@@ -203,7 +197,7 @@ def load_checkpoint(path: str,
     model_state_dict.update(pretrained_state_dict)
     model.load_state_dict(model_state_dict)
 
-    if cuda:
+    if torch.cuda.is_available():
         debug('Moving model to cuda')
         model = model.cuda()
 
