@@ -121,11 +121,9 @@ class KFoldAssessment:
         # Set up a log file for this experiment (run in a separate process)
         logger = Logger.Logger(str(os.path.join(experiment.exp_path, 'experiment.log')), mode='a')
 
-        dataset_getter = DataLoaderWrapper(dataset, outer_k)
         dataset_getter.set_inner_k(None)  # needs to stay None
 
         training_scores, test_scores = [], []
-
         # Mitigate bad random initializations
         for i in range(5):
             model_path = str(os.path.join(experiment.exp_path, f'experiment_run_{i}.pt'))
@@ -135,8 +133,8 @@ class KFoldAssessment:
             training_scores.append(training_score)
             test_scores.append(test_score)
 
-        training_score = sum(training_scores) / 3
-        test_score = sum(test_scores) / 3
+        training_score = sum(training_scores) / 5
+        test_score = sum(test_scores) / 5
 
         logger.log('End of Outer fold. TR score: ' + str(training_score) + ' TS score: ' + str(test_score))
 

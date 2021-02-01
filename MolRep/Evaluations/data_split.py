@@ -10,14 +10,29 @@ from rdkit.Chem.Scaffolds import MurckoScaffold
 import numpy as np
 
 
-def specific_split(all_indices, cell_type, test_size=0, random_state=0):
+# def specific_split(all_indices, cell_type, test_size=0, random_state=0):
+#     train_idxs, test_idxs = [], []
+#     for i, c_t in enumerate(cell_type):
+#         if c_t == '143B':
+#             test_idxs.append(i)
+#         else:
+#             train_idxs.append(i)
+#     return np.array(train_idxs), np.array(test_idxs)
+
+def specific_split(data, random_state=0):
+    """
+    split train/valid/test data according to "Splits" column
+    """
     train_idxs, test_idxs = [], []
-    for i, c_t in enumerate(cell_type):
-        if c_t == '143B':
+    for i, split in enumerate(data):
+        assert split in ['test', 'train']
+        if split == 'test':
             test_idxs.append(i)
-        else:
+        elif split == 'train':
             train_idxs.append(i)
     return np.array(train_idxs), np.array(test_idxs)
+
+
 
 def scaffold_split(data,
                    test_size,

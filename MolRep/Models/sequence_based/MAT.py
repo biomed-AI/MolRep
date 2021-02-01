@@ -25,7 +25,7 @@ class MAT(nn.Module):
     """docstring for MAT"""
     def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
         super(MAT, self).__init__()
-        self.d_atom = d_atom
+        self.d_atom = dim_features
 
         c = copy.deepcopy
         attn = MultiHeadedAttention(model_configs['h'], model_configs['d_model'], model_configs['dropout'], 

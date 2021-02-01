@@ -28,7 +28,6 @@ def format_time(avg_time):
     minutes, seconds = divmod(remainder, 60)
     return f"{hours:02d}:{minutes:02d}:{int(seconds):02d}.{str(avg_time.microseconds)[:3]}"
 
-
 class NetWrapper:
     def __init__(self, model, dataset_configs, model_config, loss_function=None):
         self.model = model
@@ -43,6 +42,8 @@ class NetWrapper:
         self.num_tasks = len(self.target_cols)
 
         self.device = torch.device(model_config['device'])
+
+        self.print_metric_type = self.metric_type[0] if isinstance(self.metric_type, list) else self.metric_type
 
     def train(self, train_loader, valid_loader=None, test_loader=None, scaler=None,
               scheduler=None, clipping=None, optimizer=None, early_stopping=None,
@@ -78,9 +79,8 @@ class NetWrapper:
 
             if valid_loader is not None:
                 _, _, val_metric, val_loss = self.test_on_epoch_end(valid_loader, scaler)
-                if early_stopper is not None and early_stopper.stop(i, val_loss, val_metric,
-                                                                    test_loss, test_metric,
-                                                                    train_loss, train_metric):
+                if early_stopper is not None and early_stopper.stop(i, val_loss, val_acc=val_metric[self.print_metric_type],
+                                                                    train_loss=train_loss, train_acc=train_metric[self.print_metric_type]):
                     if logger is not None:
                         logger.log(f'Stopping at epoch {i}, best is {early_stopper.get_best_vl_metrics()}')
                     else:
@@ -89,13 +89,13 @@ class NetWrapper:
 
             if i % log_every == 0 or i == 1:
                 logger.log(f'[TRAIN] Epoch: %d, train loss: %.6f train %s: %.6f' % (
-                    i, train_loss, self.metric_type, train_metric))
+                    i, train_loss, self.print_metric_type, train_metric[self.print_metric_type]))
                 if valid_loader is not None:
                     logger.log(f'[VALID] Epoch: %d, valid loss: %.6f valid %s: %.6f' % (
-                        i, val_loss, self.metric_type, val_metric))
+                        i, val_loss, self.print_metric_type, val_metric[self.print_metric_type]))
                 if test_loader is not None:
                     logger.log(f'[TEST] Epoch: %d, test loss: %.6f test %s: %.6f' % (
-                        i, test_loss, self.metric_type, test_metric))
+                        i, test_loss, self.print_metric_type, test_metric[self.print_metric_type]))
                 logger.log(f"- Elapsed time: {str(duration)[:4]}s , Time estimation in a fold: {str(duration*self.num_epochs/60)[:4]}min")
 
         time_per_epoch = torch.tensor(time_per_epoch)
@@ -135,10 +135,6 @@ class NetWrapper:
             elif self.model_name == 'MAT':
                 target_batch = data[-1]
                 data = [features.to(self.device) for features in data]
-            
-            elif self.model_name == 'CoMPT':
-                target_batch = data[-1]
-                data = [features.to(self.device) for features in data[:-1]]
 
             elif self.model_name in ['BiLSTM', 'SALSTM', 'Transformer']:
                 target_batch = data[-1]
@@ -180,6 +176,8 @@ class NetWrapper:
             if clipping is not None:  # Clip gradient before updating weights
                 torch.nn.utils.clip_grad_norm_(model.parameters(), clipping)
 
+        if self.task_type != 'Regression':
+            y_preds = torch.sigmoid(torch.FloatTensor(y_preds))
         results = self.evaluate_predictions(preds=y_preds, targets=y_labels,
                                             num_tasks=self.num_tasks, metric_type=self.metric_type,
                                             task_type=self.task_type)
@@ -265,7 +263,11 @@ class NetWrapper:
                     valid_preds[i].append(preds[j][i])
                     valid_targets[i].append(targets[j][i])
 
-        results = []
+        if not isinstance(metric_type, list):
+            results = {metric_type: []}
+        else:
+            results = {metric_t: [] for metric_t in metric_type}
+
         for i in range(num_tasks):
             # # Skip if all targets or preds are identical, otherwise we'll crash during classification
             if task_type == 'Classification':
@@ -278,13 +280,16 @@ class NetWrapper:
                     print('Warning: Found a task with predictions all 0s or all 1s')
 
                 if nan:
-                    results.append(float('nan'))
+                    for metric_t in results.keys():
+                        results[metric_t].append(float('nan'))
                     continue
 
             if len(valid_targets[i]) == 0:
                 continue
-            
-            results.append(get_metric(valid_targets[i], valid_preds[i], metric_type=metric_type))
 
-        scores = np.nanmean(results)
+            metrics_results = get_metric(valid_targets[i], valid_preds[i], metric_type=metric_type)
+            for metric_t in results.keys():
+                results[metric_t].append(metrics_results[metric_t])
+
+        scores = {key: np.nanmean(results[key]) for key in results}
         return scores

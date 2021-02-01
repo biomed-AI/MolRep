@@ -19,7 +19,7 @@ from MolRep.Evaluations.model_selection.HoldOutSelection import HoldOutSelector
 
 # Model Assessment
 from MolRep.Evaluations.model_assessment.KFoldAssessment import KFoldAssessment
-# from MolRep.Evaluations.model_assessment.HoldOutAssessment import HoldOutAssessment
+from MolRep.Evaluations.model_assessment.HoldOutAssessment import HoldOutAssessment
 
 from MolRep.Evaluations.DatasetWrapper import DatasetWrapper
 from MolRep.Experiments.experiments import EndToEndExperiment
@@ -54,9 +54,18 @@ def endtoend(config_file, dataset_name,
                              model_name=model_configuration.exp_name,
                              split_dir=split_dir, features_dir=data_dir,
                              outer_k=outer_k, inner_k=inner_k, holdout_test_size=holdout_test_size)
-    model_selector = KFoldSelector(folds=inner_k, max_processes=inner_processes)
-    risk_assesser = KFoldAssessment(outer_k, model_selector, exp_path, model_configurations, dataset_configuration,
-                                    outer_processes=outer_processes)
+    
+    if inner_k is not None:
+        model_selector = KFoldSelector(folds=inner_k, max_processes=inner_processes)
+    else:
+        model_selector = HoldOutSelector(max_processes=inner_processes)
+    
+    if outer_k is not None:
+        risk_assesser = KFoldAssessment(outer_k, model_selector, exp_path, model_configurations, dataset_configuration,
+                                        outer_processes=outer_processes)
+    else:
+        risk_assesser = HoldOutAssessment(model_selector, exp_path, model_configurations, dataset_configuration,
+                                          max_processes=outer_processes)
 
     risk_assesser.risk_assessment(dataset, experiment_class, debug=debug)
 

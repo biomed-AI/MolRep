@@ -6,7 +6,7 @@ import pandas as pd
 
 from pathlib import Path
 from sklearn.model_selection import train_test_split, StratifiedKFold, KFold
-from MolRep.Evaluations.data_split import scaffold_split
+from MolRep.Evaluations.data_split import scaffold_split, specific_split
 
 from MolRep.Featurization.Graph_embeddings import GraphEmbeddings
 from MolRep.Featurization.MPNN_embeddings import MPNNEmbeddings
@@ -46,7 +46,7 @@ class DatasetWrapper:
 
         self.seed = seed
 
-        self.kfold_class = KFold if self.split_type == 'random' else StratifiedKFold
+        self.kfold_class = KFold if self.split_type == 'random' or self.split_type == 'specific' else StratifiedKFold
         self._load_raw_data()
 
         self.features_dir = Path(features_dir)
@@ -163,15 +163,6 @@ class DatasetWrapper:
             self._dim_features = preparer.dim_features
             self._max_num_nodes = preparer.max_num_nodes
 
-        elif self.model_name == 'CoMPT':
-            preparer = CoMPTEmbeddings(data_df=self.whole_data_df,
-                                       model_name=self.model_name,
-                                       features_path=self.features_path,
-                                       dataset_config=self.dataset_config)
-            preparer.process()
-            self._dim_features = preparer.dim_features
-            self._max_num_nodes = preparer.max_num_nodes
-
         elif self.model_name in ['BiLSTM', 'SALSTM', 'Transformer']:
             preparer = SequenceEmbeddings(data_df=self.whole_data_df,
                                           model_name=self.model_name,
@@ -202,7 +193,7 @@ class DatasetWrapper:
         targets = self.whole_data_df.loc[:,self.target_cols].values
 
         if 'additional_info' in self.dataset_config:
-            self.cell_types = self.whole_data_df[self.dataset_config["additional_info"]["cell_type_column"]].values
+            self.defined_splits = self.whole_data_df[self.dataset_config["additional_info"]["splits"]].values
 
         if self.outer_k is None:  # holdout assessment strategy
             assert self.holdout_test_size is not None
@@ -225,8 +216,11 @@ class DatasetWrapper:
                     train_o_split, test_split = scaffold_split(smiles,
                                                                test_size=self.holdout_test_size,
                                                                random_state=self.seed)
+                elif self.split_type == 'specific':
+                    train_o_split, test_split = specific_split(self.defined_splits,
+                                                               random_state=self.seed)
                 else:
-                    assert f"{self.split_type} must be in [random, stratified, scaffold]."
+                    assert f"{self.split_type} must be in [random, stratified, scaffold] or defined by yourself through dataset_config['additional_info']['splits']]."
 
 
             split = {"test": all_idxs[test_split], 'model_selection': []}
@@ -239,7 +233,7 @@ class DatasetWrapper:
                 elif self.holdout_test_size == -1:
                     train_i_split, val_i_split = [], []
                 else:
-                    if self.split_type == 'random':
+                    if self.split_type == 'random' or self.split_type == 'specific':
                         train_i_split, val_i_split = train_test_split(train_o_split,
                                                                       test_size=self.holdout_test_size,
                                                                       random_state=self.seed)
@@ -459,18 +453,18 @@ class DatasetWrapper:
 
     def get_model_selection_fold(self, outer_idx, inner_idx=None, batch_size=1, shuffle=True, features_scaling=False):
         outer_idx = outer_idx or 0
+        inner_idx = inner_idx or 0
 
-        if inner_idx is not None:
+        if inner_idx == -1:
+            indices = self.splits[outer_idx]["model_selection"][0]
+            trainset_indices = indices['train'] + indices['validation']
+            validset_indices = []
+        else:
             indices = self.splits[outer_idx]["model_selection"][inner_idx]
             trainset_indices = indices['train']
             validset_indices = indices['validation']
-        else:
-            indices = self.splits[outer_idx]["model_selection"][inner_idx]
-            trainset_indices = indices['train'] + indices['validation']
-            validset_indices = []
 
         scaler = None
-
         if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint']:
             train_dataset, valid_dataset, _ = Graph_data.Graph_construct_dataset(
                 self.features_path, train_idxs=trainset_indices, valid_idxs=validset_indices)

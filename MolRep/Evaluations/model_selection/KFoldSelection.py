@@ -34,13 +34,20 @@ class KFoldSelector:
                 with open(config_filename, 'r') as fp:
                     config_dict = json.load(fp)
 
+                classification = config_dict['task_type'] == 'Classification'
                 avg_vl = config_dict['avg_VL_score']
                 std_vl = config_dict['std_VL_score']
 
-                if (best_avg_vl < avg_vl) or (best_avg_vl == avg_vl and best_std_vl > std_vl):
-                    best_i = i
-                    best_avg_vl = avg_vl
-                    best_config = config_dict
+                if classification:
+                    if (best_avg_vl < avg_vl) or (best_avg_vl == avg_vl and best_std_vl > std_vl):
+                        best_i = i
+                        best_avg_vl = avg_vl
+                        best_config = config_dict
+                else:
+                    if (best_avg_vl > avg_vl) or (best_avg_vl == avg_vl and best_std_vl > std_vl):
+                        best_i = i
+                        best_avg_vl = avg_vl
+                        best_config = config_dict
 
             except Exception as e:
                 print(e)
@@ -110,6 +117,7 @@ class KFoldSelector:
 
         k_fold_dict = {
             'config': config,
+            'task_type': dataset_config["task_type"],
             'folds': [{} for _ in range(self.folds)],
             'avg_TR_score': 0.,
             'avg_VL_score': 0.,
@@ -141,7 +149,6 @@ class KFoldSelector:
         k_fold_dict['std_TR_score'] = tr_scores.std()
         k_fold_dict['avg_VL_score'] = vl_scores.mean()
         k_fold_dict['std_VL_score'] = vl_scores.std()
-
 
         log_str = f"TR avg is %.4f std is %.4f; VL avg is %.4f std is %.4f" % (
             k_fold_dict['avg_TR_score'], k_fold_dict['std_TR_score'], k_fold_dict['avg_VL_score'], k_fold_dict['std_VL_score']

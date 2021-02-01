@@ -45,7 +45,7 @@ class HoldOutSelector:
 
         return best_config
 
-    def model_selection(self, dataset_getter, experiment_class, exp_path, model_configs, debug=False, other=None):
+    def model_selection(self, dataset_getter, experiment_class, exp_path, model_configs, dataset_config, debug=False, other=None):
         """
         :param experiment_class: the kind of experiment used
         :param debug:
@@ -70,10 +70,10 @@ class HoldOutSelector:
             json_config = os.path.join(exp_config_name, self._CONFIG_FILENAME)
             if not os.path.exists(json_config):
                 if not debug:
-                    pool.submit(self._model_selection_helper, dataset_getter, experiment_class, config,
+                    pool.submit(self._model_selection_helper, dataset_getter, experiment_class, config, dataset_config,
                                 exp_config_name, other)
                 else:  # DEBUG
-                    self._model_selection_helper(dataset_getter, experiment_class, config, exp_config_name,
+                    self._model_selection_helper(dataset_getter, experiment_class, config, dataset_config, exp_config_name,
                                                 other)
             else:
                 # Do not recompute experiments for this fold.
@@ -91,7 +91,7 @@ class HoldOutSelector:
 
         return best_config
 
-    def _model_selection_helper(self, dataset_getter, experiment_class, config, exp_config_name,
+    def _model_selection_helper(self, dataset_getter, experiment_class, config, dataset_config, exp_config_name,
                                 other=None):
         """
         :param dataset_getter:
@@ -103,7 +103,7 @@ class HoldOutSelector:
         """
 
         # Create the experiment object which will be responsible for running a specific experiment
-        experiment = experiment_class(config, exp_config_name)
+        experiment = experiment_class(config, dataset_config, exp_config_name)
 
         # Set up a log file for this experiment (run in a separate process)
         logger = Logger(str(os.path.join(experiment.exp_path, 'experiment.log')), mode='a')
@@ -115,6 +115,7 @@ class HoldOutSelector:
 
         selection_dict = {
             'config': experiment.model_config.config_dict,
+            'task_type': dataset_config["task_type"],
             'TR_score': 0.,
             'VL_score': 0.,
         }
