@@ -3,6 +3,7 @@ import os
 import json
 import numpy as np
 import pandas as pd
+import pdb
 
 from pathlib import Path
 from sklearn.model_selection import train_test_split, StratifiedKFold, KFold
@@ -456,8 +457,8 @@ class DatasetWrapper:
         inner_idx = inner_idx or 0
 
         if inner_idx == -1:
-            indices = self.splits[outer_idx]["model_selection"][0]
-            trainset_indices = indices['train'] + indices['validation']
+            indices = self.splits[outer_idx]["model_selection"][0]       
+            trainset_indices = indices['train'].extend(indices['validation']) 
             validset_indices = []
         else:
             indices = self.splits[outer_idx]["model_selection"][inner_idx]
@@ -515,5 +516,5 @@ class DatasetWrapper:
 
         if len(validset_indices) == 0:
             valid_loader = None
-        
+        pdb.set_trace()
         return train_loader, valid_loader, scaler
