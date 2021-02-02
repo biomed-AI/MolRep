@@ -66,6 +66,9 @@ def calc_metric(y_labels: List, y_preds: List, metric_type: str):
 
     elif metric_type == 'spearman':
         return spearmanr(y_labels, y_preds)[0]
+        
+    elif metric_type == 'Count':
+        return len(y_labels)
 
     else:
         raise Exception("There is no such metric registered")

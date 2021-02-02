@@ -85,7 +85,7 @@ class EndToEndExperiment(Experiment):
         if other is not None and 'model_path' in other.keys():
             save_checkpoint(path=other['model_path'], model=model, scaler=scaler)
 
-        return train_metric, val_metric
+        return train_metric, val_metric ,val_loss
 
 
     def run_test(self, dataset_getter, logger, other=None):
