@@ -90,12 +90,18 @@ class NetWrapper:
             if i % log_every == 0 or i == 1:
                 logger.log(f'[TRAIN] Epoch: %d, train loss: %.6f train %s: %.6f' % (
                     i, train_loss, self.print_metric_type, train_metric[self.print_metric_type]))
+                logger.log(f'[TRAIN] Metric:%s' % (
+                  str(train_metric)))
                 if valid_loader is not None:
                     logger.log(f'[VALID] Epoch: %d, valid loss: %.6f valid %s: %.6f' % (
                         i, val_loss, self.print_metric_type, val_metric[self.print_metric_type]))
+                logger.log(f'[VALID] Metric:%s' % (
+                  str(val_metric)))
                 if test_loader is not None:
                     logger.log(f'[TEST] Epoch: %d, test loss: %.6f test %s: %.6f' % (
                         i, test_loss, self.print_metric_type, test_metric[self.print_metric_type]))
+                logger.log(f'[TEST] Metric:%s' % (
+                  str(test_metric)))
                 logger.log(f"- Elapsed time: {str(duration)[:4]}s , Time estimation in a fold: {str(duration*self.num_epochs/60)[:4]}min")
 
         time_per_epoch = torch.tensor(time_per_epoch)

@@ -1,4 +1,3 @@
-
 import os
 import numpy as np
 
@@ -16,25 +15,45 @@ _CONFIG_FILENAME = 'config_results.json'
 
 _FOLDS = 5
 MODEL_NAME = 'CMPNN'
+# MODEL_NAME = 'MAT'
 
 # define your dataset name
-DATASET_NAME = 'BBB'  
+# DATASET_NAME = 'BBB'  
+# DATASET_NAME = 'PPB'  
+# DATASET_NAME = 'hERG1'  
+# DATASET_NAME = 'hERG2'  
+# DATASET_NAME = 'hERG3'  
+DATASET_NAME = 'Ames'  
+
 # define the PATH of your data.
-DATASET_PATH = './MolRep/Datasets/BBBP/BBB.csv'
+# BBB
+# DATASET_PATH = './ADMET_V2.0/Distribution/BBB/BBB_BBB_Classification_V1.2.csv' 
+# PPB
+# DATASET_PATH = './ADMET_V2.0/Distribution/PPB/PPB_PPB-GS-data_Regression_V2.0.csv'
+# hERG
+# DATASET_PATH = './ADMET_V2.0/Toxicity/hERG/Herg/hERG_Herg_Classification_V1.0.csv'
+# DATASET_PATH = './ADMET_V2.0/Toxicity/hERG/EU-data/hERG_Herg_EU-data_1_Regression_V1.2.csv'
+# DATASET_PATH = './ADMET_V2.0/Toxicity/hERG/EU-data/hERG_Herg_EU-data_2_Regression_V1.2.csv'
+# Ames
+DATASET_PATH = './ADMET_V2.0/Toxicity/Ames/Ames/AMES_AMES_Classification_V1.2.csv'
 # define the column name of SMILES in your data
-SMILES_COLUMN = 'smiles'
+SMILES_COLUMN = 'COMPOUND_SMILES'
 # the column names of TARGET NAME in your data. Must be a List.
-TARGET_COLUMNS = ['p_np']
+# TARGET_COLUMNS = ['REG_LABEL']
+TARGET_COLUMNS = ['CLF_LABEL']
 # define the task type. Classification or Regression
+# TASK_TYPE = 'Regression'
 TASK_TYPE = 'Classification'
 # define the metric type, such as auc or rmse
-METRIC_TYPE = ['auc', 'recall']
+
+METRIC_TYPE =[ 'acc','positive_pct.','precision','recall','F1','auc','Count']       # for classification
+# METRIC_TYPE = ['rmse', 'mae','R2','pearson','spearman','Count']                     # for regression
 # define the split data type, such as random, stratified, scaffold. NOTE that stratified only applies to single property
 # SPLIT_TYPE = 'random'
 
 # If you have split your data to train/test, you could define SPLIT_TYPE = 'specific' and save your split in CSV file.
 SPLIT_TYPE = 'specific'
-SPLIT_COLUMN = 'splits'
+SPLIT_COLUMN = 'SPLIT'
 
 dataset_config, dataset, model_configurations, model_selector, exp_path = MolRep.construct_dataset(
     dataset_name = DATASET_NAME,
@@ -54,52 +73,3 @@ model_assesser = MolRep.construct_assesser(model_selector, exp_path, model_confi
                                           )
 
 model_assesser.risk_assessment(dataset, EndToEndExperiment, debug=True)
-
-# config_id = 0   # the idx of model configs since there are more than 100 combinations of hyper-parameters.
-# KFOLD_FOLDER = os.path.join(exp_path, str(_FOLDS) + '_FOLD_MS')
-# exp_config_name = os.path.join(KFOLD_FOLDER, _CONFIG_BASE + str(config_id + 1))
-# config_filename = os.path.join(exp_config_name, _CONFIG_FILENAME)
-# if not os.path.exists(exp_config_name):
-#     os.makedirs(exp_config_name)
-
-# config = model_configurations[config_id]
-
-# # model configs could be change
-# # for example:
-# # config['device'] = 'cpu' or config['batch_size'] = 32
-
-# logger = Logger(str(os.path.join(exp_config_name, 'experiment.log')), mode='a')
-# logger.log('Configuration: ' + str(config))
-
-# result_dict = {
-#     'config': config,
-#     'folds': [{} for _ in range(_FOLDS)],
-#     'TR_score': 0.,
-#     'VL_score': 0.,
-# }
-
-# dataset_getter = MolRep.construct_dataloader(dataset)
-# dataset_getter.set_inner_k(None)
-
-# fold_exp_folder = os.path.join(exp_config_name)
-# # Create the experiment object which will be responsible for running a specific experiment
-# experiment = EndToEndExperiment(config, dataset_config, fold_exp_folder)
-
-# model_path = os.path.join(fold_exp_folder, f"{MODEL_NAME}_{DATASET_NAME}.pt")
-# training_score, validation_score = experiment.run_valid(dataset_getter, logger, other={'model_path': model_path})
-
-# # print('training_score:', training_score, 'validation_score:',validation_score)
-# logger.log('TR Score: ' + str(training_score) +
-#             ' VL Score: ' + str(validation_score))
-
-# result_dict['TR_score'] = training_score
-# result_dict['VL_score'] = validation_score
-
-# tr_scores = np.array([result_dict['TR_score'] for k in range(_FOLDS)])
-# vl_scores = np.array([result_dict['VL_score'] for k in range(_FOLDS)])
-
-
-# log_str = f"TR is %.4f; VL is %.4f" % (
-#             result_dict['TR_score'], result_dict['VL_score']
-#         )
-# logger.log(log_str)

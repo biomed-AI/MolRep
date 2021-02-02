@@ -1,6 +1,7 @@
 import os
 import json
 import concurrent.futures
+import pdb
 
 from MolRep.Utils.logger import Logger
 
@@ -19,7 +20,9 @@ class HoldOutSelector:
 
     def process_results(self, HOLDOUT_MS_FOLDER, no_configurations):
 
-        best_vl = 0.
+        best_vl = float('Inf')
+        best_i = -1
+        best_config = {}
 
         for i in range(1, no_configurations+1):
             try:
@@ -28,10 +31,11 @@ class HoldOutSelector:
 
                 with open(config_filename, 'r') as fp:
                     config_dict = json.load(fp)
+                #TODO:
+                # vl = config_dict['VL_score']
+                vl = config_dict['VL_loss']
 
-                vl = config_dict['VL_score']
-
-                if best_vl <= vl:
+                if best_vl >= vl:
                     best_i = i
                     best_vl = vl
                     best_config = config_dict
@@ -118,16 +122,18 @@ class HoldOutSelector:
             'task_type': dataset_config["task_type"],
             'TR_score': 0.,
             'VL_score': 0.,
+            'VL_loss': 0.,
         }
 
         dataset_getter.set_inner_k(None)  # need to stay this way
 
-        training_score, validation_score = experiment.run_valid(dataset_getter, logger, other)
+        training_score, validation_score,validation_loss = experiment.run_valid(dataset_getter, logger, other)
 
-        selection_dict['TR_score'] = float(training_score)
-        selection_dict['VL_score'] = float(validation_score)
+        selection_dict['TR_score'] = training_score
+        selection_dict['VL_score'] = validation_score
+        selection_dict['VL_loss'] = validation_loss
 
-        logger.log('TR Accuracy: ' + str(training_score) + ' VL Accuracy: ' + str(validation_score))
+        logger.log('TR Accuracy: ' + str(training_score) + ' VL Accuracy: ' + str(validation_score)+ ' VL Loss: ' + str(validation_loss))
 
         with open(config_filename, 'w') as fp:
             json.dump(selection_dict, fp)
