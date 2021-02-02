@@ -29,25 +29,25 @@ DATASET_NAME = 'Ames'
 # BBB
 # DATASET_PATH = './ADMET_V2.0/Distribution/BBB/BBB_BBB_Classification_V1.2.csv' 
 # PPB
-DATASET_PATH = './ADMET_V2.0/Distribution/PPB/PPB_PPB-GS-data_Regression_V2.0.csv'
+# DATASET_PATH = './ADMET_V2.0/Distribution/PPB/PPB_PPB-GS-data_Regression_V2.0.csv'
 # hERG
 # DATASET_PATH = './ADMET_V2.0/Toxicity/hERG/Herg/hERG_Herg_Classification_V1.0.csv'
 # DATASET_PATH = './ADMET_V2.0/Toxicity/hERG/EU-data/hERG_Herg_EU-data_1_Regression_V1.2.csv'
 # DATASET_PATH = './ADMET_V2.0/Toxicity/hERG/EU-data/hERG_Herg_EU-data_2_Regression_V1.2.csv'
 # Ames
-# DATASET_PATH = './ADMET_V2.0/Toxicity/Ames/Ames/AMES_AMES_Classification_V1.2.csv'
+DATASET_PATH = './ADMET_V2.0/Toxicity/Ames/Ames/AMES_AMES_Classification_V1.2.csv'
 # define the column name of SMILES in your data
 SMILES_COLUMN = 'COMPOUND_SMILES'
 # the column names of TARGET NAME in your data. Must be a List.
-TARGET_COLUMNS = ['REG_LABEL']
-# TARGET_COLUMNS = ['CLF_LABEL']
+# TARGET_COLUMNS = ['REG_LABEL']
+TARGET_COLUMNS = ['CLF_LABEL']
 # define the task type. Classification or Regression
-TASK_TYPE = 'Regression'
-# TASK_TYPE = 'Classification'
+# TASK_TYPE = 'Regression'
+TASK_TYPE = 'Classification'
 # define the metric type, such as auc or rmse
 
-# METRIC_TYPE =[ 'acc','positive_pct.','precision','recall','F1','auc','Count']       # for classification
-METRIC_TYPE = ['rmse', 'mae','R2','pearson','spearman','Count']                     # for regression
+METRIC_TYPE =[ 'acc','positive_pct.','precision','recall','F1','auc','Count']       # for classification
+# METRIC_TYPE = ['rmse', 'mae','R2','pearson','spearman','Count']                     # for regression
 # define the split data type, such as random, stratified, scaffold. NOTE that stratified only applies to single property
 # SPLIT_TYPE = 'random'
 

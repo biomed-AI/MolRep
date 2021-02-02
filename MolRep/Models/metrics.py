@@ -24,12 +24,15 @@ from scipy.stats import pearsonr, spearmanr
 def calc_metric(y_labels: List, y_preds: List, metric_type: str):
     # Metrics for Classifications
     if metric_type == "auc":
+        y_preds = np.rint(y_preds)
         return roc_auc_score(y_labels, y_preds)
 
     elif metric_type == "acc":
+        y_preds = np.rint(y_preds)
         return accuracy_score(y_labels, y_preds)
 
     elif metric_type == 'prc':
+        y_preds = np.rint(y_preds)
         precision, recall, thresholds = precision_recall_curve(y_labels, y_preds)
         return auc(precision, recall)
 
@@ -46,6 +49,7 @@ def calc_metric(y_labels: List, y_preds: List, metric_type: str):
         return f1_score(y_labels, y_preds)
 
     elif metric_type == 'positive_pct.':
+        y_preds = np.rint(y_preds)
         return np.sum(y_labels) / len(y_labels)
 
     # Metrics for Regression
@@ -68,7 +72,7 @@ def calc_metric(y_labels: List, y_preds: List, metric_type: str):
         return spearmanr(y_labels, y_preds)[0]
         
     elif metric_type == 'Count':
-        return len(y_labels)
+        return int(len(y_labels))
 
     else:
         raise Exception("There is no such metric registered")
