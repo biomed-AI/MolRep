@@ -24,7 +24,6 @@ from scipy.stats import pearsonr, spearmanr
 def calc_metric(y_labels: List, y_preds: List, metric_type: str):
     # Metrics for Classifications
     if metric_type == "auc":
-        y_preds = np.rint(y_preds)
         return roc_auc_score(y_labels, y_preds)
 
     elif metric_type == "acc":
@@ -32,7 +31,6 @@ def calc_metric(y_labels: List, y_preds: List, metric_type: str):
         return accuracy_score(y_labels, y_preds)
 
     elif metric_type == 'prc':
-        y_preds = np.rint(y_preds)
         precision, recall, thresholds = precision_recall_curve(y_labels, y_preds)
         return auc(precision, recall)
 
@@ -44,12 +42,11 @@ def calc_metric(y_labels: List, y_preds: List, metric_type: str):
         y_preds = np.rint(y_preds)
         return recall_score(y_labels, y_preds)
 
-    elif metric_type == 'F1':
+    elif metric_type == 'f1':
         y_preds = np.rint(y_preds)
         return f1_score(y_labels, y_preds)
 
     elif metric_type == 'positive_pct.':
-        y_preds = np.rint(y_preds)
         return np.sum(y_labels) / len(y_labels)
 
     # Metrics for Regression
