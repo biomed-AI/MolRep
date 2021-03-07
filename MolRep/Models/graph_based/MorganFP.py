@@ -4,12 +4,12 @@ import torch.nn as nn
 from torch_geometric.nn import global_add_pool
 
 
-class MolecularFingerprint(torch.nn.Module):
+class MorganFP(torch.nn.Module):
 
     def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
-        super(MolecularFingerprint, self).__init__()
+        super(MorganFP, self).__init__()
         hidden_dim = model_configs['hidden_units']
-
+        dim_features = 2048
         self.mlp = torch.nn.Sequential(torch.nn.Linear(dim_features, hidden_dim), nn.ReLU(),
                                        torch.nn.Linear(hidden_dim, dim_target))
 
@@ -30,7 +30,7 @@ class MolecularFingerprint(torch.nn.Module):
     def forward(self, data):
         # print(data.x.shape)
         # print(data.x[:,:50])
-        x = self.mlp(global_add_pool(data.x, data.batch))
+        x = self.mlp(data.morgan_fp)
 
         # Don't apply sigmoid during training b/c using BCEWithLogitsLoss
         if self.classification and not self.training:

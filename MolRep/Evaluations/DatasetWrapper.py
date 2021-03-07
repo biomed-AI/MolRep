@@ -137,7 +137,7 @@ class DatasetWrapper:
     def _process(self):
         """
         """
-        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint']:
+        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', 'MorganFP']:
             preparer = GraphEmbeddings(data_df=self.whole_data_df,
                                        model_name=self.model_name,
                                        features_path=self.features_path,
@@ -402,7 +402,7 @@ class DatasetWrapper:
 
         else:
 
-            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint']:
+            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', 'MorganFP']:
                 _, _, test_dataset = Graph_data.Graph_construct_dataset(
                                                         self.features_path, test_idxs=testset_indices)
                 _, _, test_loader, _, _ = Graph_data.Graph_construct_dataloader(
@@ -447,7 +447,7 @@ class DatasetWrapper:
                                                         self.features_path, test_idxs=testset_indices)
             else:
                 raise self.logger.error(f"Model Name must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', \
-                                                'MPNN', 'DMPNN', 'CMPNN', 'MAT', 'BiLSTM', 'BiLSTM-Attention']")
+                                                ,'MorganFP', 'MPNN', 'DMPNN', 'CMPNN', 'MAT', 'BiLSTM', 'BiLSTM-Attention']")
 
         return test_loader
 
@@ -466,7 +466,7 @@ class DatasetWrapper:
             validset_indices = indices['validation']
 
         scaler = None
-        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint']:
+        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', 'MorganFP']:
             train_dataset, valid_dataset, _ = Graph_data.Graph_construct_dataset(
                 self.features_path, train_idxs=trainset_indices, valid_idxs=validset_indices)
             train_loader, valid_loader, _, features_scaler, scaler = Graph_data.Graph_construct_dataloader(
@@ -512,9 +512,9 @@ class DatasetWrapper:
                         self.features_path, train_idxs=trainset_indices, valid_idxs=validset_indices)
         else:
             raise self.logger.error(f"Model Name must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', \
-                                               'MPNN', 'DMPNN', 'CMPNN', 'MAT', 'BiLSTM', 'BiLSTM-Attention']")
+                                               'MorganFP', 'MPNN', 'DMPNN', 'CMPNN', 'MAT', 'BiLSTM', 'BiLSTM-Attention']")
 
         if len(validset_indices) == 0:
             valid_loader = None
-        pdb.set_trace()
+        # pdb.set_trace()
         return train_loader, valid_loader, scaler

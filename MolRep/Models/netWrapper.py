@@ -129,9 +129,11 @@ class NetWrapper:
         loss_all = 0
         y_preds, y_labels = [], []
         for _, data in enumerate(train_loader):
+            # print('data', data)
 
-            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint']:
+            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', 'MorganFP']:
                 target_batch = data.y
+                data.morgan_fp = data.morgan_fp.reshape(len(data.y), 2048)
                 data = data.to(self.device)
 
             elif self.model_name in ['MPNN', 'DMPNN', 'CMPNN']:
@@ -143,6 +145,7 @@ class NetWrapper:
                 data = [features.to(self.device) for features in data]
 
             elif self.model_name in ['BiLSTM', 'SALSTM', 'Transformer']:
+                print('data', data)
                 target_batch = data[-1]
                 data = (data[0].to(self.device), data[1].to(self.device))
 
@@ -152,7 +155,7 @@ class NetWrapper:
 
             else:
                 raise print(f"Model Name must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', \
-                                                'MPNN', 'DMPNN', 'CMPNN', 'MAT', 'BiLSTM', 'SALSTM', 'Transformer', 'VAE', 'Mol2Vec', 'N-Gram-Graph']")
+                                                ,'MorganFP', 'MPNN', 'DMPNN', 'CMPNN', 'MAT', 'BiLSTM', 'SALSTM', 'Transformer', 'VAE', 'Mol2Vec', 'N-Gram-Graph']")
 
             mask = torch.Tensor([[not np.isnan(x) for x in tb] for tb in target_batch])
             labels = torch.Tensor([[0 if np.isnan(x) else x for x in tb] for tb in target_batch])
@@ -160,6 +163,8 @@ class NetWrapper:
 
             optimizer.zero_grad()
             output = model(data)
+            # import sys
+            # sys.exit(0)
 
             if not isinstance(output, tuple):
                 output = (output,)
@@ -168,14 +173,18 @@ class NetWrapper:
                 labels = labels.long()
                 loss = torch.cat([self.loss_fun(labels[:, target_index], output[0][:, target_index, :]).unsqueeze(1) for target_index in range(output[0].size(1))], dim=1) * class_weights * mask
             else:
+                # print('class_weights, mask', class_weights, mask)
+                # print('labels, output', labels, output)
                 loss = self.loss_fun(labels, *output) * class_weights * mask
             loss = loss.sum() / mask.sum()
-
+            # for name, param in model.named_parameters():
+            #     print(name, param)
             loss.backward()
             optimizer.step()
 
             y_preds.extend(output[0].data.cpu().numpy().tolist())
             y_labels.extend(target_batch)
+            # print('iter loss:', loss.item())
 
             loss_all += loss.item() * labels.size()[0]
 
@@ -187,7 +196,11 @@ class NetWrapper:
         results = self.evaluate_predictions(preds=y_preds, targets=y_labels,
                                             num_tasks=self.num_tasks, metric_type=self.metric_type,
                                             task_type=self.task_type)
-
+        if abs(loss_all / len(train_loader.dataset) - 0.693147) < 1e-3:
+            # print('y_preds:', y_preds)
+            # print('y_labels:', y_labels)
+            for name, param in model.named_parameters():
+                print(name, param)
         return results, loss_all / len(train_loader.dataset)
 
     def test_on_epoch_end(self, test_loader, scaler=None):
@@ -197,7 +210,7 @@ class NetWrapper:
         loss_all = 0
         y_preds, y_labels = [], []
         for _, data in enumerate(test_loader):
-            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint']:
+            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', 'MorganFP']:
                 target_batch = data.y
                 data = data.to(self.device)
 
@@ -223,7 +236,7 @@ class NetWrapper:
 
             else:
                 raise print(f"Model Name must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', \
-                                                'MPNN', 'DMPNN', 'CMPNN', 'MAT', 'BiLSTM', 'SALSTM', 'Transformer', 'VAE', 'Mol2Vec', 'N-Gram-Graph']")
+                                                ,'MorganFP', 'MPNN', 'DMPNN', 'CMPNN', 'MAT', 'BiLSTM', 'SALSTM', 'Transformer', 'VAE', 'Mol2Vec', 'N-Gram-Graph']")
 
             output = model(data)
             if not isinstance(output, tuple):
@@ -258,7 +271,7 @@ class NetWrapper:
 
 
     def evaluate_predictions(self, preds, targets, num_tasks, metric_type, task_type):
-
+        # print('preds, targets', preds, targets)
         # Filter out empty targets
         # valid_preds and valid_targets have shape (num_tasks, data_size)
         valid_preds = [[] for _ in range(num_tasks)]
@@ -268,6 +281,11 @@ class NetWrapper:
                 if not np.isnan(targets[j][i]):  # Skip those without targets
                     valid_preds[i].append(preds[j][i])
                     valid_targets[i].append(targets[j][i])
+            if len(valid_targets[i]) == 0:
+                print('valid target len is 0')
+                assert False
+            # print('valid_preds[{}] len: {}'.format(i, len(valid_targets[i])))
+
 
         if not isinstance(metric_type, list):
             results = {metric_type: []}

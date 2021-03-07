@@ -21,6 +21,7 @@ from MolRep.Models.graph_based.DGCNN import DGCNN
 from MolRep.Models.graph_based.DiffPool import DiffPool
 from MolRep.Models.graph_based.GraphSAGE import GraphSAGE
 from MolRep.Models.graph_based.MolecularFingerprint import MolecularFingerprint
+from MolRep.Models.graph_based.MorganFP import MorganFP
 
 from MolRep.Models.graph_based.MPNN import MPNN
 from MolRep.Models.graph_based.CMPNN import CMPNN
@@ -45,6 +46,7 @@ class Config:
         'DiffPool': DiffPool,
         'GraphSAGE': GraphSAGE,
         'MolecularFingerprint': MolecularFingerprint,
+        'MorganFP': MorganFP,
 
         'MPNN': MPNN,
         'CMPNN': CMPNN,

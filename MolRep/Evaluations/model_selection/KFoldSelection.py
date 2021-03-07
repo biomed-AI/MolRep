@@ -133,7 +133,7 @@ class KFoldSelector:
             # Create the experiment object which will be responsible for running a specific experiment
             experiment = experiment_class(config, dataset_config, fold_exp_folder)
 
-            training_score, validation_score = experiment.run_valid(dataset_getter, logger, other)
+            training_score, validation_score,validation_loss = experiment.run_valid(dataset_getter, logger, other)
 
             print('training_score:', training_score, 'validation_score:',validation_score)
             logger.log(str(k+1) + ' split, TR Score: ' + str(training_score) +
@@ -156,4 +156,5 @@ class KFoldSelector:
         logger.log(log_str)
 
         with open(config_filename, 'w') as fp:
+            print('write to {}'.format(config_filename))
             json.dump(k_fold_dict, fp)

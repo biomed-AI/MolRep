@@ -11,20 +11,24 @@ Errica et al "A Fair Comparison of Graph Neural Networks for Graph Classificatio
 import os
 import pandas as pd
 import numpy as np
+import copy
 
 import torch
 import rdkit
 from rdkit import Chem
 from pathlib import Path
+from rdkit.Chem import AllChem
 
 from networkx import normalized_laplacian_matrix
 
 from MolRep.Featurization.utils.graph_utils import *
 from MolRep.Utils.utils import *
 
+
 class GraphEmbeddings():
     def __init__(self, data_df, model_name, features_path, dataset_config,
-                 use_node_attrs=True, use_node_degree=False, use_one=False, max_reductions=10, precompute_kron_indices=True,
+                 use_node_attrs=True, use_node_degree=False, use_one=False, max_reductions=10,
+                 precompute_kron_indices=True,
                  save_temp_data=False):
 
         self.model_name = model_name
@@ -65,6 +69,7 @@ class GraphEmbeddings():
         fp_node_labels = open(temp_dir / f"{self.model_name}_node_labels.txt", "w")
         fp_node_attrs = open(temp_dir / f"{self.model_name}_node_attributes.txt", "w")
         fp_edge_attrs = open(temp_dir / f"{self.model_name}_edge_attributes.txt", "w")
+        fp_morgan_attrs = open(temp_dir / f"{self.model_name}_morgan_attributes.txt", "w")
 
         cnt = 1
         for idx, row in df.iterrows():
@@ -75,19 +80,24 @@ class GraphEmbeddings():
                 node_dict = {}
                 for i, atom in enumerate(mol.GetAtoms()):
                     node_dict[atom.GetIdx()] = cnt + i
-                    fp_node_labels.writelines(str(atom.GetAtomicNum())+"\n")
-                    fp_node_attrs.writelines(str(atom_features(atom))[1:-1]+"\n")
+                    fp_node_labels.writelines(str(atom.GetAtomicNum()) + "\n")
+                    fp_node_attrs.writelines(str(atom_features(atom))[1:-1] + "\n")
 
-                fp_graph_indicator.write(f"{idx+1}\n"*num_nodes)  # node_i to graph id
-                fp_graph_labels.write(','.join(['None' if np.isnan(g_label) else str(g_label) for g_label in g_labels])+"\n")
+                fp_graph_indicator.write(f"{idx + 1}\n" * num_nodes)  # node_i to graph id
+                fp_graph_labels.write(
+                    ','.join(['None' if np.isnan(g_label) else str(g_label) for g_label in g_labels]) + "\n")
+
+                morgan_fp = AllChem.GetMorganFingerprintAsBitVect(mol, 3, 2048)
+                fp_morgan_attrs.write(str(list(morgan_fp))[1:-1] + "\n")
+
                 for bond in mol.GetBonds():
                     node_1 = node_dict[bond.GetBeginAtomIdx()]
                     node_2 = node_dict[bond.GetEndAtomIdx()]
                     fp_edge_index.write(f"{node_1}, {node_2}\n{node_2}, {node_1}\n")
                     fp_edge_attrs.write(
-                        str([1 if i else 0 for i in bond_features(bond)])[1:-1]+"\n")
+                        str([1 if i else 0 for i in bond_features(bond)])[1:-1] + "\n")
                     fp_edge_attrs.write(
-                        str([1 if i else 0 for i in bond_features(bond)])[1:-1]+"\n")
+                        str([1 if i else 0 for i in bond_features(bond)])[1:-1] + "\n")
                 cnt += num_nodes
             except ValueError as e:
                 print('the SMILES ({}) can not be converted to a Chem.Molecule.\nREASON: {}'.format(smiles, e))
@@ -98,6 +108,7 @@ class GraphEmbeddings():
         fp_edge_index.close()
         fp_node_attrs.close()
         fp_edge_attrs.close()
+        fp_morgan_attrs.close()
 
     def process(self):
         """
@@ -124,9 +135,11 @@ class GraphEmbeddings():
             self._max_num_nodes = max([len(v) for (k, v) in graphs_data['graph_nodes'].items()])
 
             dataset = []
-            for i, target in enumerate(targets, 1):
+            morgan_attrs = copy.deepcopy(graphs_data['morgan_attrs'])
+            del graphs_data['morgan_attrs']
+            for i, (target, morgan_attr) in enumerate(zip(targets, morgan_attrs), 1):
                 graph_data = {k: v[i] for (k, v) in graphs_data.items()}
-                G = create_graph_from_tu_data(graph_data, target, num_node_labels, num_edge_labels)
+                G = create_graph_from_tu_data(graph_data, target, num_node_labels, num_edge_labels, morgan_attr=morgan_attr.reshape(1,-1))
 
                 if self.precompute_kron_indices:
                     laplacians, v_plus_list = self._precompute_kron_indices(G)
@@ -147,7 +160,7 @@ class GraphEmbeddings():
 
         node_features = G.get_x(self.use_node_attrs,
                                 self.use_node_degree, self.use_one)
-        datadict.update(x=node_features) 
+        datadict.update(x=node_features)
 
         if G.laplacians is not None:
             datadict.update(laplacians=G.laplacians)
@@ -164,6 +177,8 @@ class GraphEmbeddings():
             datadict.update(edge_attr=edge_attr)
 
         target = G.get_target()
+        morgan_fp = G.get_morgan_fp()
+        datadict.update(morgan_fp=morgan_fp)
         datadict.update(y=target)
 
         data = Data(**datadict)
@@ -188,7 +203,6 @@ class GraphEmbeddings():
             v_plus_list.append(v_plus.clone().long())
 
         return laplacians, v_plus_list
-
 
     # For the Perron–Frobenius theorem, if A is > 0 for all ij then the leading eigenvector is > 0
     # A Laplacian matrix is symmetric (=> diagonalizable)
@@ -218,7 +232,6 @@ class GraphEmbeddings():
         v_plus, v_minus = (max_eigenvec >= 0).squeeze(
         ), (max_eigenvec < 0).squeeze()
 
-
         # diagonal matrix, swap v_minus with v_plus not to incur in errors (does not change the matrix)
         if torch.sum(v_plus) == 0.:  # The matrix is diagonal, cannot reduce further
             if torch.sum(v_minus) == 0.:
@@ -234,7 +247,7 @@ class GraphEmbeddings():
         L_minus_plus = L[v_minus][:, v_plus]
 
         L_new = L_plus_plus - \
-            torch.mm(torch.mm(L_plus_minus, torch.inverse(
-                L_minus_minus)), L_minus_plus)
+                torch.mm(torch.mm(L_plus_minus, torch.inverse(
+                    L_minus_minus)), L_minus_plus)
 
         return v_plus, L_new
