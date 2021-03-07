@@ -1,6 +1,6 @@
 
 import torch
-from torch.nn import ReLU
+import torch.nn as nn
 from torch_geometric.nn import global_add_pool
 
 
@@ -10,8 +10,8 @@ class MolecularFingerprint(torch.nn.Module):
         super(MolecularFingerprint, self).__init__()
         hidden_dim = model_configs['hidden_units']
 
-        self.mlp = torch.nn.Sequential(torch.nn.Linear(dim_features, hidden_dim), ReLU(),
-                                       torch.nn.Linear(hidden_dim, dim_target), ReLU())
+        self.mlp = torch.nn.Sequential(torch.nn.Linear(dim_features, hidden_dim), nn.ReLU(),
+                                       torch.nn.Linear(hidden_dim, dim_target))
 
         self.task_type = dataset_configs["task_type"]
         self.multiclass_num_classes = dataset_configs["multiclass_num_classes"] if self.task_type == 'Multi-Classification' else None
@@ -28,6 +28,8 @@ class MolecularFingerprint(torch.nn.Module):
         assert not (self.classification and self.regression and self.multiclass)
 
     def forward(self, data):
+        # print(data.x.shape)
+        # print(data.x[:,:50])
         x = self.mlp(global_add_pool(data.x, data.batch))
 
         # Don't apply sigmoid during training b/c using BCEWithLogitsLoss

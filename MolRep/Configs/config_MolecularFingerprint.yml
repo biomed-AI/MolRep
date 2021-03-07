@@ -6,20 +6,29 @@ batch_size:
   - 32
   - 64
 learning_rate:
-  - 0.0001
   - 0.01
+  - 0.0001
   - 0.001
 l2:
   - 0.
   - 0.1
 num_epochs:
+  - 50
   - 300
   - 100
-  - 50
+num_lrs:
+    - 1
 optimizer:
   - Adam
 scheduler:
-  - NoamLR
+  -
+    class: NoamLR
+    args:
+      warmup_epochs: [2.0]
+      step_size: 10
+      max_lr: [0.0001]
+      init_lr: [0.00001]
+      final_lr: [0.00001]
 gradient_clipping:
   - null
 early_stopper:

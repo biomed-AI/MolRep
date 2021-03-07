@@ -19,9 +19,10 @@ from typing import List, Tuple, Union
 from rdkit import Chem
 
 class Graph(nx.Graph):
-    def __init__(self, target, *args, **kwargs):
+    def __init__(self, target, fp=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.target = target
+        self.fp = fp
         self.laplacians = None
         self.v_plus = None
 
@@ -68,6 +69,9 @@ class Graph(nx.Graph):
     def get_target(self):
         return np.array(self.target)
 
+    def get_morgan_fp(self):
+        return torch.Tensor(self.fp)
+
     @property
     def has_edge_attrs(self):
         _, _, edge_attrs = list(self.edges(data=True))[0]
@@ -104,6 +108,7 @@ def parse_tu_data(model_name, temp_dir):
     edge_labels_path = temp_dir / f'{model_name}_edge_labels.txt'
     node_attrs_path = temp_dir / f'{model_name}_node_attributes.txt'
     edge_attrs_path = temp_dir / f'{model_name}_edge_attributes.txt'
+    morgan_attrs_path = temp_dir / f'{model_name}_morgan_attributes.txt'
 
     unique_node_labels = set()
     unique_edge_labels = set()
@@ -172,6 +177,16 @@ def parse_tu_data(model_name, temp_dir):
                 graph_id = indicator[edge_indicator[i][0]]
                 edge_attrs[graph_id].append(edge_attr)
 
+    morgan_attrs = []
+    if morgan_attrs_path.exists():
+        with open(morgan_attrs_path, "r") as f:
+            for i, line in enumerate(f.readlines(), 1):
+                line = line.rstrip("\n")
+                nums = line.split(",")
+                morgan_attr = np.array([float(n) for n in nums])
+                # graph_id = indicator[edge_indicator[i][0]]
+                morgan_attrs.append(morgan_attr)
+
     # get graph labels
     graph_labels = []
     with open(graph_labels_path, "r") as f:
@@ -203,15 +218,16 @@ def parse_tu_data(model_name, temp_dir):
         "node_labels": node_labels,
         "node_attrs": node_attrs,
         "edge_labels": edge_labels,
-        "edge_attrs": edge_attrs
+        "edge_attrs": edge_attrs,
+        "morgan_attrs": morgan_attrs,
     }, num_node_labels, num_edge_labels
 
 
-def create_graph_from_tu_data(graph_data, target, num_node_labels, num_edge_labels):
+def create_graph_from_tu_data(graph_data, target, num_node_labels, num_edge_labels, morgan_attr=None):
     nodes = graph_data["graph_nodes"]
     edges = graph_data["graph_edges"]  # y list
 
-    G = Graph(target=target)
+    G = Graph(target=target, fp=morgan_attr)
 
     for i, node in enumerate(nodes):
         label, attrs = None, None
@@ -251,6 +267,7 @@ class Data(data.Data):
                  o_outs=None,
                  laplacians=None,
                  v_plus=None,
+                 morgan_fp=None,
                  **kwargs):
 
         additional_fields = {
@@ -259,8 +276,8 @@ class Data(data.Data):
             'g_outs': g_outs,
             'o_outs': o_outs,
             'laplacians': laplacians,
-            'v_plus': v_plus
-
+            'v_plus': v_plus,
+            'morgan_fp': morgan_fp
         }
         super().__init__(x, edge_index, edge_attr, y, **additional_fields)
 

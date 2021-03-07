@@ -102,24 +102,25 @@ class KFoldAssessment:
             #     # Do not recompute experiments for this outer fold.
             #     print(f"Outer folder {outer_k} already present! Shutting down to prevent loss of previous experiments")
             #     continue
-
         pool.shutdown()  # wait the batch of configs to terminate
 
         self.process_results()
 
 
     def _risk_assessment_helper(self, dataset, outer_k, experiment_class, exp_path, debug=False, other=None):
-
+        print('Into _risk_assessment_helper')
         dataset_getter = DataLoaderWrapper(dataset, outer_k)
 
         best_config = self.model_selector.model_selection(dataset_getter, experiment_class, exp_path,
                                                           self.model_configs, self.dataset_config, debug, other)
 
         # Retrain with the best configuration and test
-        experiment = experiment_class(best_config['config'], dataset_config, exp_path)
+        experiment = experiment_class(best_config['config'], self.dataset_config, exp_path)
 
         # Set up a log file for this experiment (run in a separate process)
-        logger = Logger.Logger(str(os.path.join(experiment.exp_path, 'experiment.log')), mode='a')
+
+        from MolRep.Utils.logger import Logger
+        logger = Logger(str(os.path.join(experiment.exp_path, 'experiment.log')), mode='a')
 
         dataset_getter.set_inner_k(None)  # needs to stay None
 

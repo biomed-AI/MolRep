@@ -146,6 +146,7 @@ class Batch(data.Batch):
                                   y=d.y,
                                   edge_index=d.edge_index,
                                   edge_attr=d.edge_attr,
+                                  morgan_fp=d.morgan_fp,
                                   v_outs=d.v_outs,
                                   g_outs=d.g_outs,
                                   e_outs=d.e_outs,
@@ -262,7 +263,7 @@ def Graph_construct_dataset(features_path, train_idxs=None, valid_idxs=None, tes
     dataset = torch.load(features_path)
 
     trainset = _construct_dataset(dataset, train_idxs) if train_idxs is not None else None
-    validset = _construct_dataset(data_set, valid_idxs) if valid_idxs is not None else None
+    validset = _construct_dataset(dataset, valid_idxs) if valid_idxs is not None else None
     testset = _construct_dataset(dataset, test_idxs) if test_idxs is not None else None
     return trainset, validset, testset
 
