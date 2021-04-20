@@ -24,7 +24,7 @@ Pillow @ file:///tmp/build/80754af9/pillow_1603822253009/work
 pyparsing==2.4.7
 python-dateutil==2.8.1
 pytz==2020.1
-PyYAML==5.3.1
+PyYAML==5.4
 rdflib==5.0.0
 requests==2.24.0
 scikit-learn==0.23.2
