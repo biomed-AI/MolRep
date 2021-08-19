@@ -9,8 +9,22 @@
 <img src="https://github.com/biomed-AI/MolRep/blob/main/ADMET-TOC.jpg" alt="architecture"/>
 </p>
 
-If you found this package useful, please cite [biorxiv](https://doi.org/10.1101/2021.01.13.426489) for now:
+If you found this package useful, please cite our papers: [MolRep](https://doi.org/10.1101/2021.01.13.426489) and [DrugXAI](https://arxiv.org/abs/2107.04119) for now:
 ```
+@article{rao2021molrep,
+  title={MolRep: A Deep Representation Learning Library for Molecular Property Prediction},
+  author={Rao, Jiahua and Zheng, Shuangjia and Song, Ying and Chen, Jianwen and Li, Chengtao and Xie, Jiancong and Yang, Hui and Chen, Hongming and Yang, Yuedong},
+  journal={bioRxiv},
+  year={2021},
+  publisher={Cold Spring Harbor Laboratory}
+}
+
+@article{rao2021quantitative,
+  title={Quantitative Evaluation of Explainable Graph Neural Networks for Molecular Property Prediction},
+  author={Rao, Jiahua and Zheng, Shuangjia and Yang, Yuedong},
+  journal={arXiv preprint arXiv:2107.04119},
+  year={2021}
+}
 
 ```
 
