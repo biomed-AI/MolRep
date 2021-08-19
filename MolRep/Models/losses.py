@@ -27,7 +27,7 @@ def get_loss_func(task_type, model_name):
     if task_type == 'Regression':
         return MSERegressionLoss()
 
-    if task_type == 'Multiclass-Classification':
+    if task_type == 'Multi-Classification':
         return CrossEntropyClassificationLoss()
 
     raise ValueError(f'Task type "{task_type}" and Model "{model_name}" not supported.')

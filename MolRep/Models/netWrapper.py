@@ -45,7 +45,7 @@ class NetWrapper:
 
         self.print_metric_type = self.metric_type[0] if isinstance(self.metric_type, list) else self.metric_type
 
-    def train(self, train_loader, valid_loader=None, test_loader=None, scaler=None,
+    def train(self, train_loader, valid_loader=None, scaler=None,
               scheduler=None, clipping=None, optimizer=None, early_stopping=None,
               log_every=10, logger=None):
         '''
@@ -59,8 +59,6 @@ class NetWrapper:
         early_stopper = early_stopping() if early_stopping is not None else None
 
         val_loss, val_metric = -1, -1
-        test_loss, test_metric = None, None
-
         time_per_epoch = []
 
         # Training for Deep learning Methods
@@ -72,10 +70,7 @@ class NetWrapper:
             time_per_epoch.append(end)
 
             if scheduler is not None:
-                scheduler.step(i)
-
-            if test_loader is not None:
-                _, _, test_metric, test_loss = self.test_on_epoch_end(test_loader, scaler)
+                scheduler.step()
 
             if valid_loader is not None:
                 _, _, val_metric, val_loss = self.test_on_epoch_end(valid_loader, scaler)
@@ -90,29 +85,20 @@ class NetWrapper:
             if i % log_every == 0 or i == 1:
                 logger.log(f'[TRAIN] Epoch: %d, train loss: %.6f train %s: %.6f' % (
                     i, train_loss, self.print_metric_type, train_metric[self.print_metric_type]))
-                logger.log(f'[TRAIN] Metric:%s' % (
-                  str(train_metric)))
+
                 if valid_loader is not None:
                     logger.log(f'[VALID] Epoch: %d, valid loss: %.6f valid %s: %.6f' % (
                         i, val_loss, self.print_metric_type, val_metric[self.print_metric_type]))
-                logger.log(f'[VALID] Metric:%s' % (
-                  str(val_metric)))
-                if test_loader is not None:
-                    logger.log(f'[TEST] Epoch: %d, test loss: %.6f test %s: %.6f' % (
-                        i, test_loss, self.print_metric_type, test_metric[self.print_metric_type]))
-                logger.log(f'[TEST] Metric:%s' % (
-                  str(test_metric)))
+
                 logger.log(f"- Elapsed time: {str(duration)[:4]}s , Time estimation in a fold: {str(duration*self.num_epochs/60)[:4]}min")
 
         time_per_epoch = torch.tensor(time_per_epoch)
         avg_time_per_epoch = float(time_per_epoch.mean())
 
         elapsed = format_time(avg_time_per_epoch)
-
-        if early_stopper is not None:
-            train_loss, train_metric, val_loss, val_metric, test_loss, test_metric, best_epoch = early_stopper.get_best_vl_metrics()
-
-        return train_loss, train_metric, val_loss, val_metric, test_loss, test_metric, elapsed
+        # if early_stopper is not None:
+        #     train_loss, train_metric, val_loss, val_metric, test_loss, test_metric, best_epoch = early_stopper.get_best_vl_metrics()
+        return train_loss, train_metric, val_loss, val_metric, elapsed
 
     def test(self, test_loader=None, scaler=None,
              scheduler=None, log_every=10, logger=None):
@@ -131,9 +117,8 @@ class NetWrapper:
         for _, data in enumerate(train_loader):
             # print('data', data)
 
-            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', 'MorganFP']:
+            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'MolecularFingerprint']:
                 target_batch = data.y
-                data.morgan_fp = data.morgan_fp.reshape(len(data.y), 2048)
                 data = data.to(self.device)
 
             elif self.model_name in ['MPNN', 'DMPNN', 'CMPNN']:
@@ -210,7 +195,7 @@ class NetWrapper:
         loss_all = 0
         y_preds, y_labels = [], []
         for _, data in enumerate(test_loader):
-            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', 'MorganFP']:
+            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', 'GraphNet', 'GAT']:
                 target_batch = data.y
                 data = data.to(self.device)
 

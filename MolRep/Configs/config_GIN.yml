@@ -8,6 +8,7 @@ batch_size:
 learning_rate:
   - 0.01
   - 0.001
+  - 0.0001
 num_epochs:
   - 300
   - 100
@@ -29,7 +30,7 @@ train_eps:
   - true
   - false
 l2:
-  - 0.
+  - 0.0
   - 0.1
 aggregation:
   - mean
@@ -38,7 +39,7 @@ gradient_clipping:
   - null
 dropout:
   - 0.5
-  - 0.
+  - 0.0
 early_stopper:
   -
     class: Patience

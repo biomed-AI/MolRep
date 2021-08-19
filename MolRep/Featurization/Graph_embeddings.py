@@ -29,7 +29,7 @@ class GraphEmbeddings():
     def __init__(self, data_df, model_name, features_path, dataset_config,
                  use_node_attrs=True, use_node_degree=False, use_one=False, max_reductions=10,
                  precompute_kron_indices=True,
-                 save_temp_data=False):
+                 save_temp_data=True):
 
         self.model_name = model_name
         self.whole_data_df = data_df
@@ -56,25 +56,34 @@ class GraphEmbeddings():
         return self._dim_features
 
     @property
+    def dim_edge_features(self):
+        return self._dim_edge_features
+
+    @property
     def max_num_nodes(self):
         return self._max_num_nodes
 
     def load_data_from_df(self):
         temp_dir = self.temp_dir
 
+        if os.path.exists(temp_dir / f"{self.model_name}_SMILES.txt"):
+            print("File exits.")
+            return
+
         df = self.whole_data_df
+        fp_smiles = open(temp_dir / f"{self.model_name}_SMILES.txt", "w")
         fp_edge_index = open(temp_dir / f"{self.model_name}_A.txt", "w")
         fp_graph_indicator = open(temp_dir / f"{self.model_name}_graph_indicator.txt", "w")
         fp_graph_labels = open(temp_dir / f"{self.model_name}_graph_labels.txt", "w")
         fp_node_labels = open(temp_dir / f"{self.model_name}_node_labels.txt", "w")
         fp_node_attrs = open(temp_dir / f"{self.model_name}_node_attributes.txt", "w")
         fp_edge_attrs = open(temp_dir / f"{self.model_name}_edge_attributes.txt", "w")
-        fp_morgan_attrs = open(temp_dir / f"{self.model_name}_morgan_attributes.txt", "w")
-
+        
         cnt = 1
         for idx, row in df.iterrows():
             smiles, g_labels = row[self.smiles_col], row[self.target_cols].values
             try:
+                fp_smiles.writelines(smiles+"\n")
                 mol = Chem.MolFromSmiles(smiles)
                 num_nodes = len(mol.GetAtoms())
                 node_dict = {}
@@ -86,9 +95,6 @@ class GraphEmbeddings():
                 fp_graph_indicator.write(f"{idx + 1}\n" * num_nodes)  # node_i to graph id
                 fp_graph_labels.write(
                     ','.join(['None' if np.isnan(g_label) else str(g_label) for g_label in g_labels]) + "\n")
-
-                morgan_fp = AllChem.GetMorganFingerprintAsBitVect(mol, 3, 2048)
-                fp_morgan_attrs.write(str(list(morgan_fp))[1:-1] + "\n")
 
                 for bond in mol.GetBonds():
                     node_1 = node_dict[bond.GetBeginAtomIdx()]
@@ -102,13 +108,13 @@ class GraphEmbeddings():
             except ValueError as e:
                 print('the SMILES ({}) can not be converted to a Chem.Molecule.\nREASON: {}'.format(smiles, e))
 
+        fp_smiles.close()
         fp_graph_labels.close()
         fp_node_labels.close()
         fp_graph_indicator.close()
         fp_edge_index.close()
         fp_node_attrs.close()
         fp_edge_attrs.close()
-        fp_morgan_attrs.close()
 
     def process(self):
         """
@@ -119,28 +125,26 @@ class GraphEmbeddings():
         if os.path.exists(features_path):
             dataset = torch.load(features_path)
             self._dim_features = dataset[0].x.size(1)
-
-            self.load_data_from_df()
-            graphs_data, num_node_labels, num_edge_labels = parse_tu_data(self.model_name, self.temp_dir)
+            self._dim_edge_features = dataset[0].edge_attr.size(1)
 
             # dynamically set maximum num nodes (useful if using dense batching, e.g. diffpool)
-            self._max_num_nodes = max([len(v) for (k, v) in graphs_data['graph_nodes'].items()])
+            self._max_num_nodes = dataset[0].max_num_nodes
 
         else:
             self.load_data_from_df()
             graphs_data, num_node_labels, num_edge_labels = parse_tu_data(self.model_name, self.temp_dir)
             targets = graphs_data.pop("graph_labels")
+            smiles_list = graphs_data.pop("smiles")
 
             # dynamically set maximum num nodes (useful if using dense batching, e.g. diffpool)
             self._max_num_nodes = max([len(v) for (k, v) in graphs_data['graph_nodes'].items()])
 
             dataset = []
-            morgan_attrs = copy.deepcopy(graphs_data['morgan_attrs'])
-            del graphs_data['morgan_attrs']
-            for i, (target, morgan_attr) in enumerate(zip(targets, morgan_attrs), 1):
+            for i, (target, smiles) in enumerate(zip(targets, smiles_list), 1):
                 graph_data = {k: v[i] for (k, v) in graphs_data.items()}
-                G = create_graph_from_tu_data(graph_data, target, num_node_labels, num_edge_labels, morgan_attr=morgan_attr.reshape(1,-1))
+                G = create_graph_from_tu_data(graph_data, target, num_node_labels, num_edge_labels, smiles=smiles)
 
+                G.max_num_nodes = self._max_num_nodes
                 if self.precompute_kron_indices:
                     laplacians, v_plus_list = self._precompute_kron_indices(G)
                     G.laplacians = laplacians
@@ -150,6 +154,7 @@ class GraphEmbeddings():
                 dataset.append(data)
 
             self._dim_features = dataset[0].x.size(1)
+            self._dim_edge_features = dataset[0].edge_attr.size(1)
             torch.save(dataset, features_path)
 
         if self.save_temp_data == False:
@@ -177,9 +182,10 @@ class GraphEmbeddings():
             datadict.update(edge_attr=edge_attr)
 
         target = G.get_target()
-        morgan_fp = G.get_morgan_fp()
-        datadict.update(morgan_fp=morgan_fp)
+        smiles = G.get_smiles()
         datadict.update(y=target)
+        datadict.update(smiles=smiles)
+        datadict.update(max_num_nodes=G.max_num_nodes)
 
         data = Data(**datadict)
         return data

@@ -42,7 +42,9 @@ num_epochs:
   - 10
 learning_rate:
   - 0.00001
+  - 0.01
 shuffle:
   - True
 l2:
   - 0.
+  - 0.1

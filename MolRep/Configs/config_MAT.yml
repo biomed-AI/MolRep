@@ -61,7 +61,8 @@ learning_rate:
 batch_size:
   - 32
 l2:
-  - 0
+  - 0.0
+  - 0.1
 optimizer:
   - Adam
 scheduler:

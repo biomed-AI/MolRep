@@ -52,7 +52,7 @@ class DGCNN(nn.Module):
         self.classification = self.task_type == 'Classification'
         if self.classification:
             self.sigmoid = nn.Sigmoid()
-        self.multiclass = self.task_type == 'Multiclass-Classification'
+        self.multiclass = self.task_type == 'Multi-Classification'
         if self.multiclass:
             self.multiclass_softmax = nn.Softmax(dim=2)
         self.regression = self.task_type == 'Regression'
@@ -74,11 +74,18 @@ class DGCNN(nn.Module):
         # Implement Equation 4.2 of the paper i.e. concat all layers' graph representations and apply linear model
         # note: this can be decomposed in one smaller linear model per layer
         x, edge_index, batch = data.x, data.edge_index, data.batch
-        # print("in DGCNN:",edge_index.shape)
+        x.requires_grad = True
+
+        self.conv_acts = []
+        self.conv_grads = []
         hidden_repres = []
 
         for conv in self.convs:
-            x = torch.tanh(conv(x, edge_index))
+            with torch.enable_grad():
+                x = conv(x, edge_index)
+            x.register_hook(self.activations_hook)
+            self.conv_acts.append(x)
+            x = torch.tanh(x)
             hidden_repres.append(x)
 
         # apply sortpool
@@ -103,6 +110,35 @@ class DGCNN(nn.Module):
                 out_dense = self.multiclass_softmax(out_dense) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
 
         return out_dense
+
+    
+    def get_gap_activations(self, data):
+        output = self.forward(data)
+        output.backward()
+        return self.conv_acts[-1], None
+
+    def get_prediction_weights(self):
+        w = self.fc2.weight.t()
+        return w[:, 0]
+
+    def get_intermediate_activations_gradients(self, data):
+        output = self.forward(data)
+        output.backward()
+
+        conv_grads = [conv_g.grad for conv_g in self.conv_grads]
+        return self.conv_acts, self.conv_grads
+
+    def activations_hook(self, grad):
+        self.conv_grads.append(grad)
+
+    def get_gradients(self, data):
+        data.x.requires_grad_()
+        data.x.retain_grad()
+        output = self.forward(data)
+        output.backward()
+
+        atom_grads = data.x.grad
+        return data.x, atom_grads, None, None
 
 
 class DGCNNConv(MessagePassing):

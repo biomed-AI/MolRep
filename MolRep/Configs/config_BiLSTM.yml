@@ -35,4 +35,5 @@ gradient_clipping:
 scheduler:
   - null
 l2:
-  - 0.
+  - 0.0
+  - 0.1

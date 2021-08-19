@@ -37,7 +37,8 @@ def construct_dataset(dataset_name,
                       metric_type = None,
                       split_type = None,
                       additional_info = None,
-                      holdout_test_size = 0,
+                      test_size = 0,
+                      validation_size = 0,
                       inner_processes = 1,
                       seed = 42,
                       config_dir = 'MolRep/Configs/',
@@ -76,14 +77,15 @@ def construct_dataset(dataset_name,
                     }
         dataset_configuration = DatasetConfig(dataset_name, data_dict=data_stats)
     
-    if split_type == 'specific' and holdout_test_size == 0:
-        holdout_test_size = 0.1
+    # if split_type == 'defined' and holdout_test_size == 0:
+    #     holdout_test_size = 0.1
     exp_path = os.path.join(output_dir, f'{model_configuration.exp_name}_{dataset_configuration.exp_name}_assessment')
 
     dataset = DatasetWrapper(dataset_config=dataset_configuration,
                              model_name=model_configuration.exp_name,
                              split_dir=split_dir, features_dir=data_dir,
-                             outer_k=outer_k, inner_k=inner_k, seed=seed, holdout_test_size=holdout_test_size)
+                             outer_k=outer_k, inner_k=inner_k, seed=seed, 
+                             test_size=test_size, validation_size=validation_size)
 
     if inner_k is not None:
         model_selector = KFoldSelector(folds=inner_k, max_processes=inner_processes)

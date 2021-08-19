@@ -3,11 +3,12 @@ import os
 import json
 import numpy as np
 import pandas as pd
-import pdb
+
+from rdkit import Chem
 
 from pathlib import Path
 from sklearn.model_selection import train_test_split, StratifiedKFold, KFold
-from MolRep.Evaluations.data_split import scaffold_split, specific_split
+from MolRep.Evaluations.data_split import scaffold_split, defined_split
 
 from MolRep.Featurization.Graph_embeddings import GraphEmbeddings
 from MolRep.Featurization.MPNN_embeddings import MPNNEmbeddings
@@ -26,8 +27,8 @@ from MolRep.Utils.utils import filter_invalid_smiles, NumpyEncoder
 
 class DatasetWrapper:
 
-    def __init__(self, dataset_config, model_name, outer_k=10, inner_k=None, seed=42, holdout_test_size=0.1, 
-                    split_dir='Splits', features_dir='Data'):
+    def __init__(self, dataset_config, model_name, outer_k=10, inner_k=None, seed=42,
+                 test_size=0.1, validation_size=0.1, split_dir='Splits', features_dir='Data'):
 
         self.dataset_config = dataset_config
         self.dataset_path = self.dataset_config["path"]
@@ -37,7 +38,8 @@ class DatasetWrapper:
 
         self.outer_k = outer_k
         self.inner_k = inner_k
-        self.holdout_test_size = holdout_test_size
+        self.test_size = test_size
+        self.validation_size = validation_size
 
         self.outer_k = outer_k
         assert (outer_k is not None and outer_k > 0) or outer_k is None
@@ -47,7 +49,7 @@ class DatasetWrapper:
 
         self.seed = seed
 
-        self.kfold_class = KFold if self.split_type == 'random' or self.split_type == 'specific' else StratifiedKFold
+        self.kfold_class = KFold if self.split_type == 'random' or self.split_type == 'defined' else StratifiedKFold
         self._load_raw_data()
 
         self.features_dir = Path(features_dir)
@@ -112,7 +114,7 @@ class DatasetWrapper:
     def _load_raw_data(self):
 
         self._task_type = self.dataset_config["task_type"]
-        self.multi_class = self._task_type == 'Multiclass-Classification'
+        self.multi_class = self._task_type == 'Multi-Classification'
         self.multiclass_num_classes = self.dataset_config["multiclass_num_classes"] if self.multi_class else None
 
         self.smiles_col = self.dataset_config["smiles_column"]
@@ -137,7 +139,7 @@ class DatasetWrapper:
     def _process(self):
         """
         """
-        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', 'MorganFP']:
+        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GAT', 'GraphNet', 'MolecularFingerprint']:
             preparer = GraphEmbeddings(data_df=self.whole_data_df,
                                        model_name=self.model_name,
                                        features_path=self.features_path,
@@ -145,6 +147,9 @@ class DatasetWrapper:
             preparer.process()
             self._dim_features = preparer.dim_features
             self._max_num_nodes = preparer.max_num_nodes
+
+            if self.model_name == 'GraphNet':
+                self._dim_features = (preparer.dim_features, preparer.dim_edge_features)
 
         elif self.model_name in ['MPNN', 'DMPNN', 'CMPNN']:
             preparer = MPNNEmbeddings(data_df=self.whole_data_df,
@@ -182,6 +187,9 @@ class DatasetWrapper:
             self._dim_features = preparer.dim_features
             self._max_num_nodes = preparer.max_num_nodes
 
+        else: 
+            raise print("Model name Must be in []")
+
 
     def _make_splits(self):
         """
@@ -197,58 +205,63 @@ class DatasetWrapper:
             self.defined_splits = self.whole_data_df[self.dataset_config["additional_info"]["splits"]].values
 
         if self.outer_k is None:  # holdout assessment strategy
-            assert self.holdout_test_size is not None
+            assert self.test_size is not None
 
-            if self.holdout_test_size == 0:
-                train_o_split, test_split = all_idxs, []
-            elif self.holdout_test_size == -1:
-                train_o_split, test_split = [], all_idxs
+            # if self.test_size == 0:
+            #     train_o_split, test_split = all_idxs, []
+            # elif self.test_size == -1:
+            #     train_o_split, test_split = [], all_idxs
+            # else:
+
+            # Test-set splits
+            if self.split_type == 'random':
+                train_o_split, test_split = train_test_split(all_idxs,
+                                                                test_size=self.test_size,
+                                                                random_state=self.seed)
+
+            elif self.split_type == 'stratified':
+                train_o_split, test_split = train_test_split(all_idxs,
+                                                                stratify=targets,
+                                                                test_size=self.test_size,
+                                                                random_state=self.seed)
+
+            elif self.split_type == 'scaffold':
+                train_o_split, test_split = scaffold_split(smiles,
+                                                            test_size=self.test_size,
+                                                            random_state=self.seed)
+
+            elif self.split_type == 'defined':
+                train_o_split, test_split = defined_split(self.defined_splits)
+
             else:
-                if self.split_type == 'random':
-                    train_o_split, test_split = train_test_split(all_idxs,
-                                                                 test_size=self.holdout_test_size,
-                                                                 random_state=self.seed)
-                elif self.split_type == 'stratified':
-                    train_o_split, test_split = train_test_split(all_idxs,
-                                                                 stratify=targets,
-                                                                 test_size=self.holdout_test_size,
-                                                                 random_state=self.seed)
-                elif self.split_type == 'scaffold':
-                    train_o_split, test_split = scaffold_split(smiles,
-                                                               test_size=self.holdout_test_size,
-                                                               random_state=self.seed)
-                elif self.split_type == 'specific':
-                    train_o_split, test_split = specific_split(self.defined_splits,
-                                                               random_state=self.seed)
-                else:
-                    assert f"{self.split_type} must be in [random, stratified, scaffold] or defined by yourself through dataset_config['additional_info']['splits']]."
+                assert f"{self.split_type} must be in [random, stratified, scaffold] or defined by yourself through dataset_config['additional_info']['splits']]."
 
-
+            # Validation-set splits
             split = {"test": all_idxs[test_split], 'model_selection': []}
             train_o_smiles = smiles[train_o_split]
             train_o_targets = targets[train_o_split]
 
             if self.inner_k is None:  # holdout model selection strategy
-                if self.holdout_test_size == 0:
-                    train_i_split, val_i_split = train_o_split, []
-                elif self.holdout_test_size == -1:
-                    train_i_split, val_i_split = [], []
+                # if self.validation_size == 0:
+                #     train_i_split, val_i_split = train_o_split, []
+                # elif self.validation_size == -1:
+                #     train_i_split, val_i_split = [], []
+                # else:
+                if self.split_type == 'random' or self.split_type == 'defined':
+                    train_i_split, val_i_split = train_test_split(train_o_split,
+                                                                  test_size=self.validation_size,
+                                                                  random_state=self.seed)
+                elif self.split_type == 'scaffold':
+                    train_i_split, val_i_split = scaffold_split(train_o_smiles,
+                                                                test_size=self.validation_size,
+                                                                random_state=self.seed)
+                elif self.split_type == 'stratified':
+                    train_i_split, val_i_split = train_test_split(train_o_split,
+                                                                  stratify=train_o_targets,
+                                                                  test_size=self.validation_size,
+                                                                  random_state=self.seed)
                 else:
-                    if self.split_type == 'random' or self.split_type == 'specific':
-                        train_i_split, val_i_split = train_test_split(train_o_split,
-                                                                      test_size=self.holdout_test_size,
-                                                                      random_state=self.seed)
-                    elif self.split_type == 'scaffold':
-                        train_i_split, val_i_split = scaffold_split(train_o_smiles,
-                                                                    test_size=self.holdout_test_size,
-                                                                    random_state=self.seed)
-                    elif self.split_type == 'stratified':
-                        train_i_split, val_i_split = train_test_split(train_o_split,
-                                                                      stratify=train_o_targets,
-                                                                      test_size=self.holdout_test_size,
-                                                                      random_state=self.seed)
-                    else:
-                        assert f"{self.split_type} must be in [random, stratified, scaffold]."
+                    assert f"{self.split_type} must be in [random, stratified, scaffold] or defined by yourself."
 
                 split['model_selection'].append(
                     {"train": train_i_split, "validation": val_i_split})
@@ -256,21 +269,25 @@ class DatasetWrapper:
             else:  # cross validation model selection strategy
                 if self.split_type == 'scaffold':
                     scaffold_test_size = (len(train_o_smiles) / self.inner_k) / len(train_o_smiles)
-                    for inner_i in range(self.inner_k):
+                    for _ in range(self.inner_k):
                         train_ik_split, val_ik_split = scaffold_split(train_o_smiles, test_size=scaffold_test_size,
                                                                         balanced=True, random_state=self.seed)
                         split['model_selection'].append(
                             {"train": train_ik_split, "validation": val_ik_split})
-                else:
+
+                elif self.split_type == 'stratified':
                     inner_kfold = self.kfold_class(n_splits=self.inner_k, shuffle=True, random_state=self.seed)
-                    if self.split_type == 'stratified':
-                        for train_ik_split, val_ik_split in inner_kfold.split(train_o_split, train_o_targets):
-                            split['model_selection'].append(
-                                {"train": train_o_split[train_ik_split], "validation": train_o_split[val_ik_split]})
-                    else:
-                        for train_ik_split, val_ik_split in inner_kfold.split(train_o_split):
-                            split['model_selection'].append(
-                                {"train": train_o_split[train_ik_split], "validation": train_o_split[val_ik_split]})
+                    
+                    for train_ik_split, val_ik_split in inner_kfold.split(train_o_split, train_o_targets):
+                        split['model_selection'].append(
+                            {"train": train_o_split[train_ik_split], "validation": train_o_split[val_ik_split]})
+
+                elif self.split_type == 'random' or self.split_type == 'defined':
+                    inner_kfold = self.kfold_class(n_splits=self.inner_k, shuffle=True, random_state=self.seed)
+                
+                    for train_ik_split, val_ik_split in inner_kfold.split(train_o_split):
+                        split['model_selection'].append(
+                            {"train": train_o_split[train_ik_split], "validation": train_o_split[val_ik_split]})
 
             self.splits.append(split)
 
@@ -278,121 +295,88 @@ class DatasetWrapper:
 
             if self.split_type == 'scaffold':
                 scaffold_test_size = (len(smiles) / self.outer_k) / len(smiles)
-                for outer_i in range(self.outer):
-                    train_ok_split, test_ok_split = scaffold_split(train_o_smiles, test_size=scaffold_test_size,
-                                                                        balanced=True, random_state=self.seed)
+                for _ in range(self.outer):
+                    train_ok_split, test_ok_split = scaffold_split(smiles, test_size=scaffold_test_size,
+                                                                   balanced=True, random_state=self.seed)
                     split = {"test": all_idxs[test_ok_split], 'model_selection': []}
 
                     train_ok_smiles = smiles[train_ok_split]
                     train_ok_targets = targets[train_ok_split]
                     if self.inner_k is None:  # holdout model selection strategy
-                        assert self.holdout_test_size is not None
-                        if self.split_type == 'random':
-                            train_i_split, val_i_split = train_test_split(train_ok_split,
-                                                                            test_size=self.holdout_test_size,
-                                                                            random_state=self.seed)
-                        elif self.split_type == 'scaffold':
-                            train_i_split, val_i_split = scaffold_split(train_ok_smiles,
-                                                                        test_size=self.holdout_test_size,
-                                                                        random_state=self.seed)
-                        elif self.split_type == 'stratified':
-                            train_i_split, val_i_split = train_test_split(train_ok_split,
-                                                                            stratify=train_ok_targets,
-                                                                            test_size=self.holdout_test_size,
-                                                                            random_state=self.seed)
-                        else:
-                            assert f"{self.split_type} must be in [random, stratified, scaffold]."
-
+                        assert self.validation_size is not None
+                        train_i_split, val_i_split = scaffold_split(train_ok_smiles,
+                                                                    test_size=self.validation_size,
+                                                                    random_state=self.seed)
                         split['model_selection'].append(
                             {"train": train_i_split, "validation": val_i_split})
-                    
+
                     else:
-                        if self.split_type == 'scaffold':
-                            scaffold_test_size = (len(train_ok_smiles) / self.inner_k) / len(train_ok_smiles)
-                            for inner_i in range(self.inner_k):
-                                train_ik_split, val_ik_split = scaffold_split(train_ok_smiles, test_size=scaffold_test_size,
-                                                                                balanced=True, random_state=self.seed)
-                                split['model_selection'].append(
-                                    {"train": train_ik_split, "validation": val_ik_split})
-                        else:
-                            inner_kfold = self.kfold_class(n_splits=self.inner_k, shuffle=True, random_state=self.seed)
-                            for train_ik_split, val_ik_split in inner_kfold.split(train_ok_split):
-                                split['model_selection'].append(
-                                    {"train": train_ok_split[train_ik_split], "validation": train_ok_split[val_ik_split]})
+                        scaffold_test_size = (len(train_ok_smiles) / self.inner_k) / len(train_ok_smiles)
+                        for inner_i in range(self.inner_k):
+                            train_ik_split, val_ik_split = scaffold_split(train_ok_smiles, test_size=scaffold_test_size,
+                                                                            balanced=True, random_state=self.seed)
+                            split['model_selection'].append(
+                                {"train": train_ik_split, "validation": val_ik_split})
+
+                    self.splits.append(split)
+
+            elif self.split_type == 'stratified':
+                outer_kfold = self.kfold_class(n_splits=self.outer_k, shuffle=True, random_state=self.seed)
+                
+                for train_ok_split, test_ok_split in outer_kfold.split(all_idxs, targets):
+                    split = {"test": all_idxs[test_ok_split], 'model_selection': []}
+
+                    train_ok_smiles = smiles[train_ok_split]
+                    train_ok_targets = targets[train_ok_split]
+                    if self.inner_k is None:  # holdout model selection strategy
+                        assert self.validation_size is not None
+                        train_i_split, val_i_split = train_test_split(train_ok_split,
+                                                                      stratify=train_ok_targets,
+                                                                      test_size=self.validation_size,
+                                                                      random_state=self.seed)
+                        split['model_selection'].append(
+                            {"train": train_i_split, "validation": val_i_split})
+
+                    else:  # cross validation model selection strategy
+                        inner_kfold = self.kfold_class(n_splits=self.inner_k, shuffle=True, random_state=self.seed)
+                        for train_ik_split, val_ik_split in inner_kfold.split(train_ok_split, train_ok_targets):
+                            split['model_selection'].append(
+                                {"train": train_ok_split[train_ik_split], "validation": train_ok_split[val_ik_split]})
+
+                    self.splits.append(split)
+
+            elif self.split_type == 'random':
+                outer_kfold = self.kfold_class(n_splits=self.outer_k, shuffle=True, random_state=self.seed)
+                
+                for train_ok_split, test_ok_split in outer_kfold.split(all_idxs):
+                    split = {"test": all_idxs[test_ok_split], 'model_selection': []}
+
+                    train_ok_smiles = smiles[train_ok_split]
+                    train_ok_targets = targets[train_ok_split]
+                    if self.inner_k is None:  # holdout model selection strategy
+                        assert self.validation_size is not None
+                        train_i_split, val_i_split = train_test_split(train_ok_split,
+                                                                        test_size=self.validation_size,
+                                                                        random_state=self.seed)
+                        
+                        split['model_selection'].append(
+                            {"train": train_i_split, "validation": val_i_split})
+
+                    else:  # cross validation model selection strategy
+                        inner_kfold = self.kfold_class(n_splits=self.inner_k, shuffle=True, random_state=self.seed)
+                        for train_ik_split, val_ik_split in inner_kfold.split(train_ok_split):
+                            split['model_selection'].append(
+                                {"train": train_ok_split[train_ik_split], "validation": train_ok_split[val_ik_split]})
 
                     self.splits.append(split)
 
             else:
-                outer_kfold = self.kfold_class(n_splits=self.outer_k, shuffle=True, random_state=self.seed)
-                if self.split_type == 'stratified':
-                    for train_ok_split, test_ok_split in outer_kfold.split(all_idxs, targets):
-                        split = {"test": all_idxs[test_ok_split], 'model_selection': []}
-
-                        train_ok_smiles = smiles[train_ok_split]
-                        train_ok_targets = targets[train_ok_split]
-                        if self.inner_k is None:  # holdout model selection strategy
-                            assert self.holdout_test_size is not None
-                            if self.split_type == 'random':
-                                train_i_split, val_i_split = train_test_split(train_ok_split,
-                                                                            test_size=self.holdout_test_size,
-                                                                            random_state=self.seed)
-                            elif self.split_type == 'scaffold':
-                                train_i_split, val_i_split = scaffold_split(train_ok_smiles,
-                                                                            test_size=self.holdout_test_size,
-                                                                            random_state=self.seed)
-
-                            split['model_selection'].append(
-                                {"train": train_i_split, "validation": val_i_split})
-
-                        else:  # cross validation model selection strategy
-                            inner_kfold = self.kfold_class(n_splits=self.inner_k, shuffle=True, random_state=self.seed)
-                            if self.split_type == 'stratified':
-                                for train_ik_split, val_ik_split in inner_kfold.split(train_ok_split, train_ok_targets):
-                                    split['model_selection'].append(
-                                        {"train": train_ok_split[train_ik_split], "validation": train_ok_split[val_ik_split]})
-                            else:
-                                for train_ik_split, val_ik_split in inner_kfold.split(train_ok_split):
-                                    split['model_selection'].append(
-                                        {"train": train_ok_split[train_ik_split], "validation": train_ok_split[val_ik_split]})
-
-                        self.splits.append(split)
-                else:
-                    for train_ok_split, test_ok_split in outer_kfold.split(all_idxs):
-                        split = {"test": all_idxs[test_ok_split], 'model_selection': []}
-
-                        train_ok_smiles = smiles[train_ok_split]
-                        train_ok_targets = targets[train_ok_split]
-                        if self.inner_k is None:  # holdout model selection strategy
-                            assert self.holdout_test_size is not None
-                            if self.split_type == 'random':
-                                train_i_split, val_i_split = train_test_split(train_ok_split,
-                                                                            test_size=self.holdout_test_size,
-                                                                            random_state=self.seed)
-                            elif self.split_type == 'scaffold':
-                                train_i_split, val_i_split = scaffold_split(train_ok_smiles,
-                                                                            test_size=self.holdout_test_size,
-                                                                            random_state=self.seed)
-
-                            split['model_selection'].append(
-                                {"train": train_i_split, "validation": val_i_split})
-
-                        else:  # cross validation model selection strategy
-                            inner_kfold = self.kfold_class(n_splits=self.inner_k, shuffle=True, random_state=self.seed)
-                            if self.split_type == 'stratified':
-                                for train_ik_split, val_ik_split in inner_kfold.split(train_ok_split, train_ok_targets):
-                                    split['model_selection'].append(
-                                        {"train": train_ok_split[train_ik_split], "validation": train_ok_split[val_ik_split]})
-                            else:
-                                for train_ik_split, val_ik_split in inner_kfold.split(train_ok_split):
-                                    split['model_selection'].append(
-                                        {"train": train_ok_split[train_ik_split], "validation": train_ok_split[val_ik_split]})
-
-                        self.splits.append(split)
+                assert f"outer_k should be 'None' when split-type is 'defined'."
 
         with open(self.splits_filename, "w") as f:
             json.dump(self.splits, f, cls=NumpyEncoder)
 
-    def get_test_fold(self, outer_idx, batch_size=1, shuffle=True, features_scaling=False):
+    def get_test_fold(self, outer_idx, batch_size=1, shuffle=False, features_scaling=False):
         outer_idx = outer_idx or 0
 
         testset_indices = self.splits[outer_idx]["test"]
@@ -401,8 +385,7 @@ class DatasetWrapper:
             test_loader = None
 
         else:
-
-            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', 'MorganFP']:
+            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT']:
                 _, _, test_dataset = Graph_data.Graph_construct_dataset(
                                                         self.features_path, test_idxs=testset_indices)
                 _, _, test_loader, _, _ = Graph_data.Graph_construct_dataloader(
@@ -438,35 +421,35 @@ class DatasetWrapper:
                 _, _, test_loader, _, _ = VAE_data.VAE_construct_loader(
                                                         testset=test_dataset, batch_size=batch_size, shuffle=shuffle, task_type=self._task_type, features_scaling=features_scaling)
 
-            elif self.model_name in ['N_Gram_Graph', 'Mol2Vec']:
-                if self.model_name == 'Mol2Vec':
-                    _, _, test_loader, _, _ = Mol2Vec_data.Mol2Vec_construct_loader(
-                                                        self.features_path, test_idxs=testset_indices)
-                elif self.model_name == 'N_Gram_Graph':
-                    _, _, test_loader, _, _ = NGramGraph_data.N_Gram_Graph_construct_loader(
-                                                        self.features_path, test_idxs=testset_indices)
+            # elif self.model_name in ['N_Gram_Graph', 'Mol2Vec']:
+            #     if self.model_name == 'Mol2Vec':
+            #         _, _, test_loader, _, _ = Mol2Vec_data.Mol2Vec_construct_loader(
+            #                                             self.features_path, test_idxs=testset_indices)
+            #     elif self.model_name == 'N_Gram_Graph':
+            #         _, _, test_loader, _, _ = NGramGraph_data.N_Gram_Graph_construct_loader(
+            #                                             self.features_path, test_idxs=testset_indices)
             else:
-                raise self.logger.error(f"Model Name must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', \
-                                                ,'MorganFP', 'MPNN', 'DMPNN', 'CMPNN', 'MAT', 'BiLSTM', 'BiLSTM-Attention']")
+                raise self.logger.error(f"Model Name must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'MolecularFingerprint', \
+                                                , 'MPNN', 'DMPNN', 'CMPNN', 'MAT', 'BiLSTM', 'BiLSTM-Attention']")
 
         return test_loader
 
 
     def get_model_selection_fold(self, outer_idx, inner_idx=None, batch_size=1, shuffle=True, features_scaling=False):
         outer_idx = outer_idx or 0
-        inner_idx = inner_idx or 0
 
-        if inner_idx == -1:
-            indices = self.splits[outer_idx]["model_selection"][0]       
+        if inner_idx is None:
+            indices = self.splits[outer_idx]["model_selection"][0]
             trainset_indices = indices['train'].extend(indices['validation']) 
             validset_indices = []
         else:
+            inner_idx = int(inner_idx) or 0
             indices = self.splits[outer_idx]["model_selection"][inner_idx]
             trainset_indices = indices['train']
             validset_indices = indices['validation']
 
         scaler = None
-        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', 'MorganFP']:
+        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', 'GraphNet', 'GAT']:
             train_dataset, valid_dataset, _ = Graph_data.Graph_construct_dataset(
                 self.features_path, train_idxs=trainset_indices, valid_idxs=validset_indices)
             train_loader, valid_loader, _, features_scaler, scaler = Graph_data.Graph_construct_dataloader(
@@ -503,18 +486,19 @@ class DatasetWrapper:
             train_loader, valid_loader, _, features_scaler, scaler = VAE_data.VAE_construct_loader(
                 trainset=train_dataset, validset=valid_dataset, batch_size=batch_size, shuffle=shuffle, task_type=self._task_type, features_scaling=features_scaling)
 
-        elif self.model_name in ['N_Gram_Graph', 'Mol2Vec']:
-            if self.model_name == 'Mol2Vec':
-                train_loader, valid_loader, _, features_scaler, scaler = Mol2Vec_data.Mol2Vec_construct_loader(
-                        self.features_path, train_idxs=trainset_indices, valid_idxs=validset_indices)
-            elif self.model_name == 'N_Gram_Graph':
-                train_loader, valid_loader, _, features_scaler, scaler = NGramGraph_data.N_Gram_Graph_construct_loader(
-                        self.features_path, train_idxs=trainset_indices, valid_idxs=validset_indices)
+        # elif self.model_name in ['N_Gram_Graph', 'Mol2Vec']:
+        #     if self.model_name == 'Mol2Vec':
+        #         train_loader, valid_loader, _, features_scaler, scaler = Mol2Vec_data.Mol2Vec_construct_loader(
+        #                 self.features_path, train_idxs=trainset_indices, valid_idxs=validset_indices)
+        #     elif self.model_name == 'N_Gram_Graph':
+        #         train_loader, valid_loader, _, features_scaler, scaler = NGramGraph_data.N_Gram_Graph_construct_loader(
+        #                 self.features_path, train_idxs=trainset_indices, valid_idxs=validset_indices)
+
         else:
             raise self.logger.error(f"Model Name must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', \
-                                               'MorganFP', 'MPNN', 'DMPNN', 'CMPNN', 'MAT', 'BiLSTM', 'BiLSTM-Attention']")
+                                            'MPNN', 'DMPNN', 'CMPNN', 'MAT', 'BiLSTM', 'BiLSTM-Attention']")
 
         if len(validset_indices) == 0:
             valid_loader = None
-        # pdb.set_trace()
-        return train_loader, valid_loader, scaler
+
+        return train_loader, valid_loader, scaler, features_scaler

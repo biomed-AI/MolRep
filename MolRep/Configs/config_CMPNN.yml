@@ -6,18 +6,19 @@ batch_size:
   - 50
   - 64
 learning_rate:
-  - 0.0001
+  - 0.001
   - 0.00001
 l2:
-  - 0
+  - 0.0
+  - 0.1
 hidden_size:
-  - 300
   - 256
+  - 300
 bias:
   - False
   - True
 depth:
-  - 3
+  - 4
   - 2
 dropout:
   - 0.0
@@ -45,9 +46,9 @@ scheduler:
     args:
       warmup_epochs: [2.0]
       step_size: 10
-      max_lr: [0.0001]
-      init_lr: [0.00001]
-      final_lr: [0.00001]
+      max_lr: [0.001]
+      init_lr: [0.0001]
+      final_lr: [0.0001]
 early_stopper:
   -
     class: Patience
@@ -58,13 +59,12 @@ gradient_clipping:
   - null
 num_epochs:
   - 30
-  - 100
 num_lrs:
   - 1
 features_only:
   - False
 atom_descriptors:
-  - None
+  - null
 use_input_features:
   - False
 shuffle:

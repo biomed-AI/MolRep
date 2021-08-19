@@ -19,12 +19,13 @@ from typing import List, Tuple, Union
 from rdkit import Chem
 
 class Graph(nx.Graph):
-    def __init__(self, target, fp=None, *args, **kwargs):
+    def __init__(self, target, smiles, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.target = target
-        self.fp = fp
+        self.smiles = smiles
         self.laplacians = None
         self.v_plus = None
+        self.max_num_nodes = 200
 
     def get_edge_index(self):
         adj = torch.Tensor(nx.to_numpy_array(self))
@@ -42,6 +43,7 @@ class Graph(nx.Graph):
             if edge_attrs["attrs"] is not None:
                 data.extend(edge_attrs["attrs"])
 
+            features.append(data)
             features.append(data)
         return torch.Tensor(features)
 
@@ -69,8 +71,8 @@ class Graph(nx.Graph):
     def get_target(self):
         return np.array(self.target)
 
-    def get_morgan_fp(self):
-        return torch.Tensor(self.fp)
+    def get_smiles(self):
+        return self.smiles
 
     @property
     def has_edge_attrs(self):
@@ -103,12 +105,12 @@ def parse_tu_data(model_name, temp_dir):
     # setup paths
     indicator_path = temp_dir / f'{model_name}_graph_indicator.txt'
     edges_path = temp_dir / f'{model_name}_A.txt'
+    smiles_path = temp_dir / f'{model_name}_SMILES.txt'
     graph_labels_path = temp_dir / f'{model_name}_graph_labels.txt'
     node_labels_path = temp_dir / f'{model_name}_node_labels.txt'
     edge_labels_path = temp_dir / f'{model_name}_edge_labels.txt'
     node_attrs_path = temp_dir / f'{model_name}_node_attributes.txt'
     edge_attrs_path = temp_dir / f'{model_name}_edge_attributes.txt'
-    morgan_attrs_path = temp_dir / f'{model_name}_morgan_attributes.txt'
 
     unique_node_labels = set()
     unique_edge_labels = set()
@@ -177,16 +179,6 @@ def parse_tu_data(model_name, temp_dir):
                 graph_id = indicator[edge_indicator[i][0]]
                 edge_attrs[graph_id].append(edge_attr)
 
-    morgan_attrs = []
-    if morgan_attrs_path.exists():
-        with open(morgan_attrs_path, "r") as f:
-            for i, line in enumerate(f.readlines(), 1):
-                line = line.rstrip("\n")
-                nums = line.split(",")
-                morgan_attr = np.array([float(n) for n in nums])
-                # graph_id = indicator[edge_indicator[i][0]]
-                morgan_attrs.append(morgan_attr)
-
     # get graph labels
     graph_labels = []
     with open(graph_labels_path, "r") as f:
@@ -199,6 +191,13 @@ def parse_tu_data(model_name, temp_dir):
         # Shift by one to the left. Apparently this is necessary for multiclass tasks.
         # if min(graph_labels) == 1:
         #     graph_labels = [l - 1 for l in graph_labels]
+
+    # get SMILES
+    smiles_all = []
+    with open(smiles_path, "r") as f:
+        for i, line in enumerate(f.readlines(), 1):
+            line = line.rstrip("\n")
+            smiles_all.append(line)
 
     num_node_labels = max(
         unique_node_labels) if unique_node_labels != set() else 0
@@ -219,15 +218,15 @@ def parse_tu_data(model_name, temp_dir):
         "node_attrs": node_attrs,
         "edge_labels": edge_labels,
         "edge_attrs": edge_attrs,
-        "morgan_attrs": morgan_attrs,
+        "smiles": smiles_all
     }, num_node_labels, num_edge_labels
 
 
-def create_graph_from_tu_data(graph_data, target, num_node_labels, num_edge_labels, morgan_attr=None):
+def create_graph_from_tu_data(graph_data, target, num_node_labels, num_edge_labels, smiles=None):
     nodes = graph_data["graph_nodes"]
     edges = graph_data["graph_edges"]  # y list
 
-    G = Graph(target=target, fp=morgan_attr)
+    G = Graph(target=target, smiles=smiles)
 
     for i, node in enumerate(nodes):
         label, attrs = None, None
@@ -241,7 +240,6 @@ def create_graph_from_tu_data(graph_data, target, num_node_labels, num_edge_labe
         G.add_node(node, label=label, attrs=attrs)
 
     for i, edge in enumerate(edges):  # y 遍历某个图的所有边
-        # print("here is ", i)
         n1, n2 = edge
         label, attrs = None, None
 
@@ -267,7 +265,8 @@ class Data(data.Data):
                  o_outs=None,
                  laplacians=None,
                  v_plus=None,
-                 morgan_fp=None,
+                 smiles=None,
+                 max_num_nodes=200,
                  **kwargs):
 
         additional_fields = {
@@ -277,7 +276,8 @@ class Data(data.Data):
             'o_outs': o_outs,
             'laplacians': laplacians,
             'v_plus': v_plus,
-            'morgan_fp': morgan_fp
+            'max_num_nodes': max_num_nodes,
+            'smiles': smiles
         }
         super().__init__(x, edge_index, edge_attr, y, **additional_fields)
 

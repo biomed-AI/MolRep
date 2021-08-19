@@ -76,7 +76,6 @@ class MPNNEmbeddings:
 
             smiles_all, x_all, y_all = self.load_data_from_smiles(data_x, data_y)
 
-
             self._dim_features = len(x_all[0][0]) if x_all[0][0] is not None else 0
             pickle.dump((smiles_all, x_all, y_all), open(features_path, "wb"))
 
@@ -118,7 +117,10 @@ class MPNNEmbeddings:
 
                 smiles_all.append(smiles)
                 x_all.append([features, atom_features, atom_descriptors])
-                y_all.append(label)
+                if isinstance(label, np.ndarray):
+                    y_all.append(label)
+                else:
+                    y_all.append([label])
             except ValueError as e:
                 print('the SMILES ({}) can not be converted to a Molecule in RDkit.\nREASON: {}'.format(smiles, e))
 
@@ -446,6 +448,7 @@ class BatchMolGraph:
         r"""
         :param mol_graphs: A list of :class:`MolGraph`\ s from which to construct the :class:`BatchMolGraph`.
         """
+        self.mol_graphs = mol_graphs
         self.atom_fdim = get_atom_fdim()
         self.bond_fdim = get_bond_fdim()
 
@@ -480,7 +483,13 @@ class BatchMolGraph:
         self.max_num_bonds = max(1, max(len(in_bonds) for in_bonds in a2b))  # max with 1 to fix a crash in rare case of all single-heavy-atom mols
 
         self.f_atoms = torch.FloatTensor(f_atoms)
+        self.f_atoms.requires_grad_()
+        self.f_atoms.retain_grad()
+
         self.f_bonds = torch.FloatTensor(f_bonds)
+        self.f_bonds.requires_grad_()
+        self.f_atoms.retain_grad()
+
         self.a2b = torch.LongTensor([a2b[a] + [0] * (self.max_num_bonds - len(a2b[a])) for a in range(self.n_atoms)])
         self.b2a = torch.LongTensor(b2a)
         self.b2revb = torch.LongTensor(b2revb)

@@ -15,6 +15,7 @@ h:
   - 4
 dropout:
   - 0.0
+  - 0.4
 n_dense:
   - 1
   - 2
@@ -47,7 +48,8 @@ learning_rate:
 batch_size:
   - 32
 l2:
-  - 0
+  - 0.0
+  - 0.1
 optimizer:
   - Adam
 scheduler:

@@ -5,6 +5,7 @@ import json
 import numpy as np
 import concurrent.futures
 
+from MolRep.Utils.logger import Logger
 from MolRep.Utils.config_from_dict import Config
 from MolRep.Evaluations.DataloaderWrapper import DataLoaderWrapper
 
@@ -23,8 +24,8 @@ class KFoldAssessment:
         self.dataset_config = dataset_config
 
         # Create the experiments folder straight away
-        if self.outer_folds is None:
-            self.outer_folds = 1
+        assert self.outer_folds is None
+            # self.outer_folds = 1
         self.exp_path = exp_path
         self.__NESTED_FOLDER = os.path.join(exp_path, str(self.outer_folds) + '_NESTED_CV')
         self.__OUTER_FOLD_BASE = 'OUTER_FOLD_'
@@ -50,6 +51,7 @@ class KFoldAssessment:
                     outer_TS_scores.append(outer_fold_scores['OUTER_TS'])
 
             except Exception as e:
+                print("here!", config_filename)
                 print(e)
 
         outer_TR_scores = np.array(outer_TR_scores)
@@ -108,7 +110,7 @@ class KFoldAssessment:
 
 
     def _risk_assessment_helper(self, dataset, outer_k, experiment_class, exp_path, debug=False, other=None):
-        print('Into _risk_assessment_helper')
+
         dataset_getter = DataLoaderWrapper(dataset, outer_k)
 
         best_config = self.model_selector.model_selection(dataset_getter, experiment_class, exp_path,
@@ -119,7 +121,6 @@ class KFoldAssessment:
 
         # Set up a log file for this experiment (run in a separate process)
 
-        from MolRep.Utils.logger import Logger
         logger = Logger(str(os.path.join(experiment.exp_path, 'experiment.log')), mode='a')
 
         dataset_getter.set_inner_k(None)  # needs to stay None
@@ -128,7 +129,7 @@ class KFoldAssessment:
         # Mitigate bad random initializations
         for i in range(5):
             model_path = str(os.path.join(experiment.exp_path, f'experiment_run_{i}.pt'))
-            training_score, test_score = experiment.run_test(dataset_getter, logger, other={'model_path': model_path})
+            training_score, _, test_score = experiment.run_test(dataset_getter, logger, other={'model_path': model_path})
             print(f'Final training run {i + 1}: {training_score}, {test_score}')
 
             training_scores.append(training_score)

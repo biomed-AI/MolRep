@@ -95,7 +95,7 @@ class ECC(nn.Module):
         self.classification = self.task_type == 'Classification'
         if self.classification:
             self.sigmoid = nn.Sigmoid()
-        self.multiclass = self.task_type == 'Multiclass-Classification'
+        self.multiclass = self.task_type == 'Multi-Classification'
         if self.multiclass:
             self.multiclass_softmax = nn.Softmax(dim=2)
         self.regression = self.task_type == 'Regression'
@@ -124,37 +124,13 @@ class ECC(nn.Module):
         # Convert v_plus_batch to boolean
         return lap_edge_idx, lap_edge_weights, (v_plus_batch == 1)
 
-    def featurize(self, data):
-        x, edge_index, batch = data.x, data.edge_index, data.batch
-
-        for i, layer in enumerate(self.layers):
-            # TODO should lap_edge_index[0] be equal to edge_idx?
-            lap_edge_idx, lap_edge_weights, v_plus_batch = self.get_ecc_conv_parameters(data, layer_no=i)
-            edge_index = lap_edge_idx if i != 0 else edge_index
-            edge_weight = lap_edge_weights if i != 0 else x.new_ones((edge_index.size(1), ))
-
-            edge_index = edge_index.to(self.model_configs["device"])
-            edge_weight = edge_weight.to(self.model_configs["device"])
-
-            # apply convolutional layer
-            x = layer(x, edge_index, edge_weight)
-
-            # pooling
-            x = x[v_plus_batch]
-            batch = batch[v_plus_batch]
-
-        # final_convolution
-        lap_edge_idx, lap_edge_weight, v_plus_batch = self.get_ecc_conv_parameters(data, layer_no=self.num_layers)
-
-        lap_edge_idx = lap_edge_idx.to(self.model_configs["device"])
-        lap_edge_weight = lap_edge_weight.to(self.model_configs["device"])
-
-        x = F.relu(self.final_conv(x, lap_edge_idx, lap_edge_weight))
-        x = self.final_conv_bn(x)
-        return x
-
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
+        x.requires_grad = True
+
+        self.conv_acts = []
+        self.conv_grads = []
+        self.edge_grads = []
 
         for i, layer in enumerate(self.layers):
             # TODO should lap_edge_index[0] be equal to edge_idx?
@@ -164,9 +140,15 @@ class ECC(nn.Module):
 
             edge_index = edge_index.to(self.model_configs["device"])
             edge_weight = edge_weight.to(self.model_configs["device"])
+            edge_weight.requires_grad = True
 
             # apply convolutional layer
-            x = layer(x, edge_index, edge_weight)
+            with torch.enable_grad():
+                x = layer(x, edge_index, edge_weight)
+            x.register_hook(self.activations_hook)
+            self.conv_acts.append(x)
+
+            edge_weight.register_hook(self.edge_attrs_hook)
 
             # pooling
             x = x[v_plus_batch]
@@ -178,8 +160,12 @@ class ECC(nn.Module):
         lap_edge_idx = lap_edge_idx.to(self.model_configs["device"])
         lap_edge_weight = lap_edge_weight.to(self.model_configs["device"])
 
+        lap_edge_weight.requires_grad = True
         x = F.relu(self.final_conv(x, lap_edge_idx, lap_edge_weight.unsqueeze(-1)))
         x = F.dropout(self.final_conv_bn(x), p=self.dropout, training=self.training)
+
+        lap_edge_weight.register_hook(self.edge_attrs_hook)
+        self.lap_edge_weight = lap_edge_weight
 
         # TODO: is the following line needed before global pooling?
         # batch = batch[v_plus_batch]
@@ -200,3 +186,36 @@ class ECC(nn.Module):
             if not self.training:
                 x = self.multiclass_softmax(x) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
         return x
+
+    def get_gap_activations(self, data):
+        output = self.forward(data)
+        output.backward()
+        return self.conv_acts[-1], None
+
+    def get_prediction_weights(self):
+        w = self.fc2.weight.t()
+        return w[:, 0]
+
+    def get_intermediate_activations_gradients(self, data):
+        output = self.forward(data)
+        output.backward()
+
+        conv_grads = [conv_g.grad for conv_g in self.conv_grads]
+        return self.conv_acts, self.conv_grads
+
+    def activations_hook(self, grad):
+        self.conv_grads.append(grad)
+
+    def edge_attrs_hook(self, grad):
+        self.edge_grads.append(grad)
+
+    def get_gradients(self, data):
+        data.x.requires_grad_()
+        data.x.retain_grad()
+        output = self.forward(data)
+        output.backward()
+
+        atom_grads = data.x.grad
+        edge_grads_list = [edge_g.grad for edge_g in self.edge_grads]
+        edge_grads = edge_grads_list[-1]
+        return data.x, atom_grads, self.lap_edge_weight, edge_grads

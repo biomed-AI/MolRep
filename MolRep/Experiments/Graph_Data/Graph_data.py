@@ -45,6 +45,13 @@ class MoleculeDataset(Dataset):
         """
         return [d.y for d in self._data]
 
+    def smiles(self) -> List[List[Optional[str]]]:
+        """
+        Returns the targets associated with each molecule.
+        :return: A list of lists of floats (or None) containing the targets.
+        """
+        return [d.smiles for d in self._data]
+
     def normalize_features(self, scaler: StandardScaler = None, replace_nan_token: int = 0) -> StandardScaler:
         return None
 
@@ -146,11 +153,11 @@ class Batch(data.Batch):
                                   y=d.y,
                                   edge_index=d.edge_index,
                                   edge_attr=d.edge_attr,
-                                  morgan_fp=d.morgan_fp,
                                   v_outs=d.v_outs,
                                   g_outs=d.g_outs,
                                   e_outs=d.e_outs,
-                                  o_outs=d.o_outs)
+                                  o_outs=d.o_outs,
+                                  smiles=d.smiles)
                              )
 
         batch = data.Batch.from_data_list(copy_data, follow_batch=follow_batch)
@@ -225,6 +232,17 @@ class MoleculeDataLoader(DataLoader):
             raise ValueError('Cannot safely extract targets when class balance or shuffle are enabled.')
 
         return [self._dataset[index].y for index in self._sampler]
+
+    @property
+    def smiles(self):
+        """
+        Returns the targets associated with each molecule.
+        :return: A list of lists of floats (or None) containing the targets.
+        """
+        if self._class_balance or self._shuffle:
+            raise ValueError('Cannot safely extract targets when class balance or shuffle are enabled.')
+
+        return [self._dataset[index].smiles for index in self._sampler]
 
     @property
     def iter_size(self) -> int:

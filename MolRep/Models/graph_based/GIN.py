@@ -49,7 +49,7 @@ class GIN(torch.nn.Module):
         self.classification = self.task_type == 'Classification'
         if self.classification:
             self.sigmoid = nn.Sigmoid()
-        self.multiclass = self.task_type == 'Multiclass-Classification'
+        self.multiclass = self.task_type == 'Multi-Classification'
         if self.multiclass:
             self.multiclass_softmax = nn.Softmax(dim=2)
         self.regression = self.task_type == 'Regression'

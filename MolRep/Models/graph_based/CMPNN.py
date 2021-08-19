@@ -43,7 +43,7 @@ class CMPNN(nn.Module):
         self.classification = self.task_type == 'Classification'
         if self.classification:
             self.sigmoid = nn.Sigmoid()
-        self.multiclass = self.task_type == 'Multiclass-Classification'
+        self.multiclass = self.task_type == 'Multi-Classification'
         if self.multiclass:
             self.multiclass_softmax = nn.Softmax(dim=2)
         self.regression = self.task_type == 'Regression'
@@ -85,7 +85,7 @@ class CMPNN(nn.Module):
         """
         args = self.model_configs
 
-        self.multiclass = self.task_type == 'Multiclass-Classification'
+        self.multiclass = self.task_type == 'Multi-Classification'
         if self.multiclass:
             self.num_classes = self.multiclass_num_classes
         if args['features_only']:
@@ -99,25 +99,28 @@ class CMPNN(nn.Module):
 
         # Create FFN layers
         if args['ffn_num_layers'] == 1:
+            self.last_linear = nn.Linear(first_linear_dim, self.dim_target)
             ffn = [
                 dropout,
-                nn.Linear(first_linear_dim, self.dim_target)
+                self.last_linear
             ]
         else:
             ffn = [
                 dropout,
-                nn.Linear(first_linear_dim, args['ffn_hidden_size'])
+                nn.Linear(first_linear_dim, args['hidden_size'])
             ]
             for _ in range(args['ffn_num_layers'] - 2):
                 ffn.extend([
                     activation,
                     dropout,
-                    nn.Linear(args['ffn_hidden_size'], args['ffn_hidden_size']),
+                    nn.Linear(args['hidden_size'], args['hidden_size']),
                 ])
+
+            self.last_linear = nn.Linear(args['hidden_size'], self.dim_target)
             ffn.extend([
                 activation,
                 dropout,
-                nn.Linear(args['ffn_hidden_size'], self.dim_target),
+                self.last_linear,
             ])
 
         # Create FFN model
@@ -130,7 +133,6 @@ class CMPNN(nn.Module):
         :return: The output of the CMPNN.
         """
         batch, features_batch, _ = data
-
         output = self.ffn(self.encoder(batch, features_batch))
 
         # Don't apply sigmoid during training b/c using BCEWithLogitsLoss
@@ -143,6 +145,34 @@ class CMPNN(nn.Module):
 
         return output
 
+    def get_intermediate_activations_gradients(self, data):
+        batch, features_batch, _ = data
+        output = self.ffn(self.encoder(batch, features_batch))
+
+        conv_acts, conv_grads = self.encoder.encoder.get_intermediate_activations_gradients(output)
+        conv_grads = [conv[1:, :] for conv in conv_grads]
+        return conv_acts, conv_grads
+
+    def get_gap_activations(self, data):
+        batch, features_batch, _ = data
+        output = self.ffn(self.encoder(batch, features_batch))
+        
+        conv_acts, _ = self.encoder.encoder.get_intermediate_activations_gradients(output)
+        return conv_acts[-1], None
+
+    def get_prediction_weights(self):
+        w = self.last_linear.weight.t()
+        return w[:,0]
+
+    def get_gradients(self, data):
+        batch, features_batch, _ = data
+        output = self.ffn(self.encoder(batch, features_batch))
+
+        self.encoder.encoder.get_gradients(output)
+
+        atom_grads = self.encoder.encoder.f_atoms.grad
+        bond_grads = self.encoder.encoder.f_bonds.grad
+        return self.encoder.encoder.f_atoms[1:, :], atom_grads[1:, :], None, None
 
 class MPNEncoder(nn.Module):
     def __init__(self, args: Namespace, atom_fdim: int, bond_fdim: int):
@@ -158,6 +188,7 @@ class MPNEncoder(nn.Module):
         self.atom_messages = args['atom_messages']
         self.features_only = args['features_only']
         self.args = args
+        self.f_atoms, self.f_bonds, self.node_emb = None, None, None
 
         # Dropout
         self.dropout_layer = nn.Dropout(p=self.dropout)
@@ -186,9 +217,22 @@ class MPNEncoder(nn.Module):
         self.gru = BatchGRU(self.hidden_size)
         
         self.lr = nn.Linear(self.hidden_size*3, self.hidden_size, bias=self.bias)
-        
 
-    def forward(self,mol_graph: BatchMolGraph, features_batch=None) -> torch.FloatTensor:
+    def get_gradients(self, output):
+        self.f_atoms.retain_grad()
+        self.f_bonds.retain_grad()
+        output.backward(torch.ones_like(output))
+        return self.f_atoms.grad, self.f_bonds.grad
+
+    def get_intermediate_activations_gradients(self, output):
+        output.backward(torch.ones_like(output))
+        conv_grads = [conv_g.grad for conv_g in self.conv_grads]
+        return self.conv_acts, self.conv_grads
+
+    def activations_hook(self, grad):
+        self.conv_grads.append(grad)
+
+    def forward(self, mol_graph: BatchMolGraph, features_batch=None) -> torch.FloatTensor:
 
         # f_atoms, f_bonds, a2b, b2a, b2revb, a_scope, b_scope, bonds = mol_graph.get_components()
         f_atoms, f_bonds, a2b, b2a, b2revb, a_scope, b_scope = mol_graph.get_components(atom_messages=self.atom_messages)
@@ -197,26 +241,41 @@ class MPNEncoder(nn.Module):
                     f_atoms.cuda(), f_bonds.cuda(), 
                     a2b.cuda(), b2a.cuda(), b2revb.cuda())
 
+        f_atoms.requires_grad_()
+        f_atoms.retain_grad()
+        f_bonds.requires_grad_()
+        f_bonds.retain_grad()
+        self.f_atoms, self.f_bonds = f_atoms, f_bonds
+
+        self.conv_acts = []
+        self.conv_grads = []
+
         # Input
-        input_atom = self.W_i_atom(f_atoms)  # num_atoms x hidden_size
-        input_atom = self.act_func(input_atom)
-        message_atom = input_atom.clone()
-        
-        input_bond = self.W_i_bond(f_bonds)  # num_bonds x hidden_size
-        message_bond = self.act_func(input_bond)
-        input_bond = self.act_func(input_bond)
+        with torch.enable_grad():
+            input_atom = self.W_i_atom(f_atoms)  # num_atoms x hidden_size
+            input_atom = self.act_func(input_atom)
+            message_atom = input_atom.clone()
+            
+            input_bond = self.W_i_bond(f_bonds)  # num_bonds x hidden_size
+            message_bond = self.act_func(input_bond)
+            input_bond = self.act_func(input_bond)
+
         # Message passing
         for depth in range(self.depth - 1):
-            agg_message = index_select_ND(message_bond, a2b)
-            agg_message = agg_message.sum(dim=1) * agg_message.max(dim=1)[0]
-            message_atom = message_atom + agg_message
-            
-            # directed graph
-            rev_message = message_bond[b2revb]  # num_bonds x hidden
-            message_bond = message_atom[b2a] - rev_message  # num_bonds x hidden
-            
-            message_bond = self._modules[f'W_h_{depth}'](message_bond)
-            message_bond = self.dropout_layer(self.act_func(input_bond + message_bond))
+            message_atom.register_hook(self.activations_hook)
+            self.conv_acts.append(message_atom[1:, :])
+
+            with torch.enable_grad():
+                agg_message = index_select_ND(message_bond, a2b)
+                agg_message = agg_message.sum(dim=1) * agg_message.max(dim=1)[0]
+                message_atom = message_atom + agg_message
+                
+                # directed graph
+                rev_message = message_bond[b2revb]  # num_bonds x hidden
+                message_bond = message_atom[b2a] - rev_message  # num_bonds x hidden
+                
+                message_bond = self._modules[f'W_h_{depth}'](message_bond)
+                message_bond = self.dropout_layer(self.act_func(input_bond + message_bond))
         
         agg_message = index_select_ND(message_bond, a2b)
         agg_message = agg_message.sum(dim=1) * agg_message.max(dim=1)[0]
@@ -290,6 +349,7 @@ class MPN(nn.Module):
                  graph_input: bool = False):
         super(MPN, self).__init__()
         self.args = args
+        self.atom_descriptors = None
         
         self.atom_fdim = atom_fdim or get_atom_fdim()
         self.bond_fdim = bond_fdim or get_bond_fdim(atom_messages=args['atom_messages'])
@@ -306,7 +366,7 @@ class MPN(nn.Module):
 
         if type(batch) != BatchMolGraph:
             if self.atom_descriptors == 'feature':
-                batch = mol2graph(batch, atom_descriptors_batch)
+                batch = mol2graph(batch)
             else:
                 batch = mol2graph(batch)
     

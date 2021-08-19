@@ -29,5 +29,5 @@ class DataLoaderWrapper:
     def get_train_val(self, dataset, batch_size, shuffle=True):
         return dataset.get_model_selection_fold(self.outer_k, self.inner_k, batch_size, shuffle)
 
-    def get_test(self, dataset, batch_size, shuffle=True):
+    def get_test(self, dataset, batch_size, shuffle=False):
         return dataset.get_test_fold(self.outer_k, batch_size, shuffle)

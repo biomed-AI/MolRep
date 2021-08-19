@@ -48,10 +48,7 @@ class HoldOutAssessment:
                                                           self.model_configs, self.dataset_config, debug, other)
 
         # Retrain with the best configuration and test
-        # TODO
-        # experiment = experiment_class(best_config['config'], dataset_config, exp_path)
         experiment = experiment_class(best_config['config'], self.dataset_config, exp_path)
-
 
         # Set up a log file for this experiment (run in a separate process)
         logger = Logger(str(os.path.join(experiment.exp_path, 'experiment.log')), mode='a')
@@ -60,16 +57,16 @@ class HoldOutAssessment:
 
         training_scores, test_scores = [], []
         # Mitigate bad random initializations
-        for i in range(1):
-            model_path = str(os.path.join(experiment.exp_path, f'experiment_run_{i}.pt'))
-            training_score, test_score = experiment.run_test(dataset_getter, logger, other={'model_path': model_path})
+        for i in range(5):
+            model_path = str(os.path.join(experiment.exp_path, f'experiment_run_{i + 1}.pt'))
+            training_score, _, test_score = experiment.run_test(dataset_getter, logger, other={'model_path': model_path})
             print(f'Final training run {i + 1}: {training_score}, {test_score}')
 
             training_scores.append(training_score)
             test_scores.append(test_score)
 
-        # training_score = sum(training_scores) / 5
-        # test_score = sum(test_scores) / 5
+        training_score = sum(training_scores) / 5
+        test_score = sum(test_scores) / 5
 
         logger.log('TR score: ' + str(training_score) + ' TS score: ' + str(test_score))
 

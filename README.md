@@ -21,7 +21,7 @@ To install the required packages, follow there instructions (tested on a linux t
 
 1) clone the repository
 
-    git clone https://github.com/Jh-SYSU/MolRep
+    git clone https://github.com/biomed-AI/MolRep
 
 2) `cd` into the cloned directory
 
@@ -29,13 +29,13 @@ To install the required packages, follow there instructions (tested on a linux t
 
 3) run the install script
 
-    source install.sh [<your_cuda_version>]
+    source install.sh
 
-Where `<your_cuda_version>` is an optional argument that can be either `cpu`, `cu92`, `cu100`, `cu101`. If you do not provide a cuda version, the script will default to `cpu`. The script will create a virtual environment named `MolRep`, with all the required packages needed to run our code. **Important:** do NOT run this command using `bash` instead of `source`!
+Where `<your_conda_path>` is your conda path, and `<CUDA_VERSION>` is an optional argument that can be either `cpu`, `cu92`, `cu100`, `cu101`, `cu110`. If you do not provide a cuda version, the script will default to `cu110`. The script will create a virtual environment named `MolRep`, with all the required packages needed to run our code. **Important:** do NOT run this command using `bash` instead of `source`!
 
 ## Data
 
-Data could be download from [Google_Driver](https://drive.google.com/drive/folders/1vGlhE3TJ4AhvUCa3ODdFw3O-zOMH1s7J?usp=sharing)
+Data (including Explainable Dataset) could be download from [Google_Driver](https://drive.google.com/drive/folders/1vGlhE3TJ4AhvUCa3ODdFw3O-zOMH1s7J?usp=sharing)
 
 ### Current Dataset
 |Dataset|Task|Task type|#Molecule|Splits|Metric|Reference|
@@ -98,6 +98,10 @@ To train a model by K-fold, run [5-fold-training_example.ipynb](https://github.c
 ### Testing 
 
 To test a pretrained model, run [testing-example.ipynb](https://github.com/Jh-SYSU/MolRep/blob/main/Examples/testing-example.ipynb).
+
+
+### Explainable
+To explain the GNN model, run [Explainer_Experiments.py](https://github.com/Jh-SYSU/MolRep/blob/main/Examples/Explainer_Experiments.py)
 
 
 ### Results

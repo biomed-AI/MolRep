@@ -37,7 +37,6 @@ d_n_layers:
 d_dropout:
   - 0.0
   - 0.1
-
 optimizer:
   - Adam
 early_stopper:
@@ -57,3 +56,4 @@ learning_rate:
   - 0.00001
 l2:
   - 0.
+  - 0.1

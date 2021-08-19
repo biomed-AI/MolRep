@@ -1,5 +1,6 @@
 
-
+import os
+from pathlib import Path
 class Logger:
     def __init__(self, filepath, mode, lock=None):
         """
@@ -9,6 +10,8 @@ class Logger:
         :param lock: pass a shared lock for multi process write access
         """
         self.filepath = filepath
+        if not Path(self.filepath).parent.exists():
+            os.makedirs(Path(self.filepath).parent)
         if mode not in ['w', 'a']:
             assert False, 'Mode must be one of w, r or a'
         else:

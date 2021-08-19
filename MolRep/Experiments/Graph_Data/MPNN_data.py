@@ -466,6 +466,10 @@ class MoleculeDataLoader(DataLoader):
         return [self._dataset[index].targets for index in self._sampler]
 
     @property
+    def smiles(self):
+        return [self._dataset[index].smiles for index in self._sampler]
+
+    @property
     def iter_size(self) -> int:
         """Returns the number of data points included in each full iteration through the :class:`MoleculeDataLoader`."""
         return len(self._sampler)

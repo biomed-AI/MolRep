@@ -9,9 +9,9 @@ learning_rate:
   - 0.1
   - 0.01
 num_epochs:
-  - 300
-  - 100
   - 50
+  - 100
+  - 300
 num_lrs:
   - 1
 optimizer:

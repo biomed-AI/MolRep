@@ -17,11 +17,12 @@ from MolRep.Models.sequence_based.Transformer import Transformer
 
 from MolRep.Models.graph_based.GIN import GIN
 from MolRep.Models.graph_based.ECC import ECC
+from MolRep.Models.graph_based.GAT import GAT
 from MolRep.Models.graph_based.DGCNN import DGCNN
 from MolRep.Models.graph_based.DiffPool import DiffPool
 from MolRep.Models.graph_based.GraphSAGE import GraphSAGE
+from MolRep.Models.graph_based.GraphNet import GraphNet
 from MolRep.Models.graph_based.MolecularFingerprint import MolecularFingerprint
-from MolRep.Models.graph_based.MorganFP import MorganFP
 
 from MolRep.Models.graph_based.MPNN import MPNN
 from MolRep.Models.graph_based.CMPNN import CMPNN
@@ -45,8 +46,9 @@ class Config:
         'DGCNN': DGCNN,
         'DiffPool': DiffPool,
         'GraphSAGE': GraphSAGE,
+        'GAT': GAT,
+        'GraphNet': GraphNet,
         'MolecularFingerprint': MolecularFingerprint,
-        'MorganFP': MorganFP,
 
         'MPNN': MPNN,
         'CMPNN': CMPNN,
@@ -162,6 +164,10 @@ class Grid:
     def __iter__(self):
         assert self.num_configs > 0, 'No configurations available'
         return iter(self._configs)
+
+    @property
+    def config_dict(self):
+        return self.configs_dict
 
     def _grid_generator(self, cfgs_dict):
         keys = cfgs_dict.keys()

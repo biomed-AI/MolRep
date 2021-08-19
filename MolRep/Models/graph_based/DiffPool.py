@@ -126,7 +126,7 @@ class DiffPool(nn.Module):
         self.classification = self.task_type == 'Classification'
         if self.classification:
             self.sigmoid = nn.Sigmoid()
-        self.multiclass = self.task_type == 'Multiclass-Classification'
+        self.multiclass = self.task_type == 'Multi-Classification'
         if self.multiclass:
             self.multiclass_softmax = nn.Softmax(dim=2)
         self.regression = self.task_type == 'Regression'
@@ -160,6 +160,7 @@ class DiffPool(nn.Module):
 
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
+        x.requires_grad = True
         x, mask = to_dense_batch(x, batch=batch)
         adj = to_dense_adj(edge_index, batch=batch)
         # data = ToDense(data.num_nodes)(data)
@@ -168,17 +169,24 @@ class DiffPool(nn.Module):
         # adj, mask, x = data.adj, data.mask, data.x
         x_all, l_total, e_total = [], 0, 0
 
+        self.conv_acts = []
+        self.conv_grads = []
+
         for i in range(self.num_diffpool_layers):
             if i != 0:
                 mask = None
 
-            x, adj, l, e = self.diffpool_layers[i](x, adj, mask)  # x has shape (batch, MAX_no_nodes, feature_size)
+            with torch.enable_grad():
+                x, adj, l, e = self.diffpool_layers[i](x, adj, mask)  # x has shape (batch, MAX_no_nodes, feature_size)
+            x.register_hook(self.activations_hook)
+            self.conv_acts.append(torch.max(x, dim=1)[0])
             x_all.append(torch.max(x, dim=1)[0])
 
             l_total += l
             e_total += e
 
         x = self.final_embed(x, adj)
+        self.conv_acts.append(torch.max(x, dim=1)[0])
         x_all.append(torch.max(x, dim=1)[0])
 
         x = torch.cat(x_all, dim=1)  # shape (batch, feature_size x diffpool layers)
@@ -194,3 +202,31 @@ class DiffPool(nn.Module):
                 x = self.multiclass_softmax(x) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
 
         return x, l_total, e_total
+
+    def get_gap_activations(self, data):
+        output = self.forward(data)
+        output.backward()
+        return self.conv_acts[-1], None
+
+    def get_prediction_weights(self):
+        w = self.lin2.weight.t()
+        return w[:, 0]
+
+    def get_intermediate_activations_gradients(self, data):
+        output = self.forward(data)
+        output.backward()
+
+        conv_grads = [conv_g.grad for conv_g in self.conv_grads]
+        return self.conv_acts, self.conv_grads
+
+    def activations_hook(self, grad):
+        self.conv_grads.append(grad)
+
+    def get_gradients(self, data):
+        data.x.requires_grad_()
+        data.x.retain_grad()
+        output = self.forward(data)
+        output.backward()
+
+        atom_grads = data.x.grad
+        return data.x, atom_grads, None, None

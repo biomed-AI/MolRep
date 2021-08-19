@@ -1,0 +1,50 @@
+model:
+  - GraphNet
+device:
+  - cuda
+batch_size:
+  - 32
+  - 64
+learning_rate:
+  - 0.01
+  - 0.001
+l2:
+  - 0.0
+  - 0.1
+num_epochs:
+  - 50
+  - 100
+  - 300
+optimizer:
+  - Adam
+scheduler:
+  - null
+gradient_clipping:
+  - null
+early_stopper:
+  -
+    class: Patience
+    args:
+      patience: 500
+      use_loss: True
+shuffle:
+  - True
+dim_node_hidden:
+  - 64
+  - 128
+dim_edge_hidden:
+  - 128
+  - 64
+num_step_set2set:
+  - 6
+  - 4
+num_layer_set2set:
+  - 3
+  - 2
+num_layers:
+  - 3
+  - 5
+aggregation_type:
+  - add
+  - max
+  - mean

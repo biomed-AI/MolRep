@@ -4,10 +4,6 @@ from torch.nn import functional as F
 
 from torch_geometric.nn import SAGEConv, global_max_pool
 
-import torch
-import torch.nn.functional as F
-
-
 class GraphSAGE(nn.Module):
     def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
         super().__init__()
@@ -39,7 +35,7 @@ class GraphSAGE(nn.Module):
         self.classification = self.task_type == 'Classification'
         if self.classification:
             self.sigmoid = nn.Sigmoid()
-        self.multiclass = self.task_type == 'Multiclass-Classification'
+        self.multiclass = self.task_type == 'Multi-Classification'
         if self.multiclass:
             self.multiclass_softmax = nn.Softmax(dim=2)
         self.regression = self.task_type == 'Regression'
@@ -47,26 +43,21 @@ class GraphSAGE(nn.Module):
             self.relu = nn.ReLU()
         assert not (self.classification and self.regression and self.multiclass)
 
-    def featurize(self, data):
-        x, edge_index, batch = data.x, data.edge_index, data.batch
-
-        x_all = []
-        for i, layer in enumerate(self.layers):
-            x = layer(x, edge_index)
-            if self.aggregation == 'max':
-                x = torch.relu(self.fc_max(x))
-            x_all.append(x)
-        x = torch.cat(x_all, dim=1)
-
-        return x
-
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
+        x.requires_grad = True
 
         x_all = []
+        self.conv_acts = []
+        self.conv_grads = []
 
         for i, layer in enumerate(self.layers):
-            x = layer(x, edge_index)
+
+            with torch.enable_grad():
+                x = layer(x, edge_index)
+            x.register_hook(self.activations_hook)
+            self.conv_acts.append(x)
+
             if self.aggregation == 'max':
                 x = torch.relu(self.fc_max(x))
             x_all.append(x)
@@ -86,3 +77,29 @@ class GraphSAGE(nn.Module):
                 x = self.multiclass_softmax(x) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
 
         return x
+
+    def get_gap_activations(self, data):
+        output = self.forward(data)
+        output.backward(torch.ones_like(output))
+        return self.conv_acts[-1], None
+
+    def get_prediction_weights(self):
+        w = self.fc2.weight.t()
+        return w[:, 0]
+
+    def get_intermediate_activations_gradients(self, data):
+        output = self.forward(data)
+        output.backward(torch.ones_like(output))
+        return self.conv_acts, self.conv_grads
+
+    def activations_hook(self, grad):
+        self.conv_grads.append(grad)
+
+    def get_gradients(self, data):
+        data.x.requires_grad_()
+        data.x.retain_grad()
+        output = self.forward(data)
+        output.backward(torch.ones_like(output))
+
+        atom_grads = data.x.grad
+        return data.x, atom_grads, None, None

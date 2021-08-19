@@ -10,15 +10,15 @@ learning_rate:
   - 0.0001
   - 0.00001
 num_epochs:
-  - 300
-  - 100
   - 50
+  - 100
+  - 300
 optimizer:
   - Adam
 scheduler:
   - null
 l2:
-  - 0.
+  - 0.0
   - 0.1
 gradient_clipping:
   - 2.0
