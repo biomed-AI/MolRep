@@ -25,7 +25,7 @@ import torch.nn.functional as F
 class CMPNN(nn.Module):
     """A CMPNN is a model which contains a message passing network following by feed-forward layers."""
 
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=200):
         """
         Initializes the CMPNN.
         :param classification: Whether the model is a classification model.
@@ -34,6 +34,7 @@ class CMPNN(nn.Module):
 
         self.dim_features = dim_features
         self.dim_target = dim_target
+        self.max_num_nodes = max_num_nodes
 
         self.model_configs = model_configs
 
@@ -76,7 +77,7 @@ class CMPNN(nn.Module):
         Creates the message passing encoder for the model.
         :param model_configs: Arguments.
         """
-        self.encoder = MPN(self.model_configs)
+        self.encoder = MPN(self.model_configs, max_num_nodes=self.max_num_nodes)
 
     def create_ffn(self):
         """
@@ -91,7 +92,7 @@ class CMPNN(nn.Module):
         if args['features_only']:
             first_linear_dim = self.dim_features
         else:
-            first_linear_dim = int(args['hidden_size']) * 1
+            first_linear_dim = int(args['dim_embedding']) * 1
             first_linear_dim += self.dim_features
 
         dropout = nn.Dropout(args['dropout'])
@@ -107,16 +108,16 @@ class CMPNN(nn.Module):
         else:
             ffn = [
                 dropout,
-                nn.Linear(first_linear_dim, args['hidden_size'])
+                nn.Linear(first_linear_dim, args['dim_embedding'])
             ]
             for _ in range(args['ffn_num_layers'] - 2):
                 ffn.extend([
                     activation,
                     dropout,
-                    nn.Linear(args['hidden_size'], args['hidden_size']),
+                    nn.Linear(args['dim_embedding'], args['dim_embedding']),
                 ])
 
-            self.last_linear = nn.Linear(args['hidden_size'], self.dim_target)
+            self.last_linear = nn.Linear(args['dim_embedding'], self.dim_target)
             ffn.extend([
                 activation,
                 dropout,
@@ -125,6 +126,11 @@ class CMPNN(nn.Module):
 
         # Create FFN model
         self.ffn = nn.Sequential(*ffn)
+
+    def featurize(self, data):
+        batch, features_batch, _ = data
+        output = self.encoder.featurize(batch, features_batch)
+        return output
 
     def forward(self, data):
         """
@@ -140,8 +146,7 @@ class CMPNN(nn.Module):
             output = self.sigmoid(output)
         if self.multiclass:
             output = output.reshape((output.size(0), -1, self.num_classes)) # batch size x num targets x num classes per target
-            if not self.training:
-                output = self.multiclass_softmax(output) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
+            output = self.multiclass_softmax(output) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
 
         return output
 
@@ -174,12 +179,13 @@ class CMPNN(nn.Module):
         bond_grads = self.encoder.encoder.f_bonds.grad
         return self.encoder.encoder.f_atoms[1:, :], atom_grads[1:, :], None, None
 
+
 class MPNEncoder(nn.Module):
-    def __init__(self, args: Namespace, atom_fdim: int, bond_fdim: int):
+    def __init__(self, args: Namespace, atom_fdim: int, bond_fdim: int, max_num_nodes: int = 200):
         super(MPNEncoder, self).__init__()
         self.atom_fdim = atom_fdim
         self.bond_fdim = bond_fdim
-        self.hidden_size = args['hidden_size']
+        self.hidden_size = args['dim_embedding']
         self.bias = args['bias']
         self.depth = args['depth']
         self.dropout = args['dropout']
@@ -187,6 +193,7 @@ class MPNEncoder(nn.Module):
         self.undirected = args['undirected']
         self.atom_messages = args['atom_messages']
         self.features_only = args['features_only']
+        self.max_num_nodes = max_num_nodes
         self.args = args
         self.f_atoms, self.f_bonds, self.node_emb = None, None, None
 
@@ -231,6 +238,59 @@ class MPNEncoder(nn.Module):
 
     def activations_hook(self, grad):
         self.conv_grads.append(grad)
+
+    def featurize(self, mol_graph: BatchMolGraph, features_batch=None):
+        f_atoms, f_bonds, a2b, b2a, b2revb, a_scope, b_scope = mol_graph.get_components(atom_messages=self.atom_messages)
+        if self.args['device'] == 'cuda' or next(self.parameters()).is_cuda:
+            f_atoms, f_bonds, a2b, b2a, b2revb = (
+                    f_atoms.cuda(), f_bonds.cuda(), 
+                    a2b.cuda(), b2a.cuda(), b2revb.cuda())
+
+        input_atom = self.W_i_atom(f_atoms)  # num_atoms x hidden_size
+        input_atom = self.act_func(input_atom)
+        message_atom = input_atom.clone()
+        
+        input_bond = self.W_i_bond(f_bonds)  # num_bonds x hidden_size
+        message_bond = self.act_func(input_bond)
+        input_bond = self.act_func(input_bond)
+
+        # Message passing
+        for depth in range(self.depth - 1):
+
+            agg_message = index_select_ND(message_bond, a2b)
+            agg_message = agg_message.sum(dim=1) * agg_message.max(dim=1)[0]
+            message_atom = message_atom + agg_message
+            
+            # directed graph
+            rev_message = message_bond[b2revb]  # num_bonds x hidden
+            message_bond = message_atom[b2a] - rev_message  # num_bonds x hidden
+            
+            message_bond = self._modules[f'W_h_{depth}'](message_bond)
+            message_bond = self.dropout_layer(self.act_func(input_bond + message_bond))
+        
+        agg_message = index_select_ND(message_bond, a2b)
+        agg_message = agg_message.sum(dim=1) * agg_message.max(dim=1)[0]
+        agg_message = self.lr(torch.cat([agg_message, message_atom, input_atom], 1))
+        agg_message = self.gru(agg_message, a_scope)
+        
+        atom_hiddens = self.act_func(self.W_o(agg_message))  # num_atoms x hidden
+        atom_hiddens = self.dropout_layer(atom_hiddens)  # num_atoms x hidden
+        
+        # Readout
+        feat = torch.zeros((len(a_scope), self.max_num_nodes, self.hidden_size)).to(atom_hiddens.device)
+        mask = torch.ones((len(a_scope), self.max_num_nodes)).to(atom_hiddens.device)
+
+        for i, (a_start, a_size) in enumerate(a_scope):
+            if a_size == 0:
+                assert 0
+            if a_size <= self.max_num_nodes:
+                feat[i, :a_size] = atom_hiddens.narrow(0, a_start, a_size)
+                mask[i, a_size:] = 0
+            else:
+                feat[i] = atom_hiddens.narrow(0, a_start, self.max_num_nodes)
+        
+        return feat, mask
+
 
     def forward(self, mol_graph: BatchMolGraph, features_batch=None) -> torch.FloatTensor:
 
@@ -346,7 +406,7 @@ class MPN(nn.Module):
                  args: Namespace,
                  atom_fdim: int = None,
                  bond_fdim: int = None,
-                 graph_input: bool = False):
+                 max_num_nodes: int = 200):
         super(MPN, self).__init__()
         self.args = args
         self.atom_descriptors = None
@@ -356,13 +416,16 @@ class MPN(nn.Module):
         # self.atom_fdim = atom_fdim or get_atom_fdim(args)
         # self.bond_fdim = bond_fdim or get_bond_fdim(args) + \
         #                     (not args.atom_messages) * self.atom_fdim # * 2
-        self.graph_input = graph_input
-        self.encoder = MPNEncoder(self.args, self.atom_fdim, self.bond_fdim)
+        
+        self.encoder = MPNEncoder(self.args, self.atom_fdim, self.bond_fdim, max_num_nodes)
+
+    def featurize(self, batch: Union[List[str], BatchMolGraph],
+                features_batch: List[np.ndarray] = None) -> torch.FloatTensor:
+
+        return self.encoder.featurize(batch, features_batch)
 
     def forward(self, batch: Union[List[str], BatchMolGraph],
                 features_batch: List[np.ndarray] = None) -> torch.FloatTensor:
-        # if not self.graph_input:  # if features only, batch won't even be used
-        #     batch = mol2graph(batch, self.args)
 
         if type(batch) != BatchMolGraph:
             if self.atom_descriptors == 'feature':

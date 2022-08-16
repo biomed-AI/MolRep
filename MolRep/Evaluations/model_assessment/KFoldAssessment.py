@@ -66,10 +66,10 @@ class KFoldAssessment:
             json.dump(assessment_results, fp)
 
 
-    def risk_assessment(self, dataset, experiment_class, debug=False, other=None):
+    def risk_assessment(self, dataset, experiment_class, no_parallel=False, other=None):
         """
         :param experiment_class: the kind of experiment used
-        :param debug:
+        :param no_parallel:
         :param other: anything you want to share across processes
         :return: An average over the outer test folds. RETURNS AN ESTIMATE, NOT A MODEL!!!
         """
@@ -86,11 +86,11 @@ class KFoldAssessment:
 
             json_outer_results = os.path.join(kfold_folder, self._OUTER_RESULTS_FILENAME)
             if not os.path.exists(json_outer_results):
-                if not debug:
+                if not no_parallel:
                     pool.submit(self._risk_assessment_helper, dataset, outer_k,
-                                experiment_class, kfold_folder, debug, other)
+                                experiment_class, kfold_folder, no_parallel, other)
                 else:  # DEBUG
-                    self._risk_assessment_helper(dataset, outer_k, experiment_class, kfold_folder, debug, other)
+                    self._risk_assessment_helper(dataset, outer_k, experiment_class, kfold_folder, no_parallel, other)
             else:
                 # Do not recompute experiments for this outer fold.
                 print(f"File {json_outer_results} already present! Shutting down to prevent loss of previous experiments")
@@ -109,15 +109,16 @@ class KFoldAssessment:
         self.process_results()
 
 
-    def _risk_assessment_helper(self, dataset, outer_k, experiment_class, exp_path, debug=False, other=None):
+    def _risk_assessment_helper(self, dataset, outer_k, experiment_class, exp_path, no_parallel=False, other=None):
 
         dataset_getter = DataLoaderWrapper(dataset, outer_k)
 
         best_config = self.model_selector.model_selection(dataset_getter, experiment_class, exp_path,
-                                                          self.model_configs, self.dataset_config, debug, other)
+                                                          self.model_configs, self.dataset_config, no_parallel, other)
 
         # Retrain with the best configuration and test
         experiment = experiment_class(best_config['config'], self.dataset_config, exp_path)
+        metric_type = self.dataset_config['metric_type'][0] if isinstance(self.dataset_config['metric_type'], list) else self.dataset_config['metric_type']
 
         # Set up a log file for this experiment (run in a separate process)
 
@@ -128,17 +129,20 @@ class KFoldAssessment:
         training_scores, test_scores = [], []
         # Mitigate bad random initializations
         for i in range(5):
+            logger.log(f"\nTraining Run {i + 1}")
             model_path = str(os.path.join(experiment.exp_path, f'experiment_run_{i}.pt'))
             training_score, _, test_score = experiment.run_test(dataset_getter, logger, other={'model_path': model_path})
-            print(f'Final training run {i + 1}: {training_score}, {test_score}')
+            logger.log(f'Final training run {i + 1}: train {metric_type} {training_score[metric_type]}, test {metric_type} {test_score[metric_type]}')
 
-            training_scores.append(training_score)
-            test_scores.append(test_score)
+            training_scores.append(training_score[metric_type])
+            test_scores.append(test_score[metric_type])
 
-        training_score = sum(training_scores) / 5
-        test_score = sum(test_scores) / 5
+        training_score = np.mean(training_scores)
+        training_score_std = np.std(training_scores)
+        test_score = np.mean(test_scores)
+        test_score_std = np.std(test_scores)
 
-        logger.log('End of Outer fold. TR score: ' + str(training_score) + ' TS score: ' + str(test_score))
+        logger.log('End of Outer fold. TR score: [{:.04f}] ({:.5f}), TS score: [{:.04f}] ({:.5f})'.format(training_score, training_score_std, test_score, test_score_std))
 
         with open(os.path.join(exp_path, self._OUTER_RESULTS_FILENAME), 'w') as fp:
-            json.dump({'best_config': best_config, 'OUTER_TR': training_score, 'OUTER_TS': test_score}, fp)
+            json.dump({'best_config': best_config, 'OUTER_TR': training_score, 'OUTER_TR_STD':training_score_std, 'OUTER_TS': test_score, 'OUTER_TS_STD': test_score_std}, fp)

@@ -7,22 +7,21 @@ batch_size:
   - 64
 learning_rate:
   - 0.001
-  - 0.00001
+  # - 0.00001
 l2:
-  - 0.0
   - 0.1
-hidden_size:
+dim_embedding:
   - 256
-  - 300
+  # - 300
 bias:
   - False
-  - True
+  # - True
 depth:
-  - 4
   - 2
+  - 4
 dropout:
-  - 0.0
   - 0.1
+  - 0.0
 activation:
   - ReLU
 undirected:
@@ -30,7 +29,7 @@ undirected:
   - True
 ffn_hidden_size:
   - 256
-  - 512
+  # - 512
 ffn_num_layers:
   - 2
   - 5
@@ -49,6 +48,7 @@ scheduler:
       max_lr: [0.001]
       init_lr: [0.0001]
       final_lr: [0.0001]
+
 early_stopper:
   -
     class: Patience
@@ -58,7 +58,8 @@ early_stopper:
 gradient_clipping:
   - null
 num_epochs:
-  - 30
+  - 100
+  # - 300
 num_lrs:
   - 1
 features_only:
@@ -69,3 +70,5 @@ use_input_features:
   - False
 shuffle:
   - True
+seed:
+  - 2022

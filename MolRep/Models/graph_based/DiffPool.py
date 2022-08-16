@@ -4,7 +4,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from torch_geometric.nn import DenseSAGEConv, dense_diff_pool
-from torch_geometric.utils import to_dense_batch, to_dense_adj
+from torch_geometric.utils import degree, to_dense_batch, to_dense_adj
 from torch_geometric.transforms import ToDense
 
 NUM_SAGE_LAYERS = 3
@@ -84,7 +84,7 @@ class DiffPool(nn.Module):
     """
     Computes multiple DiffPoolLayers
     """
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=400):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=200):
         super().__init__()
 
         self.max_num_nodes = max_num_nodes
@@ -93,6 +93,8 @@ class DiffPool(nn.Module):
         dim_embedding = model_configs['dim_embedding']  # embedding size of 3rd SAGE convolutions (eq. 5, dim of Z)
         dim_embedding_MLP = model_configs['dim_embedding_MLP']  # hidden neurons of last 2 MLP layers
 
+        self.max_num_nodes = max_num_nodes
+        self.dim_embedding = dim_embedding
         self.num_diffpool_layers = num_diffpool_layers
 
         # Reproduce paper choice about coarse factor
@@ -154,8 +156,27 @@ class DiffPool(nn.Module):
         x = self.final_embed(x, adj)
         x_all.append(torch.max(x, dim=1)[0])
 
-        x = torch.cat(x_all, dim=1)
-        return x
+        x = torch.stack(x_all, dim=1).mean(1)
+        return self.unbatch(x, batch)
+
+    def unbatch(self, x, batch):
+        sizes = degree(batch, dtype=torch.long).tolist()
+        node_feat_list = x.split(sizes, dim=0)
+
+        feat = torch.zeros((len(node_feat_list), self.max_num_nodes, self.dim_embedding)).to(x.device)
+        mask = torch.ones((len(node_feat_list), self.max_num_nodes)).to(x.device)
+
+        for idx, node_feat in enumerate(node_feat_list):
+            node_num = node_feat.size(0)
+            
+            if node_num <= self.max_num_nodes:
+                feat[idx, :node_num] = node_feat
+                mask[idx, node_num:] = 0
+            
+            else:
+                feat[idx] = node_feat[:self.max_num_nodes]
+
+        return feat, mask
 
 
     def forward(self, data):
@@ -198,8 +219,8 @@ class DiffPool(nn.Module):
             x = self.sigmoid(x)
         if self.multiclass:
             x = x.reshape((x.size(0), -1, self.multiclass_num_classes)) # batch size x num targets x num classes per target
-            if not self.training:
-                x = self.multiclass_softmax(x) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
+            # if not self.training:
+            x = self.multiclass_softmax(x) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
 
         return x, l_total, e_total
 

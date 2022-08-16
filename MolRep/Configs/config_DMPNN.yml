@@ -4,7 +4,7 @@ device:
   - cuda
 bias:
   - False
-hidden_size:
+dim_embedding:
   - 256
   - 300
   - 512
@@ -71,3 +71,5 @@ num_epochs:
   - 100
 scheduler:
   - null
+seed:
+  - 2022

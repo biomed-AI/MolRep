@@ -46,8 +46,10 @@ early_stopper:
 gradient_clipping:
   - null
 num_epochs:
-  - 30
+  - 50
 num_lrs:
   - 1
 shuffle:
   - True
+seed:
+  - 2022

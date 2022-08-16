@@ -33,23 +33,28 @@ class LayerNorm(nn.Module):
         return self.gamma * x + self.beta
 
 class Embeddings(nn.Module):
-    """Construct the embeddings from protein/target, position embeddings.
+    """Construct the embeddings from molecule, position embeddings.
     """
-    def __init__(self, vocab_size, hidden_size, max_position_size, dropout_rate):
+    def __init__(self, vocab_size, hidden_size, max_position_size, dropout_rate, type_vocab_size=5):
         super(Embeddings, self).__init__()
         self.word_embeddings = nn.Embedding(vocab_size, hidden_size)
         self.position_embeddings = nn.Embedding(max_position_size, hidden_size)
+        self.token_type_embeddings = nn.Embedding(type_vocab_size, hidden_size)
 
-        self.LayerNorm = LayerNorm(hidden_size)
+        self.LayerNorm = nn.LayerNorm(hidden_size, eps=1e-12)
         self.dropout = nn.Dropout(dropout_rate)
 
-    def forward(self, input_ids):
+    def forward(self, input_ids, input_mask=None):
         seq_length = input_ids.size(1)
         position_ids = torch.arange(seq_length, dtype=torch.long, device=input_ids.device)
         position_ids = position_ids.unsqueeze(0).expand_as(input_ids)
         
         words_embeddings = self.word_embeddings(input_ids)
         position_embeddings = self.position_embeddings(position_ids)
+
+        if input_mask is not None:
+            token_type_embeddings = self.token_type_embeddings(input_mask)
+            words_embeddings = words_embeddings + token_type_embeddings
 
         embeddings = words_embeddings + position_embeddings
         embeddings = self.LayerNorm(embeddings)
@@ -128,7 +133,7 @@ class Attention(nn.Module):
     def forward(self, input_tensor, attention_mask):
         self_output = self.self(input_tensor, attention_mask)
         attention_output = self.output(self_output, input_tensor)
-        return attention_output    
+        return attention_output
 
 class Intermediate(nn.Module):
     def __init__(self, hidden_size, intermediate_size):
@@ -179,11 +184,12 @@ class Encoder_MultipleLayers(nn.Module):
         return hidden_states
 
 class Transformer(nn.Sequential):
-    def __init__(self, dim_features, dim_targets, model_configs, dataset_configs):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=200):
         super(Transformer, self).__init__()
 
-        self.dim_features = dim_features
-        self.dim_targets = dim_targets
+        self.vocab_size = dim_features
+        self.dim_targets = dim_target
+        self.max_num_nodes = max_num_nodes
 
         self.task_type = dataset_configs["task_type"]
         self.multiclass_num_classes = dataset_configs["multiclass_num_classes"] if self.task_type == 'Multi-Classification' else None
@@ -200,22 +206,34 @@ class Transformer(nn.Sequential):
         assert not (self.classification and self.regression and self.multiclass)
 
         self.emb = Embeddings(
-            vocab_size=self.dim_features,
-            hidden_size=model_configs['emb_size'],
-            max_position_size=50,
+            vocab_size=self.vocab_size,
+            hidden_size=model_configs['hidden_dim'],
+            max_position_size=1024,
             dropout_rate=model_configs['dropout_rate']
         )
 
         self.encoder = Encoder_MultipleLayers(
             n_layer=model_configs['n_layer'],
-            hidden_size=model_configs['emb_size'],
+            hidden_size=model_configs['hidden_dim'],
             intermediate_size=model_configs['intermediate_size'],
             num_attention_heads=model_configs['num_attention_heads'],
             attention_probs_dropout_prob=model_configs['attention_probs_dropout'],
             hidden_dropout_prob=model_configs['hidden_dropout_rate']
         )
 
-        self.linear_final = nn.Linear(model_configs['emb_size'], self.dim_targets)
+        self.linear_final = nn.Linear(model_configs['hidden_dim'], self.dim_targets)
+
+    def featurize(self, data):
+        e = data[0].long()
+        e_mask = data[1].long()
+
+        ex_e_mask = e_mask.unsqueeze(1).unsqueeze(2)
+        ex_e_mask = (1.0 - ex_e_mask) * -10000.0
+
+        emb = self.emb(e)
+        encoded_layers = self.encoder(emb.float(), ex_e_mask.float())
+
+        return encoded_layers[:, 0]
 
     def forward(self, data):
         e = data[0].long()

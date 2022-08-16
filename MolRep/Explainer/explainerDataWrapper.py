@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+"""
+Created on 2021.08.19
+
+@author: Jiahua Rao
+
+"""
+
 
 import os
 import json
@@ -15,6 +23,7 @@ from MolRep.Experiments.Graph_Data import Graph_data, MPNN_data
 from MolRep.Evaluations.data_split import defined_split, scaffold_split
 
 from MolRep.Utils.utils import filter_invalid_smiles, NumpyEncoder
+
 
 class ExplainerDatasetWrapper:
 
@@ -77,19 +86,30 @@ class ExplainerDatasetWrapper:
     def max_num_nodes(self):
         return self._max_num_nodes
 
-    def get_smiles_list(self, testing=True):
+    def get_smiles_list(self, testing=True, training=False):
         whole_smiles = self.whole_data_df.loc[:,self.smiles_col].values
         if testing:
             testset_indices = self.splits[0]["test"]
+        elif training:
+            testset_indices = self.splits[0]["model_selection"][0]["train"]
         else:
             testset_indices = np.arange(len(whole_smiles))
         return whole_smiles[testset_indices]
+
+    def get_smiles_idxs(self, testing=True, training=False):
+        whole_smiles = self.whole_data_df.loc[:,self.smiles_col].values
+        if testing:
+            return self.splits[0]["test"]
+        elif training:
+            return self.splits[0]["model_selection"][0]["train"]
+        else:
+            return np.arange(len(whole_smiles))
 
     def get_attribution_truth(self):
         testset_indices = self.splits[0]["test"]
         attribution = np.load(self.attribution_path, allow_pickle=True)['attributions']
 
-        if self.dataset_name in ['hERG', 'CYP3A4']:
+        if self.dataset_name in ['hERG', 'CYP3A4', 'CYP']:
             return attribution
         else:
             return [attribution[idx]['node_atts'] for idx in testset_indices]
@@ -142,7 +162,7 @@ class ExplainerDatasetWrapper:
     def _process(self):
         """
         """
-        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'MolecularFingerprint']:
+        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'PyGCMPNN', 'MorganFP', 'MACCSFP', 'XGraphSAGE', 'XGAT', 'XGIN', 'XMorganFP', 'XMACCSFP']:
             preparer = GraphEmbeddings(data_df=self.whole_data_df,
                                        model_name=self.model_name,
                                        features_path=self.features_path,
@@ -151,7 +171,7 @@ class ExplainerDatasetWrapper:
             self._dim_features = preparer.dim_features
             self._max_num_nodes = preparer.max_num_nodes
             
-            if self.model_name == 'GraphNet':
+            if self.model_name in ['GraphNet', 'PyGCMPNN']:
                 self._dim_features = (preparer.dim_features, preparer.dim_edge_features)
 
 
@@ -166,7 +186,7 @@ class ExplainerDatasetWrapper:
             # self._dim_edge_features = preparer._dim_edge_features
 
         else: 
-            raise print("Explainer Model Must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MPNN', 'DMPNN', 'CMPNN']")
+            raise print("Explainer Model Must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'PyGCMPNN', 'MPNN', 'DMPNN', 'CMPNN']")
 
 
     def _make_splits(self):
@@ -195,14 +215,15 @@ class ExplainerDatasetWrapper:
                                                         random_state=self.seed)
 
         elif self.split_type == 'defined':
-            train_split, test_split = defined_split(self.defined_splits)
+            _, test_split = defined_split(self.defined_splits)
+            train_split, valid_split = defined_split(self.defined_splits, 'valid')
 
         else:
             assert f"{self.split_type} must be in [random, scaffold] or defined by yourself through dataset_config['additional_info']['splits']]."
 
         split = {"test": all_idxs[test_split], 'model_selection': []}
         split['model_selection'].append(
-                                {"train": all_idxs[train_split]})
+                                {"train": all_idxs[train_split], "valid":all_idxs[valid_split]})
         self.splits.append(split)
 
         with open(self.splits_filename, "w") as f:
@@ -213,45 +234,46 @@ class ExplainerDatasetWrapper:
 
         indices = self.splits[0]["model_selection"][0]
         trainset_indices = indices['train']
+        validset_indices = indices['valid'] if len(indices['valid']) else None
 
         scaler = None
-        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'MolecularFingerprint']:
-            train_dataset, _, _ = Graph_data.Graph_construct_dataset(
-                self.features_path, train_idxs=trainset_indices)
+        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'PyGCMPNN', 'MorganFP', 'MACCSFP', 'XGraphSAGE', 'XGAT', 'XGIN', 'XMorganFP', 'XMACCSFP']:
+            train_dataset, valid_dataset, _ = Graph_data.Graph_construct_dataset(
+                self.features_path, train_idxs=trainset_indices, valid_idxs=validset_indices)
             train_loader, valid_loader, _, features_scaler, scaler = Graph_data.Graph_construct_dataloader(
-                trainset=train_dataset, batch_size=batch_size, shuffle=shuffle, task_type=self._task_type, features_scaling=features_scaling)
+                trainset=train_dataset, validset=valid_dataset, batch_size=batch_size, shuffle=shuffle, task_type=self._task_type, features_scaling=features_scaling)
 
         elif self.model_name in ['MPNN', 'DMPNN', 'CMPNN']:
-            train_dataset, _, _ = MPNN_data.MPNN_construct_dataset(
-                self.features_path, train_idxs=trainset_indices)
+            train_dataset, valid_dataset, _ = MPNN_data.MPNN_construct_dataset(
+                self.features_path, train_idxs=trainset_indices, valid_idxs=validset_indices)
             
             train_loader, valid_loader, _, features_scaler, scaler = MPNN_data.MPNN_construct_dataloader(
-                trainset=train_dataset, batch_size=batch_size, shuffle=shuffle, task_type=self._task_type, features_scaling=features_scaling)
-
+                trainset=train_dataset, validset=valid_dataset, batch_size=batch_size, shuffle=shuffle, task_type=self._task_type, features_scaling=features_scaling)
+            
         else: 
-            raise print("Explainer Model Must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MPNN', 'DMPNN', 'CMPNN']")
+            raise print(self.model_name, " Explainer Model Must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'PyGCMPNN', 'MPNN', 'DMPNN', 'CMPNN']")
 
-        return train_loader, scaler
+        return train_loader, valid_loader, features_scaler, scaler
 
 
-    def get_test_loader(self, features_scaling=False):
+    def get_test_loader(self, batch_size=1, features_scaling=False):
 
         testset_indices = self.splits[0]["test"]
 
-        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'MolecularFingerprint']:
+        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'PyGCMPNN', 'MorganFP', 'MACCSFP', 'XGraphSAGE', 'XGAT', 'XGIN', 'XMorganFP', 'XMACCSFP']:
             _, _, test_dataset = Graph_data.Graph_construct_dataset(
                                                     self.features_path, test_idxs=testset_indices)
             _, _, test_loader, _, _ = Graph_data.Graph_construct_dataloader(
-                                                    testset=test_dataset, batch_size=1, shuffle=False, task_type=self._task_type, features_scaling=features_scaling)
+                                                    testset=test_dataset, batch_size=batch_size, shuffle=False, task_type=self._task_type, features_scaling=features_scaling)
 
         elif self.model_name in ['MPNN', 'DMPNN', 'CMPNN']:
             _, _, test_dataset = MPNN_data.MPNN_construct_dataset(
                                                     self.features_path, test_idxs=testset_indices)
             _, _, test_loader, _, _ = MPNN_data.MPNN_construct_dataloader(
-                                                        testset=test_dataset, batch_size=1, shuffle=False, task_type=self._task_type, features_scaling=features_scaling)
+                                                        testset=test_dataset, batch_size=batch_size, shuffle=False, task_type=self._task_type, features_scaling=features_scaling)
 
         else: 
-            raise print("Explainer Model Must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MPNN', 'DMPNN', 'CMPNN']")
+            raise print("Explainer Model Must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'PyGCMPNN', 'MPNN', 'DMPNN', 'CMPNN']")
 
         if len(testset_indices) == 0:
             test_loader = None
@@ -263,20 +285,20 @@ class ExplainerDatasetWrapper:
         testset_indices = indices['train']
         testset_indices += self.splits[0]["test"]
 
-        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'MolecularFingerprint']:
+        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'PyGCMPNN', 'MolecularFingerprint']:
             _, _, test_dataset = Graph_data.Graph_construct_dataset(
                                                     self.features_path, test_idxs=testset_indices)
             _, _, test_loader, _, _ = Graph_data.Graph_construct_dataloader(
-                                                    testset=test_dataset, batch_size=1, shuffle=False, task_type=self._task_type, features_scaling=features_scaling)
+                                                    testset=test_dataset, batch_size=batch_size, shuffle=False, task_type=self._task_type, features_scaling=features_scaling)
 
         elif self.model_name in ['MPNN', 'DMPNN', 'CMPNN']:
             _, _, test_dataset = MPNN_data.MPNN_construct_dataset(
                                                     self.features_path, test_idxs=testset_indices)
             _, _, test_loader, _, _ = MPNN_data.MPNN_construct_dataloader(
-                                                        testset=test_dataset, batch_size=1, shuffle=False, task_type=self._task_type, features_scaling=features_scaling)
+                                                        testset=test_dataset, batch_size=batch_size, shuffle=False, task_type=self._task_type, features_scaling=features_scaling)
 
         else: 
-            raise print("Explainer Model Must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MPNN', 'DMPNN', 'CMPNN']")
+            raise print("Explainer Model Must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'PyGCMPNN', 'MPNN', 'DMPNN', 'CMPNN']")
 
         if len(testset_indices) == 0:
             test_loader = None

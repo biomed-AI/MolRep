@@ -71,6 +71,22 @@ class GraphNet(nn.Module):
         assert not (self.classification and self.regression and self.multiclass)
 
 
+    def featurize(self, data):
+        x, edge_index, edge_attrs, batch = data.x, data.edge_index, data.edge_attr, data.batch
+        
+        x = self.project_node_feats(x)     # (batch_size, node hidden features)
+        hidden_feats = x.unsqueeze(0)      # (1, batch_size, node hidden features)
+
+        for _ in range(self.num_layers):
+
+            x = self.gnn(x, edge_index, edge_attrs)
+
+            x = F.relu(x)
+            x, hidden_feats = self.gru(x.unsqueeze(0), hidden_feats)
+            x = x.squeeze(0)
+
+        graph_feats = self.readout(x, batch)
+        return graph_feats
 
     def forward(self, data):
         x, edge_index, edge_attrs, batch = data.x, data.edge_index, data.edge_attr, data.batch
@@ -105,8 +121,8 @@ class GraphNet(nn.Module):
             x = self.sigmoid(x)
         if self.multiclass:
             x = x.reshape(x.size(0), -1, self.multiclass_num_classes) # batch size x num targets x num classes per target
-            if not self.training:
-                x = self.multiclass_softmax(x) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
+            # if not self.training:
+            x = self.multiclass_softmax(x) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
 
         return x
 

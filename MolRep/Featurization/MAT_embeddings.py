@@ -21,6 +21,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import MolFromSmiles
 from sklearn.metrics import pairwise_distances
+import torch
 
 
 class MATEmbeddings():
@@ -54,8 +55,9 @@ class MATEmbeddings():
 
         features_path = self.features_path
         if self.use_data_saving and os.path.exists(features_path):
-            x_all, y_all = pickle.load(open(features_path, "rb"))
-            self._dim_features = x_all[0][0].shape[1]
+            # x_all, y_all = pickle.load(open(features_path, "rb"))
+            dataset = torch.load(features_path)
+            self._dim_features = dataset["x_all"][0][0].shape[1]
 
         else:
             data_x = self.whole_data_df.loc[:,self.smiles_col].values
@@ -66,7 +68,14 @@ class MATEmbeddings():
 
             self._dim_features = x_all[0][0].shape[1]
             if self.use_data_saving and not os.path.exists(features_path):
-                pickle.dump((x_all, y_all), open(features_path, "wb"))
+                dataset = {
+                    "x_all": x_all,
+                    "y_all": y_all,
+                }
+                # pickle.dump((x_all, y_all), open(features_path, "wb"))
+                torch.save(dataset, features_path)
+
+        return dataset
 
     def load_data_from_smiles(self, x_smiles, labels, add_dummy_node=True, one_hot_formal_charge=False):
         """

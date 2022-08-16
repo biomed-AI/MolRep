@@ -27,7 +27,7 @@ def calc_metric(y_labels: List, y_preds: List, metric_type: str, multiclass_num_
     # Metrics for Classifications
     if metric_type == "auc":
         # Metric for Multi-Classification
-        if len(y_preds[0]) > 0:
+        if isinstance(y_preds[0], list):
             y_preds = torch.softmax(torch.FloatTensor(y_preds), dim=1)
             y_labels = torch.nn.functional.one_hot(torch.LongTensor(y_labels), multiclass_num_classes)
             fpr, tpr, roc_auc = dict(), dict(), dict()
@@ -47,17 +47,18 @@ def calc_metric(y_labels: List, y_preds: List, metric_type: str, multiclass_num_
             tpr["macro"] = mean_tpr
             roc_auc["macro"] = auc(fpr["macro"], tpr["macro"])
 
-            fpr["micro"], tpr["micro"], _ = roc_curve(np.array(y_labels).ravel(), np.array(y_labels).ravel())
+            fpr["micro"], tpr["micro"], _ = roc_curve(np.array(y_labels).ravel(), np.array(y_preds).ravel())
             roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
 
             return roc_auc["macro"]
 
-
+        # print(y_preds)
+        # print(y_labels)
         return roc_auc_score(y_labels, y_preds)
 
     elif metric_type == "acc":
         # Metric for Multi-Classification
-        if len(y_preds[0]) > 0:
+        if isinstance(y_preds[0], list):
             y_preds = torch.argmax(torch.FloatTensor(y_preds), dim=1)
             return accuracy_score(y_labels, y_preds)
 
@@ -70,7 +71,7 @@ def calc_metric(y_labels: List, y_preds: List, metric_type: str, multiclass_num_
 
     elif metric_type == 'precision':
         # Metric for Multi-Classification
-        if len(y_preds[0]) > 0:
+        if isinstance(y_preds[0], list):
             y_preds = torch.argmax(torch.FloatTensor(y_preds), dim=1)
             return precision_score(y_labels, y_preds, average="macro")
 
@@ -79,7 +80,7 @@ def calc_metric(y_labels: List, y_preds: List, metric_type: str, multiclass_num_
 
     elif metric_type == 'recall':
         # Metric for Multi-Classification
-        if len(y_preds[0]) > 0:
+        if isinstance(y_preds[0], list):
             y_preds = torch.argmax(torch.FloatTensor(y_preds), dim=1)
             return recall_score(y_labels, y_preds, average="macro")
 
@@ -88,9 +89,9 @@ def calc_metric(y_labels: List, y_preds: List, metric_type: str, multiclass_num_
 
     elif metric_type == 'f1':
         # Metric for Multi-Classification
-        if len(y_preds[0]) > 0:
+        if isinstance(y_preds[0], list):
             y_preds = torch.argmax(torch.FloatTensor(y_preds), dim=1)
-            return recall_score(y_labels, y_preds, average="macro")
+            return f1_score(y_labels, y_preds, average="macro")
 
         y_preds = np.rint(y_preds)
         return f1_score(y_labels, y_preds)

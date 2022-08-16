@@ -50,8 +50,8 @@ class GradInput(AttributionTechnique):
         output = model(data)
         if not isinstance(output, tuple):
             output = (output,)
+        # embeds = model.featurize(data)
 
-        # Prediction
         atom_features, atom_grads, bond_features, bond_grads = model.get_gradients(data)
 
         atom_weights = torch.einsum('ij,ij->i', atom_features, atom_grads) if atom_grads is not None else None

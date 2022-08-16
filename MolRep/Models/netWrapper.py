@@ -31,6 +31,7 @@ def format_time(avg_time):
 class NetWrapper:
     def __init__(self, model, dataset_configs, model_config, loss_function=None):
         self.model = model
+        self.device = torch.device(model_config['device'])
         self.loss_fun = loss_function
         self.model_name = model_config.exp_name
         self.dataset_name = dataset_configs["name"]
@@ -41,7 +42,7 @@ class NetWrapper:
         self.target_cols = dataset_configs["target_columns"]
         self.num_tasks = len(self.target_cols)
 
-        self.device = torch.device(model_config['device'])
+        # self.device = torch.device(device)
 
         self.print_metric_type = self.metric_type[0] if isinstance(self.metric_type, list) else self.metric_type
 
@@ -58,7 +59,7 @@ class NetWrapper:
 
         early_stopper = early_stopping() if early_stopping is not None else None
 
-        val_loss, val_metric = -1, -1
+        val_loss, val_metric, best_val_metric = -1, -1, {self.print_metric_type: 0.0}
         time_per_epoch = []
 
         # Training for Deep learning Methods
@@ -74,6 +75,10 @@ class NetWrapper:
 
             if valid_loader is not None:
                 _, _, val_metric, val_loss = self.test_on_epoch_end(valid_loader, scaler)
+                
+                if val_metric[self.print_metric_type] >= best_val_metric[self.print_metric_type]:
+                    best_val_metric = val_metric
+                
                 if early_stopper is not None and early_stopper.stop(i, val_loss, val_acc=val_metric[self.print_metric_type],
                                                                     train_loss=train_loss, train_acc=train_metric[self.print_metric_type]):
                     if logger is not None:
@@ -98,13 +103,13 @@ class NetWrapper:
         elapsed = format_time(avg_time_per_epoch)
         # if early_stopper is not None:
         #     train_loss, train_metric, val_loss, val_metric, test_loss, test_metric, best_epoch = early_stopper.get_best_vl_metrics()
-        return train_loss, train_metric, val_loss, val_metric, elapsed
+        return train_loss, train_metric, val_loss, val_metric, best_val_metric, elapsed
 
     def test(self, test_loader=None, scaler=None,
              scheduler=None, log_every=10, logger=None):
         
         y_preds, y_labels, test_metric, test_loss = self.test_on_epoch_end(test_loader, scaler)
-        logger.log(f'[TEST] test loss: %.6f test %s: %.6f' % ( test_loss, self.metric_type, test_metric))
+        logger.log(f'[TEST] test loss: %.6f test %s: %.6f' % ( test_loss, self.print_metric_type, test_metric[self.print_metric_type]))
 
         return y_preds, y_labels, test_metric
 
@@ -115,9 +120,21 @@ class NetWrapper:
         loss_all = 0
         y_preds, y_labels = [], []
         for _, data in enumerate(train_loader):
-            # print('data', data)
 
-            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'MolecularFingerprint']:
+            if self.model_name == 'MultiModal':
+                target_batch = data["seq_data"][-1]
+                for key, value in data.items():
+                    if isinstance(value, tuple):
+                        data[key] = tuple([v.to(self.device) for v in value])
+                    elif isinstance(value, list):
+                        mol_batch, features_batch, target_batch, atom_descriptors_batch = value
+                        data[key] = (mol_batch, features_batch, atom_descriptors_batch)
+                    elif value is not None:
+                        data[key] = value.to(self.device)
+                    else:
+                        data[key] = value
+
+            elif self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'PyGCMPNN']:
                 target_batch = data.y
                 data = data.to(self.device)
 
@@ -130,7 +147,6 @@ class NetWrapper:
                 data = [features.to(self.device) for features in data]
 
             elif self.model_name in ['BiLSTM', 'SALSTM', 'Transformer']:
-                print('data', data)
                 target_batch = data[-1]
                 data = (data[0].to(self.device), data[1].to(self.device))
 
@@ -139,17 +155,15 @@ class NetWrapper:
                 data = tuple(d.to(self.device) for d in data[0])
 
             else:
-                raise print(f"Model Name must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', \
-                                                ,'MorganFP', 'MPNN', 'DMPNN', 'CMPNN', 'MAT', 'BiLSTM', 'SALSTM', 'Transformer', 'VAE', 'Mol2Vec', 'N-Gram-Graph']")
+                raise print(f"Model Name must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MorganFP', 'MACCSFP', \
+                                                , 'MPNN', 'DMPNN', 'CMPNN', 'MAT', 'BiLSTM', 'SALSTM', 'Transformer', 'VAE', 'Mol2Vec', 'N-Gram-Graph']")
 
-            mask = torch.Tensor([[not np.isnan(x) for x in tb] for tb in target_batch])
-            labels = torch.Tensor([[0 if np.isnan(x) else x for x in tb] for tb in target_batch])
-            class_weights = torch.ones(labels.shape)
+            mask = torch.Tensor([[not np.isnan(x) for x in tb] for tb in target_batch]).to(self.device)
+            labels = torch.Tensor([[0 if np.isnan(x) else x for x in tb] for tb in target_batch]).to(self.device)
+            class_weights = torch.ones(labels.shape).to(self.device)
 
             optimizer.zero_grad()
             output = model(data)
-            # import sys
-            # sys.exit(0)
 
             if not isinstance(output, tuple):
                 output = (output,)
@@ -159,7 +173,7 @@ class NetWrapper:
                 loss = torch.cat([self.loss_fun(labels[:, target_index], output[0][:, target_index, :]).unsqueeze(1) for target_index in range(output[0].size(1))], dim=1) * class_weights * mask
             else:
                 # print('class_weights, mask', class_weights, mask)
-                # print('labels, output', labels, output)
+                # print('labels, output', labels, *output)
                 loss = self.loss_fun(labels, *output) * class_weights * mask
             loss = loss.sum() / mask.sum()
             # for name, param in model.named_parameters():
@@ -169,7 +183,6 @@ class NetWrapper:
 
             y_preds.extend(output[0].data.cpu().numpy().tolist())
             y_labels.extend(target_batch)
-            # print('iter loss:', loss.item())
 
             loss_all += loss.item() * labels.size()[0]
 
@@ -178,14 +191,10 @@ class NetWrapper:
 
         if self.task_type != 'Regression':
             y_preds = torch.sigmoid(torch.FloatTensor(y_preds))
+            
         results = self.evaluate_predictions(preds=y_preds, targets=y_labels,
                                             num_tasks=self.num_tasks, metric_type=self.metric_type,
                                             task_type=self.task_type)
-        if abs(loss_all / len(train_loader.dataset) - 0.693147) < 1e-3:
-            # print('y_preds:', y_preds)
-            # print('y_labels:', y_labels)
-            for name, param in model.named_parameters():
-                print(name, param)
         return results, loss_all / len(train_loader.dataset)
 
     def test_on_epoch_end(self, test_loader, scaler=None):
@@ -195,7 +204,21 @@ class NetWrapper:
         loss_all = 0
         y_preds, y_labels = [], []
         for _, data in enumerate(test_loader):
-            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', 'GraphNet', 'GAT']:
+
+            if self.model_name == 'MultiModal':
+                target_batch = data["seq_data"][-1]
+                for key, value in data.items():
+                    if isinstance(value, tuple):
+                        data[key] = tuple([v.to(self.device) for v in value])
+                    elif isinstance(value, list):
+                        mol_batch, features_batch, target_batch, atom_descriptors_batch = value
+                        data[key] = (mol_batch, features_batch, atom_descriptors_batch)
+                    elif value is not None:
+                        data[key] = value.to(self.device)
+                    else:
+                        data[key] = value
+
+            elif self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'PyGCMPNN', 'MACCSFP']:
                 target_batch = data.y
                 data = data.to(self.device)
 
@@ -227,9 +250,9 @@ class NetWrapper:
             if not isinstance(output, tuple):
                 output = (output,)
 
-            mask = torch.Tensor([[not np.isnan(x) for x in tb] for tb in target_batch])
-            labels = torch.Tensor([[0 if np.isnan(x) else x for x in tb] for tb in target_batch])
-            class_weights = torch.ones(labels.shape)
+            mask = torch.Tensor([[not np.isnan(x) for x in tb] for tb in target_batch]).to(self.device)
+            labels = torch.Tensor([[0 if np.isnan(x) else x for x in tb] for tb in target_batch]).to(self.device)
+            class_weights = torch.ones(labels.shape).to(self.device)
 
             # Inverse scale if regression
             if scaler is not None:

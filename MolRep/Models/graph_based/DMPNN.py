@@ -144,8 +144,8 @@ class DMPNN(nn.Module):
             output = self.sigmoid(output)
         if self.multiclass:
             output = output.reshape((output.size(0), -1, self.num_classes))  # batch size x num targets x num classes per target
-            if not self.training:
-                output = self.multiclass_softmax(output)  # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
+            # if not self.training:
+            output = self.multiclass_softmax(output)  # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
 
         return output
 

@@ -153,7 +153,9 @@ def _construct_loader(data_set, batch_size, shuffle=True):
 
 
 def CoMPT_construct_dataset(features_path, train_idxs=None, valid_idxs=None, test_idxs=None):
-    x_all, y_all = pickle.load(open(features_path, "rb"))
+    # x_all, y_all = pickle.load(open(features_path, "rb"))
+    dataset = torch.load(features_path)
+    x_all, y_all = dataset["x_all"], dataset["y_all"]
 
     trainset = _construct_dataset(np.array(x_all)[train_idxs], np.array(y_all)[train_idxs]) if train_idxs is not None else None
     validset = _construct_dataset(np.array(x_all)[valid_idxs], np.array(y_all)[valid_idxs]) if valid_idxs is not None else None

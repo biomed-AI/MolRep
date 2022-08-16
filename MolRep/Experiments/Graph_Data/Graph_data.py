@@ -26,6 +26,7 @@ import rdkit
 from rdkit import Chem
 
 from MolRep.Models.scalers import StandardScaler
+from MolRep.Utils.utils import worker_init
 
 class MoleculeDataset(Dataset):
     def __init__(self, data):
@@ -149,15 +150,15 @@ class Batch(data.Batch):
 
         copy_data = []
         for d in data_list:
-            copy_data.append(Data(x=d.x,
+            copy_data.append(Data(x=d.x.float(),
                                   y=d.y,
                                   edge_index=d.edge_index,
                                   edge_attr=d.edge_attr,
-                                  v_outs=d.v_outs,
-                                  g_outs=d.g_outs,
-                                  e_outs=d.e_outs,
-                                  o_outs=d.o_outs,
-                                  smiles=d.smiles)
+                                  v_outs=d.v_outs if hasattr(d, 'v_outs') else None,
+                                  g_outs=d.g_outs if hasattr(d, 'g_outs') else None,
+                                  e_outs=d.e_outs if hasattr(d, 'e_outs') else None,
+                                  o_outs=d.o_outs if hasattr(d, 'o_outs') else None,
+                                  smiles=d.smiles if hasattr(d, 'smiles') else None)
                              )
 
         batch = data.Batch.from_data_list(copy_data, follow_batch=follow_batch)
@@ -219,7 +220,8 @@ class MoleculeDataLoader(DataLoader):
             collate_fn=lambda data_list: Batch.from_data_list(
                                                     data_list, follow_batch),
             multiprocessing_context=self._context,
-            timeout=self._timeout
+            timeout=self._timeout,
+            worker_init_fn=worker_init,
         )
 
     @property
@@ -253,6 +255,8 @@ class MoleculeDataLoader(DataLoader):
         r"""Creates an iterator which returns :class:`MoleculeDataset`\ s"""
         return super(MoleculeDataLoader, self).__iter__()
 
+
+
 def _construct_dataset(dataset, indices):
     return MoleculeDataset([dataset[idx] for idx in indices])
 
@@ -271,7 +275,8 @@ def _construct_dataloader(dataset, batch_size, shuffle, seed=0, num_workers=0, c
                     batch_size=batch_size,
                     num_workers=num_workers,
                     class_balance=class_balance,
-                    shuffle=shuffle
+                    shuffle=shuffle,
+                    seed=seed,
                 )
     else: 
         loader = None

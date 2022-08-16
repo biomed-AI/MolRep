@@ -24,7 +24,7 @@ class SALSTM(torch.nn.Module):
     and without pruning. Slight modifications have been done for speedup
     """
 
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=200):
         """
         Initializes parameters suggested in paper
         Args:

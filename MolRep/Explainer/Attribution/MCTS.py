@@ -19,6 +19,7 @@ import pickle
 
 from MolRep.Explainer.Attribution.utils.fuseprop import find_clusters, extract_subgraph
 from MolRep.Explainer.Attribution.utils.fuseprop.chemprop_utils import *
+from MolRep.Explainer.Attribution.utils.gnn_utils import *
 
 MIN_ATOMS = 3
 C_PUCT = 10
@@ -53,8 +54,9 @@ class MCTS:
         self.ncpu = ncpu
 
     def attribute(self, data, model, model_name, scaler=None):
-        smiles, mol_batch, features_batch, atom_descriptors_batch = data
-        data = (mol_batch, features_batch, atom_descriptors_batch)
+        # smiles, mol_batch, features_batch, atom_descriptors_batch = data
+        # data = (mol_batch, features_batch, atom_descriptors_batch)
+        smiles = data.smiles[0]
 
         output = model(data)
         if not isinstance(output, tuple):
@@ -85,7 +87,7 @@ class MCTS:
 
 
 def mcts_rollout(node, state_map, orig_smiles, clusters, atom_cls, nei_cls, scoring_function):
-    #print('cur_node', node.smiles, node.P, node.N, node.W)
+    print('cur_node', node.smiles)
     cur_atoms = node.atoms
     if len(cur_atoms) <= MIN_ATOMS:
         return node.P
@@ -98,7 +100,7 @@ def mcts_rollout(node, state_map, orig_smiles, clusters, atom_cls, nei_cls, scor
             if len(nei_cls[i] & cur_cls) == 1 or len(clusters[i]) == 2 and len(leaf_atoms) == 1:
                 new_atoms = cur_atoms - set(leaf_atoms)
                 new_smiles, _ = extract_subgraph(orig_smiles, new_atoms)
-                #print('new_smiles', node.smiles, '->', new_smiles)
+                #p rint('new_smiles', node.smiles, '->', new_smiles)
                 if new_smiles in state_map:
                     new_node = state_map[new_smiles] # merge identical states
                 else:
@@ -111,7 +113,10 @@ def mcts_rollout(node, state_map, orig_smiles, clusters, atom_cls, nei_cls, scor
 
         scores = scoring_function([x.smiles for x in node.children])
         for child, score in zip(node.children, scores):
-            child.P = score
+            if np.array(score).ndim == 1:
+                child.P = score
+            else:
+                child.P = 1 - score[0][0]
         
     sum_count = sum([c.N for c in node.children])
     selected_node = max(node.children, key=lambda x : x.Q() + x.U(sum_count))
@@ -120,7 +125,7 @@ def mcts_rollout(node, state_map, orig_smiles, clusters, atom_cls, nei_cls, scor
     selected_node.N += 1
     return v
 
-def mcts(smiles, scoring_function, n_rollout, max_atoms, prop_delta): 
+def mcts(smiles, scoring_function, n_rollout, max_atoms, prop_delta):
     mol = Chem.MolFromSmiles(smiles)
     clusters, atom_cls = find_clusters(mol)
     nei_cls = [0] * len(clusters)
@@ -141,7 +146,7 @@ def mcts(smiles, scoring_function, n_rollout, max_atoms, prop_delta):
 
 
 def mcts_search(data, model, model_name, scaler=None,
-                rollout=20, max_atoms=15, prop_delta=0.3, ncpu=2):
+                rollout=20, max_atoms=15, prop_delta=0.3, ncpu=4):
 
     scoring_function = get_scoring_function(model, model_name, scaler)
     # work_func = partial(mcts, scoring_function=scoring_function, 
@@ -161,7 +166,7 @@ class chemprop_model():
         self.model = model
         self.scaler = scaler
 
-    def __call__(self, smiles, batch_size=500):
+    def __call__(self, smiles, batch_size=1):
         test_data = get_data_from_smiles(smiles=smiles)
         valid_indices = [i for i in range(len(test_data)) if test_data[i].mol is not None]
         full_data = test_data
@@ -182,7 +187,34 @@ class chemprop_model():
         return np.array(full_preds, dtype=np.float32)
 
 
+class gnn_model:
+
+    def __init__(self, model, scaler=None):
+        self.model = model
+        self.scaler = scaler
+
+
+    def __call__(self, smiles, batch_size=500):
+        test_data, valid_indices = get_gnn_data_from_smiles(smiles=smiles)
+        
+        model_preds = gnn_predict(
+            model=self.model,
+            test_data=test_data,
+            scaler=self.scaler,
+            device='cuda'
+        )
+
+        # Put zero for invalid smiles
+        full_preds = [0.0] * len(smiles)
+        for i, si in enumerate(valid_indices):
+            full_preds[si] = model_preds[i]
+
+        return np.array(full_preds, dtype=np.float32)
+
+
 def get_scoring_function(model, model_name, scaler):
     """Function that initializes and returns a scoring function by name"""
     if model_name in ['DMPNN', 'CMPNN']:
         return chemprop_model(model=model, scaler=scaler)
+    if model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'PyGCMPNN']:
+        return gnn_model(model=model, scaler=scaler)

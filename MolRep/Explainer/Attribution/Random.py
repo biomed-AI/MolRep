@@ -41,7 +41,7 @@ class RandomBaseline(AttributionTechnique):
             output = (output,)
 
         # Prediction
-        if model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'MolecularFingerprint']:
+        if model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'PyGCMPNN', 'GAT', 'MolecularFingerprint']:
 
             atom_weights = torch.Tensor(np.random.uniform(size=(data.x.shape[0]))) if data.x is not None else None
             bond_weights = torch.Tensor(np.random.uniform(size=(data.edge_attr.shape[0]))) if data.edge_attr is not None else None

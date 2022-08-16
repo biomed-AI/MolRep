@@ -46,3 +46,5 @@ num_layers:
 dim_embedding:
   - 32
   - 64
+seed:
+  - 2022

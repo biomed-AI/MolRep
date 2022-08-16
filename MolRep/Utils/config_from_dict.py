@@ -22,7 +22,6 @@ from MolRep.Models.graph_based.DGCNN import DGCNN
 from MolRep.Models.graph_based.DiffPool import DiffPool
 from MolRep.Models.graph_based.GraphSAGE import GraphSAGE
 from MolRep.Models.graph_based.GraphNet import GraphNet
-from MolRep.Models.graph_based.MolecularFingerprint import MolecularFingerprint
 
 from MolRep.Models.graph_based.MPNN import MPNN
 from MolRep.Models.graph_based.CMPNN import CMPNN
@@ -32,7 +31,16 @@ from MolRep.Models.unsupervised_based.VAE import VAE
 from MolRep.Models.unsupervised_based.RandomForest import RandomForest
 from MolRep.Models.unsupervised_based.XGboost import XGboost
 
+from MolRep.Interactions.link_models.PLNLP.PLNLP import PLNLP
+from MolRep.Interactions.link_models.CFLP.CFLP import CFLP
+
 from MolRep.Utils.utils import read_config_file
+
+AVAILABLE_MODEL_NAME = {
+    "GNN_models": ['MPNN', 'DMPNN', 'CMPNN', 'GIN', 'ECC', 'GAT', 'DGCNN', 'DiffPool', 'GraphSAGE', 'GraphNet'],
+    "Seq_models": ['MAT', 'CoMPT', 'BiLSTM', 'SALSTM', 'Transformer']
+}
+
 
 class Config:
     """
@@ -48,7 +56,6 @@ class Config:
         'GraphSAGE': GraphSAGE,
         'GAT': GAT,
         'GraphNet': GraphNet,
-        'MolecularFingerprint': MolecularFingerprint,
 
         'MPNN': MPNN,
         'CMPNN': CMPNN,
@@ -65,6 +72,9 @@ class Config:
         'VAE': VAE,
         'RandomForest': RandomForest,
         'XGboost': XGboost,
+
+        'PLNLP': PLNLP,
+        'CFLP': CFLP,
     }
 
     optimizers = {
@@ -89,6 +99,9 @@ class Config:
                 setattr(self, attrname, fn(value))
             else:
                 setattr(self, attrname, value)
+    
+    def __setitem__(self, name, value):
+        setattr(self, name, value)
 
     def __getitem__(self, name):
         return getattr(self, name)
@@ -339,13 +352,35 @@ class DatasetConfig:
             'metric_type': 'auc',
             'split_type': 'random'
         },
+
+        # OGB-Benchmark
+        'ogbg-molhiv': {
+            'name': 'ogbg-molhiv',
+            'path': '',
+            'smiles_column': 'smiles',
+            'target_columns': ['HIV_active'],
+            'task_type': 'Classification',
+            'metric_type': 'auc',
+            'split_type': 'defined'
+        },
+
+        'ogbg-molbbbp': {
+            'name': 'ogbg-molbbbp',
+            'path': '',
+            'smiles_column': 'smiles',
+            'target_columns': ['p_np'],
+            'task_type': 'Classification',
+            'metric_type': 'auc',
+            'split_type': 'defined'
+        },
     }
 
     def __init__(self, dataset_name, data_dict=None):
         if dataset_name in ['QM7b', 'QM8', 'QM9', 'ESOL', 'FreeSolv', 'Lipophilicity', 'PCBA', 'MUV', \
-                                    'HIV', 'PDBbind', 'BACE', 'BBBP', 'Tox21', 'SIDER', 'ClinTox']:
+                                    'HIV', 'PDBbind', 'BACE', 'BBBP', 'Tox21', 'SIDER', 'ClinTox']  or dataset_name.startswith('ogb'):
             self.dataset_name = dataset_name
             self.dataset_config = dict(DatasetConfig.Data[dataset_name])
+            if data_dict is not None: self.set_dataset_path(data_dict['path'])
         else:
             # print("Dataset name should be in ['QM7b', 'QM8', 'QM9', 'ESOL', 'FreeSolv', 'Lipophilicity', 'PCBA', 'MUV', \
             #                         'HIV', 'PDBbind', 'BACE', 'BBBP', 'Tox21', 'SIDER', 'ClinTox']\n")
@@ -358,8 +393,11 @@ class DatasetConfig:
 
     def __contains__(self, attrname):
         return attrname in self.dataset_config.keys()
+ 
+    def __setitem__(self, key, value):
+        self.dataset_config[key] = value
 
-    def set_dataset_full_path(self, path):
+    def set_dataset_path(self, path):
         self.dataset_config['path'] = path
 
     @property

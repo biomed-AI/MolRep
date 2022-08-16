@@ -10,16 +10,16 @@ from rdkit.Chem.Scaffolds import MurckoScaffold
 import numpy as np
 
 
-def defined_split(data):
+def defined_split(data, col='test'):
     """
     split train/valid/test data according to "Splits" column
     """
     train_idxs, test_idxs = [], []
     for i, split in enumerate(data):
-        assert split in ['test', 'train']
-        if split == 'test':
+        assert split in ['test', 'train', 'valid']
+        if split == col:
             test_idxs.append(i)
-        elif split == 'train':
+        else:
             train_idxs.append(i)
     # return np.array(train_idxs), np.array(test_idxs)
     return train_idxs, test_idxs

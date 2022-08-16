@@ -20,6 +20,7 @@ from pathlib import Path
 from rdkit.Chem import AllChem
 
 from networkx import normalized_laplacian_matrix
+from ogb.graphproppred import PygGraphPropPredDataset
 
 from MolRep.Featurization.utils.graph_utils import *
 from MolRep.Utils.utils import *
@@ -27,6 +28,7 @@ from MolRep.Utils.utils import *
 
 class GraphEmbeddings():
     def __init__(self, data_df, model_name, features_path, dataset_config,
+                 additional_data=None,
                  use_node_attrs=True, use_node_degree=False, use_one=False, max_reductions=10,
                  precompute_kron_indices=True,
                  save_temp_data=True):
@@ -35,6 +37,12 @@ class GraphEmbeddings():
         self.whole_data_df = data_df
         self.features_path = features_path
         self.dataset_config = dataset_config
+        self.dataset_name = self.dataset_config["name"]
+        self.dataset_path = self.dataset_config["path"]
+        self.additional_data = additional_data
+
+        self.smiles_col = self.dataset_config["smiles_column"]
+        self.target_cols = self.dataset_config["target_columns"]
 
         self.use_node_degree = use_node_degree
         self.use_node_attrs = use_node_attrs
@@ -48,8 +56,6 @@ class GraphEmbeddings():
         self.precompute_kron_indices = precompute_kron_indices
         self.save_temp_data = save_temp_data
 
-        self.smiles_col = self.dataset_config["smiles_column"]
-        self.target_cols = self.dataset_config["target_columns"]
 
     @property
     def dim_features(self):
@@ -65,10 +71,6 @@ class GraphEmbeddings():
 
     def load_data_from_df(self):
         temp_dir = self.temp_dir
-
-        if os.path.exists(temp_dir / f"{self.model_name}_SMILES.txt"):
-            print("File exits.")
-            return
 
         df = self.whole_data_df
         fp_smiles = open(temp_dir / f"{self.model_name}_SMILES.txt", "w")
@@ -122,14 +124,25 @@ class GraphEmbeddings():
         """
 
         features_path = self.features_path
+
         if os.path.exists(features_path):
             dataset = torch.load(features_path)
             self._dim_features = dataset[0].x.size(1)
             self._dim_edge_features = dataset[0].edge_attr.size(1)
 
             # dynamically set maximum num nodes (useful if using dense batching, e.g. diffpool)
-            self._max_num_nodes = dataset[0].max_num_nodes
+            self._max_num_nodes = dataset[0].max_num_nodes if hasattr(dataset[0], 'max_num_nodes') else max([da.x.shape[0] for da in dataset])
 
+        elif self.dataset_name.startswith('ogb'):
+            
+            pyg_dataset = PygGraphPropPredDataset(name=self.dataset_name.replace('_', '-'), root=self.dataset_path)
+            dataset = [data for data in pyg_dataset]
+            
+            self._dim_features = dataset[0].x.size(1)
+            self._dim_edge_features = dataset[0].edge_attr.size(1)
+            self._max_num_nodes = dataset[0].max_num_nodes if hasattr(dataset[0], 'max_num_nodes') else max([da.x.shape[0] for da in dataset])
+            torch.save(dataset, features_path)
+    
         else:
             self.load_data_from_df()
             graphs_data, num_node_labels, num_edge_labels = parse_tu_data(self.model_name, self.temp_dir)
@@ -159,6 +172,8 @@ class GraphEmbeddings():
 
         if self.save_temp_data == False:
             del_file(self.temp_dir)
+
+        return dataset
 
     def _to_data(self, G):
         datadict = {}

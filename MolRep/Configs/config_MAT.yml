@@ -77,3 +77,5 @@ early_stopper:
       use_loss: True
 shuffle:
   - True
+seed:
+  - 2022

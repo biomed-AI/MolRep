@@ -1,0 +1,51 @@
+model:
+  - PLNLP
+device:
+  - cuda
+
+gnn_encoder_name:
+  - SAGE
+predictor_name:
+  - MLP
+optimizer_name:
+  - Adam
+loss_func:
+  - AUC
+neg_sampler:
+  - global
+
+eval_metric:
+  - hits
+
+num_epochs:
+  - 500
+batch_size:
+  - 65536
+pretrain_emb:
+  - null
+gnn_num_layers:
+  - 2
+mlp_num_layers:
+  - 2
+emb_hidden_channels:
+  - 512
+gnn_hidden_channels:
+  - 512
+mlp_hidden_channels:
+  - 512
+dropout:
+  - 0.3
+grad_clip_norm:
+  - 2.0
+lr:
+  - 0.001
+num_neg:
+  - 3
+use_lr_decay:
+  - False
+use_node_feats:
+  - False
+train_node_emb:
+  - True
+seed:
+  - 2022

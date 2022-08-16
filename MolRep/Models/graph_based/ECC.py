@@ -64,13 +64,16 @@ class ECC(nn.Module):
 
     """
 
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=200):
         super().__init__()
         self.model_configs = model_configs
         self.dropout = model_configs['dropout']
         self.dropout_final = model_configs['dropout_final']
         self.num_layers = model_configs['num_layers']
         dim_embedding = model_configs['dim_embedding']
+
+        self.dim_embedding = dim_embedding
+        self.max_num_nodes = max_num_nodes
 
         self.layers = nn.ModuleList([])
         for i in range(self.num_layers):
@@ -123,6 +126,54 @@ class ECC(nn.Module):
 
         # Convert v_plus_batch to boolean
         return lap_edge_idx, lap_edge_weights, (v_plus_batch == 1)
+
+
+    def unbatch(self, x, batch):
+        sizes = degree(batch, dtype=torch.long).tolist()
+        node_feat_list = x.split(sizes, dim=0)
+
+        feat = torch.zeros((len(node_feat_list), self.max_num_nodes, self.dim_embedding)).to(x.device)
+        mask = torch.ones((len(node_feat_list), self.max_num_nodes)).to(x.device)
+
+        for idx, node_feat in enumerate(node_feat_list):
+            node_num = node_feat.size(0)
+            
+            if node_num <= self.max_num_nodes:
+                feat[idx, :node_num] = node_feat
+                mask[idx, node_num:] = 0
+            
+            else:
+                feat[idx] = node_feat[:self.max_num_nodes]
+
+        return feat, mask
+        
+    def featurize(self, data):
+        x, edge_index, batch = data.x, data.edge_index, data.batch
+
+        for i, layer in enumerate(self.layers):
+            # TODO should lap_edge_index[0] be equal to edge_idx?
+            lap_edge_idx, lap_edge_weights, v_plus_batch = self.get_ecc_conv_parameters(data, layer_no=i)
+            edge_index = lap_edge_idx if i != 0 else edge_index
+            edge_weight = lap_edge_weights if i != 0 else x.new_ones((edge_index.size(1), ))
+
+            edge_index = edge_index.to(self.model_configs["device"])
+            edge_weight = edge_weight.to(self.model_configs["device"])
+
+            x = layer(x, edge_index, edge_weight)
+
+            # pooling
+            x = x[v_plus_batch]
+            batch = batch[v_plus_batch]
+
+        # final_convolution
+        lap_edge_idx, lap_edge_weight, v_plus_batch = self.get_ecc_conv_parameters(data, layer_no=self.num_layers)
+
+        lap_edge_idx = lap_edge_idx.to(self.model_configs["device"])
+        lap_edge_weight = lap_edge_weight.to(self.model_configs["device"])
+
+        x = F.relu(self.final_conv(x, lap_edge_idx, lap_edge_weight.unsqueeze(-1)))
+        
+        return self.unbatch(x, batch)
 
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
@@ -183,8 +234,8 @@ class ECC(nn.Module):
             x = self.sigmoid(x)
         if self.multiclass:
             x = x.reshape((x.size(0), -1, self.multiclass_num_classes)) # batch size x num targets x num classes per target
-            if not self.training:
-                x = self.multiclass_softmax(x) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
+            # if not self.training:
+            x = self.multiclass_softmax(x) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
         return x
 
     def get_gap_activations(self, data):

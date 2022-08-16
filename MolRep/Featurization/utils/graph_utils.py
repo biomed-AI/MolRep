@@ -47,12 +47,12 @@ class Graph(nx.Graph):
             features.append(data)
         return torch.Tensor(features)
 
-    def get_x(self, use_node_attrs=False, use_node_degree=False, use_one=False):
+    def get_x(self, use_node_attrs=False, use_node_degree=False, use_one=False, use_node_label=False):
         features = []
+        
         for node, node_attrs in self.nodes(data=True):
             data = []
-
-            if node_attrs["label"] is not None:  # r attention !
+            if use_node_label and node_attrs["label"] is not None:  # r attention !
                 data.extend(node_attrs["label"])
 
             if use_node_attrs and node_attrs["attrs"] is not None:
@@ -140,7 +140,6 @@ def parse_tu_data(model_name, temp_dir):
             # the corresponding graph id to which it belongs to
             # (see README.txt)
             graph_id = indicator[edge[0]]
-
             graph_edges[graph_id].append(edge)
 
     if node_labels_path.exists():
@@ -249,7 +248,7 @@ def create_graph_from_tu_data(graph_data, target, num_node_labels, num_edge_labe
             attrs = graph_data["edge_attrs"][i]
 
         G.add_edge(n1, n2, label=label, attrs=attrs)
-
+    
     return G
 
 

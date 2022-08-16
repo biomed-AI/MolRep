@@ -10,7 +10,7 @@ class DGCNN(nn.Module):
     Uses fixed architecture
     """
 
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=200):
         super(DGCNN, self).__init__()
 
         self.ks = {"0.6": 79 , "0.9": 120}
@@ -18,6 +18,7 @@ class DGCNN(nn.Module):
         self.k = self.ks[str(model_configs['k'])] 
         self.embedding_dim = model_configs['embedding_dim']
         self.num_layers = model_configs['num_layers']
+        self.max_num_nodes = max_num_nodes
 
         self.convs = []
         for layer in range(self.num_layers):
@@ -30,8 +31,6 @@ class DGCNN(nn.Module):
         self.total_latent_dim += 1
 
         self.convs = nn.ModuleList(self.convs)
-
-        
         self.conv1d_params1 = nn.Conv1d(1, 16, self.total_latent_dim, self.total_latent_dim)
         self.maxpool1d = nn.MaxPool1d(2, 2)
         self.conv1d_params2 = nn.Conv1d(16, 32, 5, 1)
@@ -60,6 +59,26 @@ class DGCNN(nn.Module):
             self.relu = nn.ReLU()
         assert not (self.classification and self.regression and self.multiclass)
 
+
+    def unbatch(self, x, batch):
+        sizes = degree(batch, dtype=torch.long).tolist()
+        node_feat_list = x.split(sizes, dim=0)
+
+        feat = torch.zeros((len(node_feat_list), self.max_num_nodes, self.embedding_dim)).to(x.device)
+        mask = torch.ones((len(node_feat_list), self.max_num_nodes)).to(x.device)
+
+        for idx, node_feat in enumerate(node_feat_list):
+            node_num = node_feat.size(0)
+            
+            if node_num <= self.max_num_nodes:
+                feat[idx, :node_num] = node_feat
+                mask[idx, node_num:] = 0
+            
+            else:
+                feat[idx] = node_feat[:self.max_num_nodes]
+
+        return feat, mask
+
     def featurize(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
@@ -67,8 +86,9 @@ class DGCNN(nn.Module):
         for conv in self.convs:
             x = torch.tanh(conv(x, edge_index))
             hidden_repres.append(x)
-        x = torch.cat(hidden_repres, dim=1)
-        return x
+        # x = torch.cat(hidden_repres, dim=1)
+        x = torch.stack(hidden_repres, dim=1).mean(1)
+        return self.unbatch(x, batch)
 
     def forward(self, data):
         # Implement Equation 4.2 of the paper i.e. concat all layers' graph representations and apply linear model
@@ -102,12 +122,12 @@ class DGCNN(nn.Module):
         out_dense = self.dense_layer(conv1d_res)
 
         # Don't apply sigmoid during training b/c using BCEWithLogitsLoss
-        if self.classification and not self.training:
+        if self.classification:# and not self.training:
             out_dense = self.sigmoid(out_dense)
         if self.multiclass:
             out_dense = out_dense.reshape((out_dense.size(0), -1, self.multiclass_num_classes)) # batch size x num targets x num classes per target
-            if not self.training:
-                out_dense = self.multiclass_softmax(out_dense) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
+            # if not self.training:
+            out_dense = self.multiclass_softmax(out_dense) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
 
         return out_dense
 

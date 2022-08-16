@@ -18,6 +18,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 
 from MolRep.Models.scalers import StandardScaler
+from MolRep.Utils.utils import worker_init
 
 class MoleculeDataset(Dataset):
     def __init__(self, lines, properties, masks):
@@ -53,7 +54,9 @@ class MoleculeDataset(Dataset):
 
 
 def Sequence_construct_dataset(features_path, train_idxs=None, valid_idxs=None, test_idxs=None):
-    x_all, y_all, masks, _ = pickle.load(open(features_path, "rb"))
+    # x_all, y_all, masks, _ = pickle.load(open(features_path, "rb"))
+    seq_dataset = torch.load(features_path)
+    x_all, y_all, masks = seq_dataset["seq_data"], seq_dataset["label"], seq_dataset["mask"]
 
     trainset = MoleculeDataset(np.array(x_all)[train_idxs], np.array(y_all)[train_idxs], np.array(masks)[train_idxs]) if train_idxs is not None else None
     validset = MoleculeDataset(np.array(x_all)[valid_idxs], np.array(y_all)[valid_idxs], np.array(masks)[valid_idxs]) if valid_idxs is not None else None
@@ -79,8 +82,8 @@ def Sequence_construct_loader(trainset=None, validset=None, testset=None, batch_
     else:
         scaler = None
 
-    train_loader = DataLoader(trainset, batch_size, shuffle) if trainset is not None else None
-    valid_loader = DataLoader(validset, batch_size, False) if validset is not None else None
-    test_loader = DataLoader(testset, batch_size, False) if testset is not None else None
+    train_loader = DataLoader(trainset, batch_size, shuffle, worker_init_fn=worker_init) if trainset is not None else None
+    valid_loader = DataLoader(validset, batch_size, False, worker_init_fn=worker_init) if validset is not None else None
+    test_loader = DataLoader(testset, batch_size, False, worker_init_fn=worker_init) if testset is not None else None
     return train_loader, valid_loader, test_loader, \
            features_scaler, scaler

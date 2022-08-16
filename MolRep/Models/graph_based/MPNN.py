@@ -55,7 +55,7 @@ class MPNN(nn.Module):
         if model_configs['features_only']:
             self.first_linear_dim = self.dim_features
         else:
-            self.first_linear_dim = int(model_configs['hidden_size']) * 1
+            self.first_linear_dim = int(model_configs['dim_embedding']) * 1
             self.first_linear_dim += self.dim_features
         ffn = [
                 self.dropout,
@@ -108,8 +108,8 @@ class MPNN(nn.Module):
             output = self.sigmoid(output)
         if self.multiclass:
             output = output.reshape((output.size(0), -1, self.num_classes))  # batch size x num targets x num classes per target
-            if not self.training:
-                output = self.multiclass_softmax(output)  # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
+            # if not self.training:
+            output = self.multiclass_softmax(output)  # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
 
         return output
 
@@ -126,7 +126,7 @@ class MPNEncoder(nn.Module):
         self.atom_fdim = atom_fdim
         self.bond_fdim = bond_fdim
         self.atom_messages = args.atom_messages
-        self.hidden_size = args.hidden_size
+        self.hidden_size = args.dim_embedding
         self.bias = args.bias
         self.depth = args.depth
         self.dropout = args.dropout

@@ -6,13 +6,13 @@ batch_size:
   - 32
   - 64
 learning_rate:
-  - 0.01
   - 0.001
+  - 0.01
 l2:
   - 0.0
   - 0.1
 num_epochs:
-  - 50
+  - 20
   - 100
   - 300
 optimizer:
@@ -30,21 +30,23 @@ early_stopper:
 shuffle:
   - True
 dim_node_hidden:
+  - 256
   - 64
-  - 128
 dim_edge_hidden:
-  - 128
+  - 32
   - 64
 num_step_set2set:
-  - 6
+  - 2
   - 4
 num_layer_set2set:
-  - 3
   - 2
-num_layers:
   - 3
-  - 5
+num_layers:
+  - 2
+  - 4
 aggregation_type:
+  - mean
   - add
   - max
-  - mean
+seed:
+  - 2022

@@ -32,6 +32,7 @@ from MolRep.Featurization.MPNN_embeddings import BatchMolGraph, MolGraph
 from MolRep.Featurization.MPNN_embeddings import get_features_generator
 
 from MolRep.Models.scalers import StandardScaler
+from MolRep.Utils.utils import worker_init
 
 
 # Cache of graph featurizations
@@ -443,7 +444,7 @@ class MoleculeDataLoader(DataLoader):
             shuffle=self._shuffle,
             seed=self._seed
         )
-
+        
         super(MoleculeDataLoader, self).__init__(
             dataset=self._dataset,
             batch_size=self._batch_size,
@@ -451,7 +452,8 @@ class MoleculeDataLoader(DataLoader):
             num_workers=self._num_workers,
             collate_fn=construct_molecule_batch,
             multiprocessing_context=self._context,
-            timeout=self._timeout
+            timeout=self._timeout,
+            worker_init_fn=worker_init,
         )
 
     @property
@@ -500,7 +502,7 @@ def _construct_dataset(smiles_all, x_all, y_all):
 
     return dataset
 
-def _construct_dataloader(data_set, batch_size, shuffle=True, num_workers=0, class_balance=False):
+def _construct_dataloader(data_set, batch_size, shuffle=True, num_workers=0, seed=0, class_balance=False):
     """Construct a data loader for the provided data.
     Args:
         data_set (): 
@@ -515,21 +517,24 @@ def _construct_dataloader(data_set, batch_size, shuffle=True, num_workers=0, cla
                     batch_size=batch_size,
                     num_workers=num_workers,
                     class_balance=class_balance,
-                    shuffle=shuffle
+                    shuffle=shuffle,
+                    seed=seed,
                 )
     else:
         loader = None
     return loader
 
 def MPNN_construct_dataset(features_path, train_idxs=None, valid_idxs=None, test_idxs=None):
-    smiles_all, x_all, y_all = pickle.load(open(features_path, "rb"))
+    # smiles_all, x_all, y_all = pickle.load(open(features_path, "rb"))
+    dataset = torch.load(features_path)
+    smiles_all, x_all, y_all = dataset["smiles_all"], dataset["x_all"], dataset["y_all"]
 
     trainset = _construct_dataset(np.array(smiles_all)[train_idxs], np.array(x_all)[train_idxs], np.array(y_all)[train_idxs]) if train_idxs is not None else None
     validset = _construct_dataset(np.array(smiles_all)[valid_idxs], np.array(x_all)[valid_idxs], np.array(y_all)[valid_idxs]) if valid_idxs is not None else None
     testset = _construct_dataset(np.array(smiles_all)[test_idxs], np.array(x_all)[test_idxs], np.array(y_all)[test_idxs]) if test_idxs is not None else None
     return trainset, validset, testset
 
-def MPNN_construct_dataloader(trainset=None, validset=None, testset=None, batch_size=1, shuffle=True, task_type='Classification', features_scaling=True):
+def MPNN_construct_dataloader(trainset=None, validset=None, testset=None, batch_size=1, shuffle=True, task_type='Classification', seed=0, features_scaling=True):
 
     if features_scaling and trainset is not None:
         features_scaler = trainset.normalize_features(replace_nan_token=0)
@@ -548,8 +553,8 @@ def MPNN_construct_dataloader(trainset=None, validset=None, testset=None, batch_
     else:
         scaler = None
 
-    return _construct_dataloader(trainset, batch_size, shuffle), \
-           _construct_dataloader(validset, batch_size, False), \
-           _construct_dataloader(testset, batch_size, False), \
+    return _construct_dataloader(trainset, batch_size, shuffle=shuffle, seed=seed), \
+           _construct_dataloader(validset, batch_size, shuffle=False, seed=seed), \
+           _construct_dataloader(testset, batch_size, shuffle=False, seed=seed), \
            features_scaler, scaler
 

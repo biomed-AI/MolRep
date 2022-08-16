@@ -37,12 +37,15 @@ FEATURES_GENERATOR_REGISTRY = {}
 
 class MPNNEmbeddings:
     def __init__(self, data_df, model_name, features_path, dataset_config,
+                 additional_data=None,
                  features_generator=None, use_data_saving=True, atom_descriptors=None):
         
         self.model_name = model_name
         self.whole_data_df = data_df
         self.features_path = features_path
         self.dataset_config = dataset_config
+        self.dataset_name = self.dataset_config["name"]
+        self.additional_data = additional_data
 
         self.features_generator = features_generator
         self.use_data_saving = use_data_saving
@@ -56,9 +59,12 @@ class MPNNEmbeddings:
         return self._dim_features
 
     @property
-    def max_num_nodes(self):
+    def dim_edge_features(self):
         return None
 
+    @property
+    def max_num_nodes(self):
+        return 200
 
     def process(self):
         """
@@ -67,8 +73,9 @@ class MPNNEmbeddings:
 
         features_path = self.features_path
         if self.use_data_saving and os.path.exists(features_path):
-            _, x_all, y_all = pickle.load(open(features_path, 'rb'))
-            self._dim_features = len(x_all[0][0]) if x_all[0][0] is not None else 0
+            # smiles_all, x_all, y_all = pickle.load(open(features_path, 'rb'))
+            dataset = torch.load(features_path)
+            self._dim_features = len(dataset["x_all"][0][0]) if dataset["x_all"][0][0] is not None else 0
 
         else:
             data_x = self.whole_data_df.loc[:,self.smiles_col].values
@@ -77,7 +84,16 @@ class MPNNEmbeddings:
             smiles_all, x_all, y_all = self.load_data_from_smiles(data_x, data_y)
 
             self._dim_features = len(x_all[0][0]) if x_all[0][0] is not None else 0
-            pickle.dump((smiles_all, x_all, y_all), open(features_path, "wb"))
+            dataset = {
+                "x_all": x_all,
+                "y_all": y_all,
+                "smiles_all": smiles_all,
+            }
+            # pickle.dump((smiles_all, x_all, y_all), open(features_path, "wb"))
+            torch.save(dataset, features_path)
+
+        return dataset
+
 
     def load_data_from_smiles(self, x_smiles, labels):
         """

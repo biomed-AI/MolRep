@@ -1,5 +1,5 @@
 
-
+import itertools
 import functools
 import logging
 import warnings
@@ -39,6 +39,7 @@ accuracy_score = sklearn.metrics.accuracy_score
 nanmax = silent_nan_np(np.nanmax)
 nanmean = silent_nan_np(np.nanmean)
 nan_auroc_score = silent_nan_np(sklearn.metrics.roc_auc_score)
+nan_precision_score = silent_nan_np(sklearn.metrics.precision_score)
 nan_f1_score = silent_nan_np(sklearn.metrics.f1_score)
 
 
@@ -128,6 +129,24 @@ nodewise_pearson_r_score = nodewise_metric(pearson_r_score)
 attribution_auroc = attribution_metric(nan_auroc_score)
 attribution_accuracy = attribution_metric(accuracy_score)
 attribution_f1 = attribution_metric(nan_f1_score)
+attribution_precision = attribution_metric(nan_precision_score)
+
+
+
+def itertools_chain(a):
+    return list(itertools.chain.from_iterable(a))
+
+def attribution_accuracy_mean(y_true, y_pred):
+    _validate_attribution_inputs(y_true, y_pred)
+    y_true = itertools_chain(y_true)
+    y_pred = itertools_chain(y_pred)
+    return accuracy_score(y_true, y_pred)
+
+def attribution_auroc_mean(y_true, y_pred):
+    _validate_attribution_inputs(y_true, y_pred)
+    y_true = itertools_chain(y_true)
+    y_pred = itertools_chain(y_pred)
+    return nan_auroc_score(y_true, y_pred)
 
 
 def get_optimal_threshold(y_true,
@@ -157,6 +176,8 @@ def get_optimal_threshold(y_true,
             y_preds = [np.array([1 if att>t else -1 if att<(-t) else 0 for att in att_prob]) for att_prob in y_prob]
         else:
             y_preds = [np.array([1 if att>t else 0 for att in att_prob]) for att_prob in y_prob]
+        # scores.append(np.nanmean(attribution_precision(y_true, y_preds)))
+        # scores.append(np.nanmean(nan_f1_score(y_true, y_preds)))
         scores.append(np.nanmean(attribution_accuracy(y_true, y_preds)))
     scores = np.array(scores)
     max_thresholds = thresholds[scores == nanmax(scores)]

@@ -5,8 +5,8 @@ Created on 2020.05.19
 @author: Jiahua Rao, Weiming Li, Hui Yang, Jiancong Xie
 '''
 
-
-
+import random
+import time
 import os
 import json
 import yaml
@@ -27,6 +27,11 @@ from argparse import Namespace
 from MolRep.Models.scalers import StandardScaler
 
 
+def worker_init(worked_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
 def filter_invalid_smiles(smiles_list):
     valid_smiles_list = []
     for smiles in smiles_list:
@@ -43,6 +48,12 @@ def json_to_df(json_path):
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)
@@ -190,7 +201,7 @@ def load_checkpoint(path: str,
                   f'of shape {loaded_state_dict[param_name].shape} does not match corresponding '
                   f'model parameter of shape {model_state_dict[param_name].shape}.')
         else:
-            debug(f'Loading pretrained parameter "{param_name}".')
+            # debug(f'Loading pretrained parameter "{param_name}".')
             pretrained_state_dict[param_name] = loaded_state_dict[param_name]
 
     # Load pretrained weights
@@ -230,4 +241,3 @@ def load_args(path: str) -> Namespace:
     :return: The arguments Namespace that the model was trained with.
     """
     return torch.load(path, map_location=lambda storage, loc: storage)['args']
-

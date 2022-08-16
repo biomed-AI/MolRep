@@ -3,16 +3,18 @@ from torch import nn
 import torch.nn.functional as F
 from torch.nn import BatchNorm1d
 from torch.nn import Sequential, Linear, ReLU
+from torch_geometric.utils import degree
 from torch_geometric.nn import GINConv, global_add_pool, global_mean_pool
 
 
 class GIN(torch.nn.Module):
 
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=200):
         super(GIN, self).__init__()
 
         self.dropout = model_configs['dropout']
-        self.embeddings_dim = [model_configs['hidden_units'][0]] + model_configs['hidden_units']
+        self.embeddings_dim = [model_configs['hidden_size']] + [model_configs['hidden_size']] * model_configs['num_layers']
+        self.max_num_nodes = max_num_nodes
         self.no_layers = len(self.embeddings_dim)
         self.first_h = []
         self.nns = []
@@ -57,30 +59,48 @@ class GIN(torch.nn.Module):
             self.relu = nn.ReLU()
         assert not (self.classification and self.regression and self.multiclass)
 
+    def unbatch(self, x, batch):
+        sizes = degree(batch, dtype=torch.long).tolist()
+        node_feat_list = x.split(sizes, dim=0)
 
-    def forward(self, data):
+        feat = torch.zeros((len(node_feat_list), self.max_num_nodes, self.embeddings_dim)).to(x.device)
+        mask = torch.ones((len(node_feat_list), self.max_num_nodes)).to(x.device)
+
+        for idx, node_feat in enumerate(node_feat_list):
+            node_num = node_feat.size(0)
+            
+            if node_num <= self.max_num_nodes:
+                feat[idx, :node_num] = node_feat
+                mask[idx, node_num:] = 0
+            
+            else:
+                feat[idx] = node_feat[:self.max_num_nodes]
+
+        return feat, mask
+
+    def featurize(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
         out = 0
-
         for layer in range(self.no_layers):
             if layer == 0:
                 x = self.first_h(x)
-                out += F.dropout(self.pooling(self.linears[layer](x), batch), p=self.dropout)
+                out += F.dropout(self.linears[layer](x), batch, p=self.dropout)
             elif layer == self.no_layers - 1:
                 x = self.convs[layer-1](x, edge_index)
                 out = x
             else:
                 # Layer l ("convolution" layer)
                 x = self.convs[layer-1](x, edge_index)
-                out += F.dropout(self.linears[layer](self.pooling(x, batch)), p=self.dropout, training=self.training)
-        return out
+                out += F.dropout(self.linears[layer](x), p=self.dropout, training=self.training)
+       
+        return self.unbatch(out, batch)
+
 
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
         out = 0
-
         for layer in range(self.no_layers):
             if layer == 0:
                 x = self.first_h(x)
@@ -92,10 +112,10 @@ class GIN(torch.nn.Module):
 
         # Don't apply sigmoid during training b/c using BCEWithLogitsLoss
         if self.classification and not self.training:
-            x = self.sigmoid(out)
+            out = self.sigmoid(out)
         if self.multiclass:
-            x = x.reshape((x.size(0), -1, self.multiclass_num_classes)) # batch size x num targets x num classes per target
-            if not self.training:
-                x = self.multiclass_softmax(x) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
+            out = out.reshape((x.size(0), -1, self.multiclass_num_classes)) # batch size x num targets x num classes per target
+            # if not self.training:
+            out = self.multiclass_softmax(out) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
 
         return out

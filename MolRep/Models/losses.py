@@ -46,7 +46,7 @@ class ClassificationLoss(nn.Module):
         return:
             loss and accuracy values
         """
-        output = outputs[0].to('cpu')
+        output = outputs[0]#.to('cpu')
         loss = self.loss(output, targets)
         return loss
 
@@ -68,8 +68,8 @@ class BCEWithLogitsClassificationLoss(ClassificationLoss):
             loss and accuracy values
         """
         outputs = outputs[0]
-        if outputs.is_cuda:
-            outputs = outputs.to('cpu')
+        # if outputs.is_cuda:
+        #     outputs = outputs.to('cpu')
         loss = self.loss(outputs, targets.float())
         return loss
 

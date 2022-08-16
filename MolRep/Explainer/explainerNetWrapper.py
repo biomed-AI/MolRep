@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on 2020.05.19
+Created on 2021.08.19
 
-@author: Jiahua Rao, Weiming Li, Hui Yang, Jiancong Xie
+@author: Jiahua Rao
 
-Code based on:
-Errica, Federico, et al. "A fair comparison of graph neural networks for graph classification." (ICLR 2020). -> https://github.com/diningphil/gnn-comparison
 """
 
 import time
@@ -20,7 +18,7 @@ from MolRep.Models.metrics import *
 from MolRep.Utils.utils import *
 from MolRep.Explainer.Attribution.utils.utils import *
 
-# from MolRep.Explainer.Attribution.IG import IntegratedGradients
+from MolRep.Explainer.Attribution.IntegratedGradients import IntegratedGradients
 from MolRep.Explainer.Attribution.CAM import CAM
 from MolRep.Explainer.Attribution.MCTS import MCTS
 from MolRep.Explainer.Attribution.GradInput import GradInput
@@ -137,12 +135,12 @@ class ExplainerNetWrapper:
 
         smiles_list = test_loader.smiles
         atom_attr_preds, bond_attr_preds = [], []
-        y_preds, y_labels = [], []
+        y_preds, y_labels, embeds = [], [], []
         loss_all = 0
         for batch_index, data in enumerate(test_loader):
 
             # Prediction
-            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'MolecularFingerprint']:
+            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'PyGCMPNN', 'MorganFP', 'MACCSFP']:
                 target_batch = data.y
                 data = data.to(self.device)
 
@@ -151,52 +149,55 @@ class ExplainerNetWrapper:
                 data = (mol_batch, features_batch, atom_descriptors_batch)
 
             else: 
-                raise print("Explainer Model Must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MPNN', 'DMPNN', 'CMPNN']")
+                raise print("Explainer Model Must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'PyGCMPNN', 'MPNN', 'DMPNN', 'CMPNN']")
 
 
             # Attribution
-            if self.attribution_method == 'Random':
-                attribution_tech = RandomBaseline(name='RandomBaseline')
+            # if self.attribution_method == 'Random':
+            #     attribution_tech = RandomBaseline(name='RandomBaseline')
 
-            elif self.attribution_method == 'GradInput':
-                attribution_tech = GradInput(name='GradInput')
+            # elif self.attribution_method == 'GradInput':
+            #     attribution_tech = GradInput(name='GradInput')
 
-            # elif self.attribution_method == 'SmoothGrad':
-            #     attribution_tech = SmoothGrad(GradInput(), name='SmoothGrad(GradInput)')
+            # # elif self.attribution_method == 'SmoothGrad':
+            # #     attribution_tech = SmoothGrad(GradInput(), name='SmoothGrad(GradInput)')
             
-            elif self.attribution_method == 'GradCAM':
-                attribution_tech = GradCAM(last_layer_only=True, name='GradCAM')
-        
+            # elif self.attribution_method == 'GradCAM':
+            #     attribution_tech = GradCAM(last_layer_only=True, name='GradCAM')
+
+            # elif self.attribution_method == 'GradCAM-all':
+            #     attribution_tech = GradCAM(last_layer_only=False, name='GradCAM-all')
+
             # elif self.attribution_method == 'IG':
-            #     node_arr = np.zeros((data.x.shape[1]))
-            #     edge_arr = np.zeros((data.edge_attr.shape[1]))
-            #     ref_fn = make_reference_fn(node_arr, edge_arr)
-            #     attribution_tech = IntegratedGradients(ref_fn, name='IG')
+            #     attribution_tech = IntegratedGradients(200, name='IG')
 
-            elif self.attribution_method == 'CAM':
-                attribution_tech = CAM(name='CAM')
+            # elif self.attribution_method == 'CAM':
+            #     attribution_tech = CAM(name='CAM')
 
-            elif self.attribution_method == 'MCTS':
-                (mol_batch, features_batch, atom_descriptors_batch) = data
-                data = (smiles_list[batch_index], mol_batch, features_batch, atom_descriptors_batch)
-                attribution_tech = MCTS(name='MCTS')
+            # elif self.attribution_method == 'MCTS':
+            #     # (mol_batch, features_batch, atom_descriptors_batch) = data
+            #     # data = (smiles_list[batch_index], mol_batch, features_batch, atom_descriptors_batch)
+            #     attribution_tech = MCTS(name='MCTS')
 
-            # elif self.attribution_method == 'Attention':
-            #     attribution_tech = AttentionWeights()
+            # # elif self.attribution_method == 'Attention':
+            # #     attribution_tech = AttentionWeights()
 
-            else:
-                raise print("Explainer Model Must be in ['GradInput', 'SmoothGrad', 'GradCAM', 'IG', 'CAM', 'Attention', 'GIB', 'MCTS']")
+            # else:
+            #     raise print("Explainer Model Must be in ['GradInput', 'SmoothGrad', 'GradCAM', 'IG', 'CAM', 'Attention', 'GIB', 'MCTS']")
 
-            atom_attr, bond_attr, output = attribution_tech.attribute(data, model, scaler=scaler, model_name=self.model_name)
+            output = model(data)
+            if not isinstance(output, tuple):
+                output = (output,)
+            # atom_attr, bond_attr, _ = attribution_tech.attribute(data, model, scaler=scaler, model_name=self.model_name)
             
-            if atom_attr is not None:
-                if not isinstance(atom_attr, np.ndarray):
-                    atom_attr_preds.append(atom_attr.data.cpu().numpy())
-                else:
-                    atom_attr_preds.append(atom_attr)
+            # if atom_attr is not None:
+            #     if not isinstance(atom_attr, np.ndarray):
+            #         atom_attr_preds.append(atom_attr.data.cpu().numpy())
+            #     else:
+            #         atom_attr_preds.append(atom_attr)
 
-            if bond_attr is not None:
-                bond_attr_preds.append(bond_attr.data.cpu().numpy())
+            # if bond_attr is not None:
+            #     bond_attr_preds.append(bond_attr.data.cpu().numpy())
 
             mask = torch.Tensor([[not np.isnan(x) for x in tb] for tb in target_batch])
             labels = torch.Tensor([[0 if np.isnan(x) else x for x in tb] for tb in target_batch])
@@ -217,20 +218,23 @@ class ExplainerNetWrapper:
             loss = loss.sum() / mask.sum()
 
             y_preds.extend(output[0].data.cpu().numpy().tolist())
+            # embeds.append(embs.detach().cpu().numpy())
             y_labels.extend(target_batch)
             loss_all += loss.item() * labels.size()[0]
 
-        atom_importance = atom_attr_preds if len(atom_attr_preds) > 0 else None
-        bond_importance = bond_attr_preds if len(bond_attr_preds) > 0 else None
+        # atom_importance = atom_attr_preds if len(atom_attr_preds) > 0 else None
+        # bond_importance = bond_attr_preds if len(bond_attr_preds) > 0 else None
 
         # if self.task_type == 'Multi-Classification':
         #     y_preds = torch.argmax(torch.FloatTensor(y_preds), dim=2)
 
-        results = self.evaluate_predictions(preds=y_preds, targets=y_labels,
-                                            num_tasks=self.num_tasks, metric_type=self.metric_type,
-                                            task_type=self.task_type)
+        # results = self.evaluate_predictions(preds=y_preds, targets=y_labels,
+        #                                     num_tasks=self.num_tasks, metric_type=self.metric_type,
+        #                                     task_type=self.task_type)
 
-        return y_preds, y_labels, results, atom_importance, bond_importance
+        # y_preds = (y_preds, np.concatenate(embeds))
+        # return y_preds, y_labels, results, atom_importance, bond_importance
+        return y_preds, y_labels, None, None, None
 
     def train_one_epoch(self, train_loader, optimizer, clipping=None, early_stopping=None):
         model = self.model.to(self.device)
@@ -240,7 +244,7 @@ class ExplainerNetWrapper:
         y_preds, y_labels = [], []
         for _, data in enumerate(train_loader):
 
-            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'MolecularFingerprint']:
+            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'PyGCMPNN', 'MorganFP', 'MACCSFP', 'MolecularFingerprint']:
                 target_batch = data.y
                 data = data.to(self.device)
 
@@ -249,7 +253,7 @@ class ExplainerNetWrapper:
                 data = (mol_batch, features_batch, atom_descriptors_batch)
 
             else:
-                raise print("Explainer Model Must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MPNN', 'DMPNN', 'CMPNN']")
+                raise print("Explainer Model Must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'PyGCMPNN', 'MPNN', 'DMPNN', 'CMPNN']")
 
             mask = torch.Tensor([[not np.isnan(x) for x in tb] for tb in target_batch])
             labels = torch.Tensor([[0 if np.isnan(x) else x for x in tb] for tb in target_batch])
@@ -301,7 +305,7 @@ class ExplainerNetWrapper:
         loss_all = 0
         y_preds, y_labels = [], []
         for _, data in enumerate(test_loader):
-            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', 'MorganFP']:
+            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'GraphNet', 'DiffPool', 'PyGCMPNN', 'MolecularFingerprint', 'MorganFP', 'MACCSFP']:
                 target_batch = data.y
                 data = data.to(self.device)
 
@@ -310,7 +314,7 @@ class ExplainerNetWrapper:
                 data = (mol_batch, features_batch, atom_descriptors_batch)
 
             else: 
-                raise print("Explainer Model Must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MPNN', 'DMPNN', 'CMPNN']")
+                raise print("Explainer Model Must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'PyGCMPNN', 'MPNN', 'DMPNN', 'CMPNN']")
 
             output = model(data)
             if not isinstance(output, tuple):

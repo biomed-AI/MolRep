@@ -21,7 +21,7 @@ from torch.nn.init import _calculate_fan_in_and_fan_out, _no_grad_normal_, _no_g
 
 class CoMPT(nn.Module):
     """docstring for CoMPT"""
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
+    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=200):
         super(CoMPT, self).__init__()
         self.d_atom = dim_features
         self.d_edge = 13

@@ -42,3 +42,5 @@ dim_embedding:
 dim_embedding_MLP:
   - 50
   - 64
+seed:
+  - 2022

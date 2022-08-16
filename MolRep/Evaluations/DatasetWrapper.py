@@ -24,17 +24,22 @@ from MolRep.Experiments.Unsupervised_Data import VAE_data
 
 from MolRep.Utils.utils import filter_invalid_smiles, NumpyEncoder
 
+from ogb.graphproppred import PygGraphPropPredDataset
 
 class DatasetWrapper:
 
     def __init__(self, dataset_config, model_name, outer_k=10, inner_k=None, seed=42,
-                 test_size=0.1, validation_size=0.1, split_dir='Splits', features_dir='Data'):
+                 test_size=0.1, validation_size=0.1, split_dir='splits', features_dir='processed_data'):
 
         self.dataset_config = dataset_config
         self.dataset_path = self.dataset_config["path"]
         self.dataset_name = self.dataset_config["name"]
         self.split_type = self.dataset_config["split_type"]
-        self.model_name = model_name
+        
+        if isinstance(model_name, tuple):
+            self.model_name, self.gnn_encoder_name, self.seq_encoder_name = model_name
+        else:
+            self.model_name = model_name
 
         self.outer_k = outer_k
         self.inner_k = inner_k
@@ -65,11 +70,22 @@ class DatasetWrapper:
         if not self.splits_filename.parent.exists():
             os.makedirs(self.splits_filename.parent)
 
-        if not self.splits_filename.exists():
+        if self.dataset_name.startswith('ogb'):
+            self.splits_filename = self.split_dir / f"{self.dataset_name}_ogb_splits.json"
+            
+            self.dataset = PygGraphPropPredDataset(self.dataset_name.replace('_', '-'), root=self.dataset_config["path"])
+            split_idx = self.dataset.get_idx_split()
+            self.splits = [{"test": list(split_idx['test'].data.numpy()), 'model_selection': [{"train": list(split_idx['train'].data.numpy()) + list(split_idx['valid'].data.numpy()), "validation": list(split_idx['test'].data.numpy())}]}]
+            
+            with open(self.splits_filename, "w") as f:
+                json.dump(self.splits, f, cls=NumpyEncoder)
+
+        elif self.splits_filename.exists():
+            self.splits = json.load(open(self.splits_filename, "r"))
+        
+        else:
             self.splits = []
             self._make_splits()
-        else:
-            self.splits = json.load(open(self.splits_filename, "r"))
 
     @property
     def num_samples(self):
@@ -122,12 +138,17 @@ class DatasetWrapper:
         self.num_tasks = len(self.target_cols)
 
         dataset_path = Path(self.dataset_path)
-        if dataset_path.suffix == '.csv':
+        if self.dataset_name.startswith('ogb'):
+            self.whole_data_df = pd.read_csv(os.path.join(dataset_path, self.dataset_name.replace('-','_'), 'mapping', 'mol.csv.gz'), compression='gzip', header=0)
+
+        elif dataset_path.suffix == '.csv':
             self.whole_data_df = pd.read_csv(dataset_path)
+        
         elif dataset_path.suffix == '.sdf':
             self.whole_data_df = self._load_sdf_files(dataset_path)
+        
         else:
-            raise print(f"File Format must be in ['CSV', 'SDF']")
+            raise print(f"File Format must be in ['CSV', 'SDF'] or  in OGB-Benchmark")
 
         valid_smiles = filter_invalid_smiles(list(self.whole_data_df.loc[:,self.smiles_col]))
         self.whole_data_df = self.whole_data_df[self.whole_data_df[self.smiles_col].isin(valid_smiles)].reset_index(drop=True)
@@ -139,7 +160,7 @@ class DatasetWrapper:
     def _process(self):
         """
         """
-        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GAT', 'GraphNet', 'MolecularFingerprint']:
+        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GAT', 'GraphNet', 'PyGCMPNN']:
             preparer = GraphEmbeddings(data_df=self.whole_data_df,
                                        model_name=self.model_name,
                                        features_path=self.features_path,
@@ -148,7 +169,7 @@ class DatasetWrapper:
             self._dim_features = preparer.dim_features
             self._max_num_nodes = preparer.max_num_nodes
 
-            if self.model_name == 'GraphNet':
+            if self.model_name in ['GraphNet', 'PyGCMPNN']:
                 self._dim_features = (preparer.dim_features, preparer.dim_edge_features)
 
         elif self.model_name in ['MPNN', 'DMPNN', 'CMPNN']:
@@ -173,7 +194,8 @@ class DatasetWrapper:
             preparer = SequenceEmbeddings(data_df=self.whole_data_df,
                                           model_name=self.model_name,
                                           features_path=self.features_path,
-                                          dataset_config=self.dataset_config)
+                                          dataset_config=self.dataset_config,
+                                          )
             preparer.process()
             self._dim_features = preparer.dim_features
             self._max_num_nodes = preparer.max_num_nodes
@@ -205,13 +227,7 @@ class DatasetWrapper:
             self.defined_splits = self.whole_data_df[self.dataset_config["additional_info"]["splits"]].values
 
         if self.outer_k is None:  # holdout assessment strategy
-            assert self.test_size is not None
-
-            # if self.test_size == 0:
-            #     train_o_split, test_split = all_idxs, []
-            # elif self.test_size == -1:
-            #     train_o_split, test_split = [], all_idxs
-            # else:
+            assert self.test_size is not None or 'additional_info' in self.dataset_config
 
             # Test-set splits
             if self.split_type == 'random':
@@ -260,6 +276,8 @@ class DatasetWrapper:
                                                                   stratify=train_o_targets,
                                                                   test_size=self.validation_size,
                                                                   random_state=self.seed)
+                elif self.split_type == 'defined':
+                    train_i_split, val_i_split = defined_split(self.defined_splits, 'valid')
                 else:
                     assert f"{self.split_type} must be in [random, stratified, scaffold] or defined by yourself."
 
@@ -385,7 +403,7 @@ class DatasetWrapper:
             test_loader = None
 
         else:
-            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT']:
+            if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'PyGCMPNN', 'MACCSFP']:
                 _, _, test_dataset = Graph_data.Graph_construct_dataset(
                                                         self.features_path, test_idxs=testset_indices)
                 _, _, test_loader, _, _ = Graph_data.Graph_construct_dataloader(
@@ -440,7 +458,10 @@ class DatasetWrapper:
 
         if inner_idx is None:
             indices = self.splits[outer_idx]["model_selection"][0]
-            trainset_indices = indices['train'].extend(indices['validation']) 
+            if self.dataset_name.startswith('ogb'):
+                trainset_indices = indices['train']
+            else:
+                trainset_indices = indices['train'] + indices['validation']
             validset_indices = []
         else:
             inner_idx = int(inner_idx) or 0
@@ -449,7 +470,8 @@ class DatasetWrapper:
             validset_indices = indices['validation']
 
         scaler = None
-        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', 'GraphNet', 'GAT']:
+        
+        if self.model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT', 'PyGCMPNN']:
             train_dataset, valid_dataset, _ = Graph_data.Graph_construct_dataset(
                 self.features_path, train_idxs=trainset_indices, valid_idxs=validset_indices)
             train_loader, valid_loader, _, features_scaler, scaler = Graph_data.Graph_construct_dataloader(
@@ -495,7 +517,7 @@ class DatasetWrapper:
         #                 self.features_path, train_idxs=trainset_indices, valid_idxs=validset_indices)
 
         else:
-            raise self.logger.error(f"Model Name must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', \
+            raise print(f"Model Name must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'MolecularFingerprint', \
                                             'MPNN', 'DMPNN', 'CMPNN', 'MAT', 'BiLSTM', 'BiLSTM-Attention']")
 
         if len(validset_indices) == 0:
