@@ -9,7 +9,7 @@
 <img src="https://github.com/biomed-AI/MolRep/blob/main/ADMET-TOC.jpg" alt="architecture"/>
 </p>
 
-If you found this package useful, please cite our papers: [MolRep](https://doi.org/10.1101/2021.01.13.426489) and [DrugXAI](https://arxiv.org/abs/2107.04119) for now:
+If you found this package useful, please cite our papers: [MolRep](https://doi.org/10.1101/2021.01.13.426489) and [Mol-XAI](https://arxiv.org/abs/2107.04119) for now:
 ```
 @article{rao2021molrep,
   title={MolRep: A Deep Representation Learning Library for Molecular Property Prediction},
@@ -50,6 +50,8 @@ Where `<your_conda_path>` is your conda path, and `<CUDA_VERSION>` is an optiona
 ## Data
 
 Data (including Explainable Dataset) could be download from [Google_Driver](https://drive.google.com/drive/folders/1vGlhE3TJ4AhvUCa3ODdFw3O-zOMH1s7J?usp=sharing)
+
+[!NEWS] The human experiments fro explainability task (molecules and results) are available at [Here](https://drive.google.com/drive/folders/1s1_GnX8fUp-N6GkGq5rZevpvmCV_KrMt?usp=sharing)
 
 ### Current Dataset
 |Dataset|Task|Task type|#Molecule|Splits|Metric|Reference|
@@ -117,28 +119,5 @@ To test a pretrained model, run [testing-example.ipynb](https://github.com/Jh-SY
 ### Explainable
 To explain the GNN model, run [Explainer_Experiments.py](https://github.com/Jh-SYSU/MolRep/blob/main/Examples/Explainer_Experiments.py)
 
-
-### Results
-
-#### Results on Classification Tasks.
-
-|Datasets|BBBP|Tox21|SIDER|ClinTox|MUV|HIV|BACE|
-|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-|Mol2Vec|0.9213±0.0052|0.8139±0.0081|0.6043±0.0061|0.8572±0.0054|0.1178±0.0032|0.8413±0.0047|0.8284±0.0023|
-|N-Gram graph|0.9012±0.0385|0.8371±0.0421|0.6482±0.0437|0.8753±0.0077|0.1011±0.0000|0.8378±0.0034|0.8472±0.0057|
-|FP2Vec|0.8076±0.0032|0.8578±0.0076|0.6678±0.0068|0.8834±0.0432|0.0856±0.0031|0.7894±0.0052|0.8129±0.0492|
-|VAE|0.8378±0.0031|0.8315±0.0382|0.6493±0.0762|0.8674±0.0124|0.0794±0.0001|0.8109±0.0381|0.8368±0.0762|
-|BiLSTM|0.8391±0.0032|0.8279±0.0098|0.6092±0.0303|0.8319±0.0120|0.0382±0.0000|0.7962±0.0098|0.8263±0.0031|
-|SALSTM|0.8482±0.0329|0.8253±0.0031|0.6308±0.0036|0.8317±0.0003|0.0409±0.0000|0.8034±0.0128|0.8348±0.0019|
-|Transformer|0.9610±0.0119|0.8129±0.0013|0.6017±0.0012|0.8572±0.0032|0.0716±0.0017|0.8372±0.0314|0.8407±0.0738|
-|MAT|0.9620±0.0392|0.8393±0.0039|0.6276±0.0029|0.8777±0.0149|0.0913±0.0001|0.8653±0.0054|0.8519±0.0504|
-|DGCNN|0.9311±0.0434|0.7992±0.0057|0.6007±0.0053|0.8302±0.0126|0.0438±0.0000|0.8297±0.0038|0.8361±0.0034|
-|GraphSAGE|0.9630±0.0474|0.8166±0.0041|0.6403±0.0045|0.9116±0.0146|0.1145±0.0000|0.8705±0.0724|**0.9316±0.0360**|
-|GIN|0.8746±0.0359|0.8178±0.0031|0.5904±0.0000|0.8842±0.0004|0.0832±0.0000|0.8015±0.0328|0.8275±0.0034|
-|ECC|0.9620±0.0003|**0.8677±0.0090**|**0.6750±0.0092**|0.8862±0.0831|0.1308±0.0013|**0.8733±0.0025**|0.8419±0.0092|
-|DiffPool|0.8732±0.0391|0.8012±0.0130|0.6087±0.0130|0.8345±0.0233|0.0934±0.0001|0.8452±0.0042|0.8592±0.0391|
-|MPNN|0.9321±0.0312|0.8440±0.014|0.6313±0.0121|0.8414±0.0294|0.0572±0.0001|0.8032±0.0092|0.8493±0.0013|
-|DMPNN|0.9562±0.0070|0.8429±0.0391|0.6378±0.0329|0.8692±0.0051|0.0867±0.0032|0.8137±0.0072|0.8678±0.0372|
-|CMPNN|**0.9854±0.0215**|0.8593±0.0088|0.6581±0.0020|**0.9169±0.0065**|0.1435±0.0002|0.8687±0.0003|0.8932±0.0019|
 
 More results will be updated soon.
