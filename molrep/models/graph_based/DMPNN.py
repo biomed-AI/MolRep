@@ -8,23 +8,28 @@ Code based on:
 Yang et al "Analyzing Learned Molecular Representations for Property Prediction" & "A Deep Learning Approach to Antibiotic Discovery" -> https://github.com/chemprop/chemprop
 """
 
-from argparse import Namespace
+
 from typing import List, Union
 
 from rdkit import Chem
 
-import math
+import os
 import torch
 import torch.nn as nn
 import numpy as np
-import torch.nn.functional as F
 
 from molrep.processors.mpnn_embeddings import BatchMolGraph, get_atom_fdim, get_bond_fdim, mol2graph
 from molrep.processors.mpnn_embeddings import index_select_ND, get_activation_function
 
+from molrep.common.registry import registry
 
+@registry.register_model("dmpnn")
 class DMPNN(nn.Module):
     """A :class:`DMPNN` is a model which contains a message passing network following by feed-forward layers."""
+
+    MODEL_CONFIG_DICT = {
+        "dmpnn_default": "configs/models/dmpnn_default.yaml",
+    }
 
     def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
         """
@@ -55,6 +60,30 @@ class DMPNN(nn.Module):
         self.create_ffn()
 
         self.initialize_weights()
+
+    @property
+    def device(self):
+        return list(self.parameters())[0].device
+
+    @classmethod
+    def from_config(cls, cfg=None):
+        model_configs = cfg.model_cfg
+        dataset_configs = cfg.datasets_cfg
+
+        dim_features = dataset_configs.get("dim_features", 0)
+        dim_target = dataset_configs.get("dim_target", 1)
+
+        model = cls(
+            dim_features=dim_features,
+            dim_target=dim_target,
+            dataset_configs=dataset_configs,
+            model_configs=model_configs,
+        )
+        return model
+
+    @classmethod
+    def default_config_path(cls, model_type):
+        return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT[model_type])
 
     def initialize_weights(self):
         """
@@ -135,7 +164,7 @@ class DMPNN(nn.Module):
         :return: The output of the :class:`DMPNN`, which is either property predictions
                  or molecule features if :code:`self.featurizer=True`.
         """
-        batch, features_batch, atom_descriptors_batch = data
+        batch, features_batch, atom_descriptors_batch = data["smiles"], data["features"], data["atom_descriptors"]
 
         output = self.ffn(self.encoder(batch, features_batch, atom_descriptors_batch))
 

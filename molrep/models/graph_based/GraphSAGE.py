@@ -1,3 +1,5 @@
+
+import os
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -5,7 +7,18 @@ from torch.nn import functional as F
 from torch_geometric.utils import degree
 from torch_geometric.nn import SAGEConv, global_max_pool
 
+from molrep.common.registry import registry
+
+@registry.register_model("graphsage")
 class GraphSAGE(nn.Module):
+    """
+    GraphSAGE is a model which contains a message passing network following by feed-forward layers.
+    """
+
+    MODEL_CONFIG_DICT = {
+        "graphsage_default": "configs/models/graphsage_default.yaml",
+    }
+
     def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=200):
         super().__init__()
 
@@ -46,6 +59,30 @@ class GraphSAGE(nn.Module):
             self.relu = nn.ReLU()
         assert not (self.classification and self.regression and self.multiclass)
 
+    @property
+    def device(self):
+        return list(self.parameters())[0].device
+
+    @classmethod
+    def from_config(cls, cfg=None):
+        model_configs = cfg.model_cfg
+        dataset_configs = cfg.datasets_cfg
+
+        dim_features = dataset_configs.get("dim_features", 0)
+        dim_target = dataset_configs.get("dim_target", 1)
+
+        model = cls(
+            dim_features=dim_features,
+            dim_target=dim_target,
+            dataset_configs=dataset_configs,
+            model_configs=model_configs,
+        )
+        return model
+
+    @classmethod
+    def default_config_path(cls, model_type):
+        return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT[model_type])
+
     def unbatch(self, x, batch):
         sizes = degree(batch, dtype=torch.long).tolist()
         node_feat_list = x.split(sizes, dim=0)
@@ -66,6 +103,7 @@ class GraphSAGE(nn.Module):
         return feat, mask
 
     def featurize(self, data):
+        data = data["pygdata"]
         x, edge_index, batch = data.x, data.edge_index, data.batch
         x_all = []
         for i, layer in enumerate(self.layers):
@@ -78,6 +116,7 @@ class GraphSAGE(nn.Module):
         return self.unbatch(x, batch)
 
     def forward(self, data):
+        data = data["pygdata"]
         x, edge_index, batch = data.x, data.edge_index, data.batch
         x.requires_grad = True
 
@@ -129,10 +168,11 @@ class GraphSAGE(nn.Module):
     def activations_hook(self, grad):
         self.conv_grads.append(grad)
 
-    def get_gradients(self, data):
+    def get_gradients(self, batch_data):
+        data = batch_data["pygdata"]
         data.x.requires_grad_()
         data.x.retain_grad()
-        output = self.forward(data)
+        output = self.forward({"pygdata": data})
         output.backward(torch.ones_like(output))
 
         atom_grads = data.x.grad

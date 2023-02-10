@@ -1,5 +1,6 @@
 from math import ceil
 
+import os
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -9,6 +10,7 @@ from torch_geometric.transforms import ToDense
 
 NUM_SAGE_LAYERS = 3
 
+from molrep.common.registry import registry
 
 class SAGEConvolutions(nn.Module):
     def __init__(self,
@@ -80,10 +82,16 @@ class DiffPoolLayer(nn.Module):
         return x, adj, l, e
 
 
+@registry.register_model("diffpool")
 class DiffPool(nn.Module):
     """
-    Computes multiple DiffPoolLayers
+    DiffPool is a model which contains a message passing network following by feed-forward layers.
     """
+
+    MODEL_CONFIG_DICT = {
+        "diffpool_default": "configs/models/diffpool_default.yaml",
+    }
+
     def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=200):
         super().__init__()
 
@@ -136,7 +144,32 @@ class DiffPool(nn.Module):
             self.relu = nn.ReLU()
         assert not (self.classification and self.regression and self.multiclass)
 
+    @property
+    def device(self):
+        return list(self.parameters())[0].device
+
+    @classmethod
+    def from_config(cls, cfg=None):
+        model_configs = cfg.model_cfg
+        dataset_configs = cfg.datasets_cfg
+
+        dim_features = dataset_configs.get("dim_features", 0)
+        dim_target = dataset_configs.get("dim_target", 1)
+
+        model = cls(
+            dim_features=dim_features,
+            dim_target=dim_target,
+            dataset_configs=dataset_configs,
+            model_configs=model_configs,
+        )
+        return model
+
+    @classmethod
+    def default_config_path(cls, model_type):
+        return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT[model_type])
+
     def featurize(self, data):
+        data = data["pygdata"]
         x, edge_index, batch = data.x, data.edge_index, data.batch
         x, mask = to_dense_batch(x, batch=batch)
         adj = to_dense_adj(edge_index, batch=batch)
@@ -178,8 +211,8 @@ class DiffPool(nn.Module):
 
         return feat, mask
 
-
     def forward(self, data):
+        data = data["pygdata"]
         x, edge_index, batch = data.x, data.edge_index, data.batch
         x.requires_grad = True
         x, mask = to_dense_batch(x, batch=batch)
@@ -243,10 +276,11 @@ class DiffPool(nn.Module):
     def activations_hook(self, grad):
         self.conv_grads.append(grad)
 
-    def get_gradients(self, data):
+    def get_gradients(self, batch_data):
+        data = batch_data["pygdata"]
         data.x.requires_grad_()
         data.x.retain_grad()
-        output = self.forward(data)
+        output = self.forward({"pygdata": data})
         output.backward()
 
         atom_grads = data.x.grad

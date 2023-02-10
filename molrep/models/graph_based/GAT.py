@@ -1,4 +1,5 @@
 
+import os
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -6,7 +7,19 @@ from torch.nn import functional as F
 from torch_geometric.utils import degree
 from torch_geometric.nn import GATConv, global_max_pool
 
+from molrep.common.registry import registry
+
+
+@registry.register_model("gat")
 class GAT(nn.Module):
+    """
+    GAT is a model which contains a message passing network following by feed-forward layers.
+    """
+
+    MODEL_CONFIG_DICT = {
+        "gat_default": "configs/models/gat_default.yaml",
+    }
+
     def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=200):
         super().__init__()
 
@@ -32,7 +45,6 @@ class GAT(nn.Module):
 
             self.layers.append(conv)
 
-
         # For graph classification
         self.fc1 = nn.Linear(heads * num_layers * dim_embedding, heads * dim_embedding)
         self.fc2 = nn.Linear(heads * dim_embedding, dim_embedding)
@@ -52,6 +64,29 @@ class GAT(nn.Module):
             self.relu = nn.ReLU()
         assert not (self.classification and self.regression and self.multiclass)
 
+    @property
+    def device(self):
+        return list(self.parameters())[0].device
+
+    @classmethod
+    def from_config(cls, cfg=None):
+        model_configs = cfg.model_cfg
+        dataset_configs = cfg.datasets_cfg
+
+        dim_features = dataset_configs.get("dim_features", 0)
+        dim_target = dataset_configs.get("dim_target", 1)
+
+        model = cls(
+            dim_features=dim_features,
+            dim_target=dim_target,
+            dataset_configs=dataset_configs,
+            model_configs=model_configs,
+        )
+        return model
+
+    @classmethod
+    def default_config_path(cls, model_type):
+        return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT[model_type])
 
     def unbatch(self, x, batch):
         sizes = degree(batch, dtype=torch.long).tolist()
@@ -73,7 +108,8 @@ class GAT(nn.Module):
         return feat, mask
 
     def featurize(self, data):
-        x, edge_index, batch = data.x, data.edge_index, data.batch
+        batch_data = data["pygdata"]
+        x, edge_index, batch = batch_data.x, batch_data.edge_index, batch_data.batch
         
         x_all = []
         for i, layer in enumerate(self.layers):
@@ -87,7 +123,8 @@ class GAT(nn.Module):
         return self.unbatch(x, batch)
 
     def forward(self, data):
-        x, edge_index, batch = data.x, data.edge_index, data.batch
+        batch_data = data["pygdata"]
+        x, edge_index, batch = batch_data.x, batch_data.edge_index, batch_data.batch
         x.requires_grad = True
 
         x_all = []
@@ -144,10 +181,11 @@ class GAT(nn.Module):
     def activations_hook(self, grad):
         self.conv_grads.append(grad)
 
-    def get_gradients(self, data):
+    def get_gradients(self, batch_data):
+        data = batch_data["pygdata"]
         data.x.requires_grad_()
         data.x.retain_grad()
-        output = self.forward(data)
+        output = self.forward({"pygdata": data})
         output.backward(torch.ones_like(output))
 
         atom_grads = data.x.grad

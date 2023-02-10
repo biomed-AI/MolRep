@@ -1,3 +1,5 @@
+
+import os
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -6,8 +8,17 @@ from torch.nn import Sequential, Linear, ReLU
 from torch_geometric.utils import degree
 from torch_geometric.nn import GINConv, global_add_pool, global_mean_pool
 
+from molrep.common.registry import registry
 
+@registry.register_model("gin")
 class GIN(torch.nn.Module):
+    """
+    GIN is a model which contains a message passing network following by feed-forward layers.
+    """
+
+    MODEL_CONFIG_DICT = {
+        "gin_default": "configs/models/gin_default.yaml",
+    }
 
     def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=200):
         super(GIN, self).__init__()
@@ -59,6 +70,30 @@ class GIN(torch.nn.Module):
             self.relu = nn.ReLU()
         assert not (self.classification and self.regression and self.multiclass)
 
+    @property
+    def device(self):
+        return list(self.parameters())[0].device
+
+    @classmethod
+    def from_config(cls, cfg=None):
+        model_configs = cfg.model_cfg
+        dataset_configs = cfg.datasets_cfg
+
+        dim_features = dataset_configs.get("dim_features", 0)
+        dim_target = dataset_configs.get("dim_target", 1)
+
+        model = cls(
+            dim_features=dim_features,
+            dim_target=dim_target,
+            dataset_configs=dataset_configs,
+            model_configs=model_configs,
+        )
+        return model
+
+    @classmethod
+    def default_config_path(cls, model_type):
+        return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT[model_type])
+
     def unbatch(self, x, batch):
         sizes = degree(batch, dtype=torch.long).tolist()
         node_feat_list = x.split(sizes, dim=0)
@@ -79,7 +114,8 @@ class GIN(torch.nn.Module):
         return feat, mask
 
     def featurize(self, data):
-        x, edge_index, batch = data.x, data.edge_index, data.batch
+        batch_data = data["pygdata"]
+        x, edge_index, batch = batch_data.x, batch_data.edge_index, batch_data.batch
 
         out = 0
         for layer in range(self.no_layers):
@@ -96,9 +132,9 @@ class GIN(torch.nn.Module):
        
         return self.unbatch(out, batch)
 
-
     def forward(self, data):
-        x, edge_index, batch = data.x, data.edge_index, data.batch
+        batch_data = data["pygdata"]
+        x, edge_index, batch = batch_data.x, batch_data.edge_index, batch_data.batch
 
         out = 0
         for layer in range(self.no_layers):

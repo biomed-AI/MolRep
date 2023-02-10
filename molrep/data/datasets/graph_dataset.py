@@ -54,7 +54,7 @@ class GraphDataset(MoleculeDataset):
     def collate_fn(cls, batch, follow_batch=[]):
         batch_data = Batch.from_data_list(batch, follow_batch)
         return {
-            "data": batch_data,
+            "pygdata": batch_data,
             "targets": batch_data.y,
         }
 

@@ -1,4 +1,4 @@
-
+import os
 from operator import mod
 from numpy.lib.arraysetops import isin
 import torch
@@ -6,9 +6,19 @@ from torch import nn
 from torch.nn import functional as F
 
 from torch_geometric.nn import NNConv, Set2Set
+from molrep.common.registry import registry
 
 
+@registry.register_model("graphnet")
 class GraphNet(nn.Module):
+    """
+    GraphNet is a model which contains a message passing network following by feed-forward layers.
+    """
+
+    MODEL_CONFIG_DICT = {
+        "graphnet_default": "configs/models/graphnet_default.yaml",
+    }
+
     def __init__(self, dim_features, dim_target, model_configs, dataset_configs):
         super().__init__()
 
@@ -50,11 +60,9 @@ class GraphNet(nn.Module):
             num_layers=num_layer_set2set
         )
 
-
         # For graph classification
         self.fc1 = nn.Linear(2 * dim_node_hidden, dim_node_hidden)
         self.fc2 = nn.Linear(dim_node_hidden, dim_target)
-
 
         self.task_type = dataset_configs["task_type"]
         self.multiclass_num_classes = dataset_configs["multiclass_num_classes"] if self.task_type == 'Multi-Classification' else None
@@ -70,8 +78,32 @@ class GraphNet(nn.Module):
             self.relu = nn.ReLU()
         assert not (self.classification and self.regression and self.multiclass)
 
+    @property
+    def device(self):
+        return list(self.parameters())[0].device
+
+    @classmethod
+    def from_config(cls, cfg=None):
+        model_configs = cfg.model_cfg
+        dataset_configs = cfg.datasets_cfg
+
+        dim_features = dataset_configs.get("dim_features", 0)
+        dim_target = dataset_configs.get("dim_target", 1)
+
+        model = cls(
+            dim_features=dim_features,
+            dim_target=dim_target,
+            dataset_configs=dataset_configs,
+            model_configs=model_configs,
+        )
+        return model
+
+    @classmethod
+    def default_config_path(cls, model_type):
+        return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT[model_type])
 
     def featurize(self, data):
+        data = data["pygdata"]
         x, edge_index, edge_attrs, batch = data.x, data.edge_index, data.edge_attr, data.batch
         
         x = self.project_node_feats(x)     # (batch_size, node hidden features)
@@ -89,6 +121,7 @@ class GraphNet(nn.Module):
         return graph_feats
 
     def forward(self, data):
+        data = data["pygdata"]
         x, edge_index, edge_attrs, batch = data.x, data.edge_index, data.edge_attr, data.batch
         x.requires_grad = True
         edge_attrs.requires_grad = True
@@ -143,14 +176,16 @@ class GraphNet(nn.Module):
     def activations_hook(self, grad):
         self.conv_grads.append(grad)
 
-    def get_gradients(self, data):
+    def get_gradients(self, batch_data):
+
+        data = batch_data["pygdata"]
         data.x.requires_grad_()
         data.x.retain_grad()
 
         data.edge_attr.requires_grad_()
         data.edge_attr.retain_grad()
 
-        output = self.forward(data)
+        output = self.forward({"pygdata": data})
         output.backward(torch.ones_like(output))
 
         atom_grads = data.x.grad

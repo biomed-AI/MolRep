@@ -1,3 +1,5 @@
+
+import os
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -5,10 +7,17 @@ from torch_geometric.nn import MessagePassing, global_sort_pool
 from torch_geometric.utils import add_self_loops, degree
 
 
+from molrep.common.registry import registry
+
+@registry.register_model("dgcnn")
 class DGCNN(nn.Module):
     """
-    Uses fixed architecture
+    DGCNN is a model which contains a message passing network following by feed-forward layers.
     """
+
+    MODEL_CONFIG_DICT = {
+        "dgcnn_default": "configs/models/dgcnn_default.yaml",
+    }
 
     def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=200):
         super(DGCNN, self).__init__()
@@ -44,7 +53,6 @@ class DGCNN(nn.Module):
                                          nn.Dropout(p=0.5),
                                          nn.Linear(self.hidden_dense_dim, dim_target))
 
-
         self.task_type = dataset_configs["task_type"]
         self.multiclass_num_classes = dataset_configs["multiclass_num_classes"] if self.task_type == 'Multi-Classification' else None
 
@@ -59,6 +67,29 @@ class DGCNN(nn.Module):
             self.relu = nn.ReLU()
         assert not (self.classification and self.regression and self.multiclass)
 
+    @property
+    def device(self):
+        return list(self.parameters())[0].device
+
+    @classmethod
+    def from_config(cls, cfg=None):
+        model_configs = cfg.model_cfg
+        dataset_configs = cfg.datasets_cfg
+
+        dim_features = dataset_configs.get("dim_features", 0)
+        dim_target = dataset_configs.get("dim_target", 1)
+
+        model = cls(
+            dim_features=dim_features,
+            dim_target=dim_target,
+            dataset_configs=dataset_configs,
+            model_configs=model_configs,
+        )
+        return model
+
+    @classmethod
+    def default_config_path(cls, model_type):
+        return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT[model_type])
 
     def unbatch(self, x, batch):
         sizes = degree(batch, dtype=torch.long).tolist()
@@ -80,6 +111,7 @@ class DGCNN(nn.Module):
         return feat, mask
 
     def featurize(self, data):
+        data = data["pygdata"]
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
         hidden_repres = []
@@ -91,6 +123,7 @@ class DGCNN(nn.Module):
         return self.unbatch(x, batch)
 
     def forward(self, data):
+        data = data["pygdata"]
         # Implement Equation 4.2 of the paper i.e. concat all layers' graph representations and apply linear model
         # note: this can be decomposed in one smaller linear model per layer
         x, edge_index, batch = data.x, data.edge_index, data.batch
@@ -131,7 +164,6 @@ class DGCNN(nn.Module):
 
         return out_dense
 
-    
     def get_gap_activations(self, data):
         output = self.forward(data)
         output.backward()
@@ -151,10 +183,12 @@ class DGCNN(nn.Module):
     def activations_hook(self, grad):
         self.conv_grads.append(grad)
 
-    def get_gradients(self, data):
+    def get_gradients(self, batch_data):
+
+        data = batch_data["pygdata"]
         data.x.requires_grad_()
         data.x.retain_grad()
-        output = self.forward(data)
+        output = self.forward({"pygdata": data})
         output.backward()
 
         atom_grads = data.x.grad

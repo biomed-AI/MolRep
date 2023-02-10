@@ -1,3 +1,4 @@
+import os
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -5,6 +6,9 @@ from torch_geometric.nn import MessagePassing, global_mean_pool
 from torch_geometric.utils import degree, dense_to_sparse
 from torch_geometric.nn import ECConv
 from torch_scatter import scatter_add
+
+from molrep.common.registry import registry
+
 
 def _make_block_diag(mats, mat_sizes):
     block_diag = torch.zeros(sum(mat_sizes), sum(mat_sizes))
@@ -54,6 +58,7 @@ class ECCLayer(nn.Module):
         return x
 
 
+@registry.register_model("ecc")
 class ECC(nn.Module):
     """
     Uses fixed architecture.
@@ -63,6 +68,10 @@ class ECC(nn.Module):
     to an edge specific weight.
 
     """
+
+    MODEL_CONFIG_DICT = {
+        "ecc_default": "configs/models/ecc_default.yaml",
+    }
 
     def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=200):
         super().__init__()
@@ -106,6 +115,29 @@ class ECC(nn.Module):
             self.relu = nn.ReLU()
         assert not (self.classification and self.regression and self.multiclass)
 
+    @property
+    def device(self):
+        return list(self.parameters())[0].device
+
+    @classmethod
+    def from_config(cls, cfg=None):
+        model_configs = cfg.model_cfg
+        dataset_configs = cfg.datasets_cfg
+
+        dim_features = dataset_configs.get("dim_features", 0)
+        dim_target = dataset_configs.get("dim_target", 1)
+
+        model = cls(
+            dim_features=dim_features,
+            dim_target=dim_target,
+            dataset_configs=dataset_configs,
+            model_configs=model_configs,
+        )
+        return model
+
+    @classmethod
+    def default_config_path(cls, model_type):
+        return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT[model_type])
 
     def make_block_diag(self, matrix_list):
         mat_sizes = [m.size(0) for m in matrix_list]
@@ -127,7 +159,6 @@ class ECC(nn.Module):
         # Convert v_plus_batch to boolean
         return lap_edge_idx, lap_edge_weights, (v_plus_batch == 1)
 
-
     def unbatch(self, x, batch):
         sizes = degree(batch, dtype=torch.long).tolist()
         node_feat_list = x.split(sizes, dim=0)
@@ -148,6 +179,7 @@ class ECC(nn.Module):
         return feat, mask
         
     def featurize(self, data):
+        data = data["pygdata"]
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
         for i, layer in enumerate(self.layers):
@@ -176,6 +208,7 @@ class ECC(nn.Module):
         return self.unbatch(x, batch)
 
     def forward(self, data):
+        data = data["pygdata"]
         x, edge_index, batch = data.x, data.edge_index, data.batch
         x.requires_grad = True
 
@@ -260,10 +293,11 @@ class ECC(nn.Module):
     def edge_attrs_hook(self, grad):
         self.edge_grads.append(grad)
 
-    def get_gradients(self, data):
+    def get_gradients(self, batch_data):
+        data = batch_data["pygdata"]
         data.x.requires_grad_()
         data.x.retain_grad()
-        output = self.forward(data)
+        output = self.forward({"pygdata": data})
         output.backward()
 
         atom_grads = data.x.grad
