@@ -1,0 +1,77 @@
+model:
+  - CoMPT
+device:
+  - cuda
+N:
+  - 2
+  - 4
+  - 8
+d_model:
+  - 64
+  - 128
+  - 256
+h:
+  - 8
+  - 4
+dropout:
+  - 0.0
+  - 0.4
+n_dense:
+  - 1
+  - 2
+leaky_relu_slope:
+  - 0.0
+aggregation_type:
+  - gru
+scale_norm:
+  - True
+  - False
+dense_output_nonlinearity:
+  - mish
+distance_matrix_kernel:
+  - exp
+  - softmax
+n_generator_layers:
+  - 2
+  - 4
+init_type:
+  - uniform
+attenuation_lambda:
+  - 0.1
+  - 0.2
+num_epochs:
+  - 100
+learning_rate:
+  - 0.1
+  - 0.01
+  - 0.001
+batch_size:
+  - 32
+l2:
+  - 0.0
+  - 0.1
+optimizer:
+  - Adam
+scheduler:
+  -
+    class: NoamLR
+    args:
+      warmup_epochs: [2.0]
+      step_size: 10
+      max_lr: [0.0001]
+      init_lr: [0.00001]
+      final_lr: [0.00001]
+num_lrs:
+  - 1
+gradient_clipping:
+  - null
+early_stopper:
+  -
+    class: Patience
+    args:
+      patience: 500
+      use_loss: True
+shuffle:
+  - True
+seed:
+  - 2022

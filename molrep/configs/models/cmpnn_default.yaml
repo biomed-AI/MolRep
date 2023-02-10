@@ -1,0 +1,28 @@
+# Copyright (c) 2022, Sun Yat-sen Univeristy, inc.
+# All rights reserved.
+
+# @author: Jiahua Rao
+# @license: BSD-3-Clause, For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+# @contact: jiahua.rao@gmail.com
+
+
+
+model:
+  arch: cmpnn
+  model_type: cmpnn_default
+  
+  dim_embedding: 256
+  ffn_hidden_size: 512
+  ffn_num_layers: 2
+
+  depth: 4
+  dropout: 0.1
+
+  activation: "ReLU"
+  undirected: False
+  bias: False
+  atom_messages: False
+
+  features_only: False
+  atom_descriptors: null
+  use_input_features: False

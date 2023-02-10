@@ -1,0 +1,61 @@
+model:
+  - CFLP
+device:
+  - cuda
+
+gnn_type:
+  - GCN
+jk_mode:
+  - mean
+dist:
+  - euclidean
+dec:
+  - hadamard
+embraw:
+  - mvgrl
+selfloopT:
+  - False
+
+alpha:
+  - 1
+beta:
+  - 1
+gamma:
+  - 30.0
+neg_rate:
+  - 1
+t:
+  - kcore
+k: 
+  - 2
+
+dim_h:
+  - 256
+dim_z:
+  - 256
+num_np:
+  - 1000
+patience:
+  - 100
+
+pretrain_epochs:
+  - 200
+num_epochs:
+  - 200
+batch_size:
+  - 65536
+dropout:
+  - 0.3
+lr:
+  - 0.1
+lr_ft:
+  - 0.0005
+l2reg:
+  - 0.000006
+
+disc_func:
+  - lin
+lr_scheduler:
+  - zigzag
+seed:
+  - 2022

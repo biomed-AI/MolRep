@@ -1,0 +1,52 @@
+model:
+  - Transformer
+device:
+  - cuda
+batch_size:
+  - 32
+  - 50
+hidden_dim:
+  - 128
+  # - 256
+dropout_rate:
+  - 0.0
+  # - 0.1
+  # - 0.2
+n_layer:
+  - 2
+  # - 8
+  # - 6
+intermediate_size:
+  - 256
+  # - 512
+num_attention_heads:
+  - 4
+  # - 8
+attention_probs_dropout:
+  - 0.1
+  # - 0.2
+hidden_dropout_rate:
+  - 0.1
+  # - 0.2
+optimizer:
+  - Adam
+scheduler:
+  - null
+early_stopper:
+  - null
+gradient_clipping:
+  - null
+num_epochs:
+  # - 50
+  # - 30
+  - 2
+learning_rate:
+  # - 0.00001
+  - 0.01
+shuffle:
+  - True
+l2:
+  - 0.
+  # - 0.1
+seed:
+  - 2022

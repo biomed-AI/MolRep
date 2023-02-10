@@ -1,0 +1,45 @@
+model:
+  - SALSTM
+device:
+  - cuda
+num_epochs:
+  - 30
+  - 50
+  - 100
+  - 300
+learning_rate:
+  - 0.1
+  - 0.01
+  - 0.001
+batch_size:
+  - 32
+  - 64
+emb_dim:
+  - 128
+lstm_hid_dim:
+  - 128
+hidden_dim:
+  - 128
+att_hops:
+  - 15
+optimizer:
+  - Adam
+early_stopper:
+  -
+    class: Patience
+    args:
+      patience: 500
+      use_loss: True
+shuffle:
+  - True
+l2:
+  - 0.0
+  - 0.1
+scheduler:
+  - null
+early_stopper:
+  - null
+gradient_clipping:
+  - null
+seed:
+  - 2022

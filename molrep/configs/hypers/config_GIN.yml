@@ -1,0 +1,60 @@
+model:
+  - GIN
+device:
+  - cuda
+batch_size:
+  - 32
+  - 128
+learning_rate:
+  - 0.01
+  - 0.001
+  - 0.0001
+num_epochs:
+  - 300
+  - 100
+  - 50
+num_layers:
+  - 2
+  - 4
+hidden_size:  # Note: GIN add a first layer that simply adds up all node features
+  - 64
+  - 32
+optimizer:
+  - Adam
+scheduler:
+  -
+    class: StepLR
+    args:
+      step_size: 50
+      gamma: 0.5
+train_eps:
+  - true
+  - false
+l2:
+  - 0.0
+  - 0.1
+aggregation:
+  - mean
+  - sum
+gradient_clipping:
+  - null
+dropout:
+  - 0.5
+  - 0.0
+early_stopper:
+  -
+    class: Patience
+    args:
+      patience: 500
+      use_loss: False
+  -
+    class: Patience
+    args:
+      patience: 500
+      use_loss: True
+shuffle:
+  - True
+resume:
+  - False
+seed:
+  - 2022

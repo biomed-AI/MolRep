@@ -1,0 +1,46 @@
+model:
+  - DGCNN
+device:
+  - cuda
+batch_size:
+  - 50
+  - 32
+dense_dim:
+  - 128
+  - 64
+k:
+  - 0.9
+  - 0.6
+learning_rate:
+  - 0.0001
+  - 0.00001
+num_epochs:
+  - 50
+  - 100
+  - 300
+optimizer:
+  - Adam
+scheduler:
+  - null
+gradient_clipping:
+  - null
+early_stopper:
+  -
+    class: Patience
+    args:
+      patience: 500
+      use_loss: True
+shuffle:
+  - True
+l2:
+  - 0.0
+  - 0.1
+embedding_dim:
+  - 32
+  - 64
+num_layers:
+  - 2
+  - 3
+  - 4
+seed:
+  - 2022

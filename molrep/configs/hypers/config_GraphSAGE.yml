@@ -1,0 +1,43 @@
+model:
+  - GraphSAGE
+device:
+  - cuda
+batch_size:
+  - 32
+  - 64
+learning_rate:
+  - 0.0001
+  - 0.01
+  - 0.001
+l2:
+  - 0.
+  - 0.1
+num_epochs:
+  - 100
+  - 300
+optimizer:
+  - Adam
+scheduler:
+  - null
+gradient_clipping:
+  - null
+early_stopper:
+  -
+    class: Patience
+    args:
+      patience: 500
+      use_loss: True
+shuffle:
+  - True
+dim_embedding:
+  - 32
+  - 64
+num_layers:
+  - 3
+  - 5
+aggregation:
+  - add
+  - max
+  - mean
+seed:
+  - 2022

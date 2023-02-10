@@ -1,0 +1,41 @@
+model:
+  - BiLSTM
+device:
+  - cuda
+num_epochs:
+  - 30
+  - 50
+  - 100
+  - 300
+learning_rate:
+  - 0.1
+  - 0.01
+  - 0.001
+batch_size:
+  - 32
+  - 64
+emb_dim:
+  - 128
+hidden_dim:
+  - 128
+lstm_hid_dim:
+  - 64
+optimizer:
+  - Adam
+early_stopper:
+  -
+    class: Patience
+    args:
+      patience: 500
+      use_loss: True
+shuffle:
+  - True
+gradient_clipping:
+  - null
+scheduler:
+  - null
+l2:
+  - 0.0
+  - 0.1
+seed:
+  - 2022

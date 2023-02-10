@@ -1,0 +1,81 @@
+model:
+  - MAT
+device:
+  - cuda
+N:
+  - 2
+  - 4
+d_model:
+  - 64
+  - 128
+  - 256
+h:
+  - 8
+  - 4
+dropout:
+  - 0.1
+  - 0.0
+  - 0.2
+lambda_attention:
+  - 0.33
+  - 0.4
+lambda_distance:
+  - 0.3
+  - 0.4
+trainable_lambda:
+  - False
+N_dense:
+  - 2
+leaky_relu_slope:
+  - 0.1
+  - 0.0
+aggregation_type:
+  - sum
+  - mean
+dense_output_nonlinearity:
+  - relu
+distance_matrix_kernel:
+  - exp
+  - softmax
+use_edge_features:
+  - False
+control_edges:
+  - False
+integrated_distances:
+  - False
+scale_norm:
+  - True
+  - False
+init_type:
+  - uniform
+use_adapter:
+  - False
+n_generator_layers:
+  - 1
+num_epochs:
+  - 300
+learning_rate:
+  - 0.1
+  - 0.01
+  - 0.001
+batch_size:
+  - 32
+l2:
+  - 0.0
+  - 0.1
+optimizer:
+  - Adam
+scheduler:
+  - null
+gradient_clipping:
+  - null
+early_stopper:
+  -
+    class: Patience
+    args:
+      patience: 500
+      use_loss: True
+shuffle:
+  - True
+seed:
+  - 2022

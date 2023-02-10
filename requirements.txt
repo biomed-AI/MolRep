@@ -1,0 +1,37 @@
+ase==3.20.1
+certifi==2020.6.20
+chardet==3.0.4
+cycler==0.10.0
+decorator==4.4.2
+future==0.18.2
+gensim==3.8.3
+googledrivedownloader==0.4
+h5py==2.10.0
+idna==2.10
+isodate==0.6.0
+Jinja2==2.11.3
+joblib==0.17.0
+kiwisolver==1.3.0
+llvmlite==0.34.0
+MarkupSafe==1.1.1
+matplotlib==3.3.2
+networkx==2.4
+numba==0.51.2
+numpy @ file:///tmp/build/80754af9/numpy_and_numpy_base_1603479632437/work
+olefile==0.46
+pandas @ file:///tmp/build/80754af9/pandas_1602088128026/work
+Pillow @ file:///tmp/build/80754af9/pillow_1603822253009/work
+pyparsing==2.4.7
+python-dateutil==2.8.1
+pytz==2020.1
+PyYAML==5.4.1
+rdflib==5.0.0
+requests==2.24.0
+scikit-learn==0.23.2
+scipy==1.5.3
+six==1.15.0
+smart-open==4.0.1
+threadpoolctl==2.1.0
+tqdm==4.51.0
+urllib3==1.26.5
+xgboost==1.3.3
