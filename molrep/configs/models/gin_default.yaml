@@ -1,0 +1,19 @@
+# Copyright (c) 2022, Sun Yat-sen Univeristy, inc.
+# All rights reserved.
+
+# @author: Jiahua Rao
+# @license: BSD-3-Clause, For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+# @contact: jiahua.rao@gmail.com
+
+
+model:
+  arch: gin
+  model_type: gin_default
+  
+  num_layers: 2
+  hidden_size: 64
+
+  train_eps: True
+  aggregation: mean
+
+  dropout: 0.2

@@ -24,22 +24,33 @@ from ogb.graphproppred import PygGraphPropPredDataset
 
 from molrep.processors.utils.graph_utils import *
 from molrep.common.utils import *
+from molrep.common.registry import registry
 
 
+@registry.register_processor("graph")
 class GraphEmbeddings():
-    def __init__(self, data_df, model_name, features_path, dataset_config,
+    # def __init__(self, data_df, model_name, features_path, dataset_config,
+    #              additional_data=None,
+    #              use_node_attrs=True, use_node_degree=False, use_one=False, max_reductions=10,
+    #              precompute_kron_indices=True,
+    #              save_temp_data=True):
+    def __init__(self, cfg, data_df,
                  additional_data=None,
-                 use_node_attrs=True, use_node_degree=False, use_one=False, max_reductions=10,
-                 precompute_kron_indices=True,
-                 save_temp_data=True):
+                 use_node_attrs=True, use_node_degree=False, use_one=False,
+                 max_reductions=10, precompute_kron_indices=True,
+                 save_temp_data=False):
 
-        self.model_name = model_name
         self.whole_data_df = data_df
-        self.features_path = features_path
-        self.dataset_config = dataset_config
+        self.model_name = cfg.model_cfg.arch
+        self.dataset_config = cfg.datasets_cfg
+
         self.dataset_name = self.dataset_config["name"]
         self.dataset_path = self.dataset_config["path"]
         self.additional_data = additional_data
+
+        self.features_dir = Path(registry.get_path("features_root")) / self.dataset_name
+        self.features_dir.mkdir(parents=True, exist_ok=True)
+        self.features_path = self.features_dir / (self.model_name + ".pt")
 
         self.smiles_col = self.dataset_config["smiles_column"]
         self.target_cols = self.dataset_config["target_columns"]
@@ -55,7 +66,6 @@ class GraphEmbeddings():
         self.KRON_REDUCTIONS = max_reductions
         self.precompute_kron_indices = precompute_kron_indices
         self.save_temp_data = save_temp_data
-
 
     @property
     def dim_features(self):
@@ -135,9 +145,9 @@ class GraphEmbeddings():
 
         elif self.dataset_name.startswith('ogb'):
             
-            pyg_dataset = PygGraphPropPredDataset(name=self.dataset_name.replace('_', '-'), root=self.dataset_path)
+            pyg_dataset = PygGraphPropPredDataset(name=self.dataset_name.replace('_', '-'), root=registry.get_path("cache_root"))
             dataset = [data for data in pyg_dataset]
-            
+
             self._dim_features = dataset[0].x.size(1)
             self._dim_edge_features = dataset[0].edge_attr.size(1)
             self._max_num_nodes = dataset[0].max_num_nodes if hasattr(dataset[0], 'max_num_nodes') else max([da.x.shape[0] for da in dataset])

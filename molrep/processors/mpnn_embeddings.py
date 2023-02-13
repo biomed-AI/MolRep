@@ -10,24 +10,17 @@ Song et al "Communicative Representation Learning on Attributed Molecular Graphs
 """
 
 import os
-import math
-import pickle
-import random
 
 from rdkit import Chem
 from pathlib import Path
-from typing import Callable, List, Union, Tuple, Any, Optional
+from typing import Callable, List, Union, Tuple
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn as nn
-from argparse import Namespace
 
 from rdkit import Chem, DataStructs
 from rdkit.Chem import AllChem
-
-from torch.utils.data.dataset import Dataset
 
 from molrep.common.registry import registry
 
@@ -42,13 +35,13 @@ class MPNNEmbeddings:
     # def __init__(self, data_df, model_name, features_path, dataset_config,
     #              additional_data=None, features_generator=None, use_data_saving=True, atom_descriptors=None):
     def __init__(self, cfg, data_df, additional_data=None, features_generator=None, atom_descriptors=None):
-        dataset_config = cfg.datasets_cfg
 
-        self.model_name = cfg.model_cfg.arch
         self.whole_data_df = data_df
-        self.dataset_config = dataset_config
+        self.model_name = cfg.model_cfg.arch
+        self.dataset_config = cfg.datasets_cfg
         self.dataset_name = self.dataset_config["name"]
         self.additional_data = additional_data
+
         self.features_dir = Path(registry.get_path("features_root")) / self.dataset_name
         self.features_dir.mkdir(parents=True, exist_ok=True)
         self.features_path = self.features_dir / (self.model_name + ".pt")
@@ -57,8 +50,8 @@ class MPNNEmbeddings:
         self.use_data_saving = cfg.run_cfg.get("use_data_saving", True)
         self.atom_descriptors = atom_descriptors
 
-        self.smiles_col = dataset_config["smiles_column"]
-        self.target_cols = dataset_config["target_columns"]
+        self.smiles_col = self.dataset_config["smiles_column"]
+        self.target_cols = self.dataset_config["target_columns"]
 
     @property
     def dim_features(self):

@@ -13,7 +13,7 @@
 import numpy as np
 
 import torch
-from torch_geometric.data import Data
+from torch_geometric.data import Batch
 
 from molrep.common.registry import registry
 from molrep.models.metrics import get_metric
@@ -68,10 +68,10 @@ class PropertyTask(BaseTask):
         for i, batch_data in enumerate(data_loader):
 
             for k, v in batch_data.items():
-                if type(v) == torch.Tensor or type(v) == Data:
+                if type(v) == torch.Tensor or issubclass(type(v), Batch):
                     batch_data[k] = v.to(device, non_blocking=True)
 
-            target_batch = batch_data["targets"]
+            target_batch = batch_data["targets"].cpu()
             mask = torch.Tensor([[not np.isnan(x) for x in tb] for tb in target_batch]).to(device)
             labels = torch.Tensor([[0 if np.isnan(x) else x for x in tb] for tb in target_batch]).to(device)
             class_weights = torch.ones(labels.shape).to(device)
@@ -120,10 +120,10 @@ class PropertyTask(BaseTask):
         y_preds, y_labels = [], []
         for _, batch_data in enumerate(data_loader):
             for k, v in batch_data.items():
-                if type(v) == torch.Tensor or type(v) == Data:
+                if type(v) == torch.Tensor or issubclass(type(v), Batch):
                     batch_data[k] = v.to(device, non_blocking=True)
 
-            target_batch = batch_data["targets"]
+            target_batch = batch_data["targets"].cpu()
             mask = torch.Tensor([[not np.isnan(x) for x in tb] for tb in target_batch]).to(device)
             labels = torch.Tensor([[0 if np.isnan(x) else x for x in tb] for tb in target_batch]).to(device)
             class_weights = torch.ones(labels.shape).to(device)

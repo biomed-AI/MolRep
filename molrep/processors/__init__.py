@@ -1,0 +1,3 @@
+
+from molrep.processors.mpnn_embeddings import MPNNEmbeddings
+from molrep.processors.graph_embeddings import GraphEmbeddings

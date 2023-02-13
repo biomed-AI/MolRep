@@ -15,7 +15,9 @@ import torch
 from torch_geometric import data
 from torch_geometric.data import Data
 from typing import List, Optional
+from torch.utils.data import DataLoader
 
+from molrep.common.utils import worker_init
 from molrep.data.datasets.base_dataset import MoleculeDataset, MoleculeSampler
 from molrep.common.registry import registry
 
@@ -45,9 +47,10 @@ class GraphDataset(MoleculeDataset):
                  if a slice is provided.
         """
         return self._data[index]
-    
-    def construct_data(cls, indices):
-        features = torch.load(cls.features_path)
+
+    @classmethod
+    def construct_dataset(cls, indices, features_path):
+        features = torch.load(features_path)
         return cls([features[idx] for idx in indices])
 
     @classmethod
@@ -58,12 +61,11 @@ class GraphDataset(MoleculeDataset):
             "targets": batch_data.y,
         }
 
-    def bulid_dataloader(self, is_train=True):
-
-        num_workers = self.config.run_cfg.get("num_workers", 2)
-        class_balance = self.config.run_cfg.get("class_balance", False)
+    def bulid_dataloader(self, config, is_train=True):
+        num_workers = config.run_cfg.get("num_workers", 2)
+        class_balance = config.run_cfg.get("class_balance", False)
         shuffle = (is_train == True)
-        seed = self.config.run_cfg.get("seed", 42)
+        seed = config.run_cfg.get("seed", 42)
 
         self._context = None
         self._timeout = 0
@@ -77,6 +79,16 @@ class GraphDataset(MoleculeDataset):
             class_balance=class_balance,
             shuffle=shuffle,
             seed=seed
+        )
+
+        return DataLoader(
+                        dataset=self._data,
+                        batch_size=config.run_cfg.batch_size,
+                        sampler=self._sampler,
+                        num_workers=num_workers,
+                        collate_fn=self.collate_fn,
+                        timeout=self._timeout,
+                        worker_init_fn=worker_init,
         )
 
     def targets(self) -> List[List[Optional[float]]]:

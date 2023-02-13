@@ -120,9 +120,8 @@ class MPNNDataset(MoleculeDataset):
             "features": features_batch,
             "atom_descriptors": atom_descriptors_batch,
         }
-    
-    def bulid_dataloader(self, config, is_train=True):
 
+    def bulid_dataloader(self, config, is_train=True):
         num_workers = config.run_cfg.get("num_workers", 2)
         class_balance = config.run_cfg.get("class_balance", False)
         shuffle = (is_train == True)
