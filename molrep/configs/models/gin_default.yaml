@@ -10,10 +10,10 @@ model:
   arch: gin
   model_type: gin_default
   
-  num_layers: 2
-  hidden_size: 64
+  num_layers: 5
+  hidden_size: 300
 
-  train_eps: True
-  aggregation: mean
+  JK: last
+  aggregation: sum
 
-  dropout: 0.2
+  dropout: 0.5

@@ -32,8 +32,7 @@ from molrep.experiments import *
 
 def now():
     from datetime import datetime
-
-    return datetime.now().strftime("%Y%m%d%H%M")[:-1]
+    return datetime.now().strftime('%Y%m%d_%H%M%S')
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Training")

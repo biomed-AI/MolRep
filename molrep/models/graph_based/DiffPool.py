@@ -10,6 +10,7 @@ from torch_geometric.transforms import ToDense
 
 NUM_SAGE_LAYERS = 3
 
+from molrep.models.base_model import BaseModel
 from molrep.common.registry import registry
 
 class SAGEConvolutions(nn.Module):
@@ -83,7 +84,7 @@ class DiffPoolLayer(nn.Module):
 
 
 @registry.register_model("diffpool")
-class DiffPool(nn.Module):
+class DiffPool(BaseModel):
     """
     DiffPool is a model which contains a message passing network following by feed-forward layers.
     """
@@ -144,10 +145,6 @@ class DiffPool(nn.Module):
             self.relu = nn.ReLU()
         assert not (self.classification and self.regression and self.multiclass)
 
-    @property
-    def device(self):
-        return list(self.parameters())[0].device
-
     @classmethod
     def from_config(cls, cfg=None):
         model_configs = cfg.model_cfg
@@ -163,10 +160,6 @@ class DiffPool(nn.Module):
             model_configs=model_configs,
         )
         return model
-
-    @classmethod
-    def default_config_path(cls, model_type):
-        return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT[model_type])
 
     def featurize(self, data):
         data = data["pygdata"]
@@ -257,6 +250,12 @@ class DiffPool(nn.Module):
 
         return x, l_total, e_total
 
+    def get_batch_nums(self, data):
+        data = data["pygdata"]
+        batch_nodes = data.x.shape[0]
+        batch_edges = data.edge_attr.shape[0]
+        return batch_nodes, batch_edges
+
     def get_gap_activations(self, data):
         output = self.forward(data)
         output.backward()
@@ -269,8 +268,6 @@ class DiffPool(nn.Module):
     def get_intermediate_activations_gradients(self, data):
         output = self.forward(data)
         output.backward()
-
-        conv_grads = [conv_g.grad for conv_g in self.conv_grads]
         return self.conv_acts, self.conv_grads
 
     def activations_hook(self, grad):

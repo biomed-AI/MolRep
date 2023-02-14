@@ -2,8 +2,8 @@ import torch
 import rdkit.Chem as Chem
 import networkx as nx
 
-from molrep.explainer.attribution.utils.fuseprop.mol_graph import MolGraph
-from molrep.explainer.attribution.utils.fuseprop.chemutils import *
+from molrep.explainer.methods.utils.fuseprop.mol_graph import MolGraph
+from molrep.explainer.methods.utils.fuseprop.chemutils import *
 from collections import defaultdict
 
 class IncBase(object):

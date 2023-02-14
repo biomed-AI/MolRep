@@ -73,6 +73,7 @@ class Experiment:
     def loss_func(self):
         if self._loss_func is None:
             self._loss_func = get_loss_func(self.config.datasets_cfg.task_type, self.config.model_cfg.arch)
+        return self._loss_func
 
     @property
     def feature_scaler(self):
@@ -96,7 +97,7 @@ class Experiment:
             init_lr = self.init_lr
 
             # optional parameters
-            decay_rate = self.config.run_cfg.get("lr_decay_rate", None)
+            decay_rate = self.config.run_cfg.get("lr_decay_rate", 1)
             warmup_start_lr = self.config.run_cfg.get("warmup_lr", -1)
             warmup_steps = self.config.run_cfg.get("warmup_steps", 0)
 
@@ -181,7 +182,8 @@ class Experiment:
     def setup_output_dir(self):
         lib_root = Path(registry.get_path("repo_root"))
 
-        output_dir = lib_root / "outputs" / f"{self.config.model_cfg.arch}_{self.config.datasets_cfg.name}"
+        output_dir = lib_root / "outputs" / self.config.datasets_cfg.get("task", "property_prediction")
+        output_dir = output_dir / f"{self.config.model_cfg.arch}_{self.config.datasets_cfg.name}"
         output_dir = output_dir / self.job_id
         result_dir = output_dir / "result"
 

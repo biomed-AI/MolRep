@@ -106,11 +106,9 @@ class MPNNDataset(MoleculeDataset):
         return dataset
 
     @classmethod
-    def collate_fn(cls, batch):
+    def collate_fn(cls, batch, atom_messages=False):
         batch_data = cls(batch)
-        batch_data.batch_graph()  # Forces computation and caching of the BatchMolGraph for the molecules
-
-        smiles_batch = batch_data.batch_graph()
+        smiles_batch = batch_data.batch_graph(atom_messages)  # Forces computation and caching of the BatchMolGraph for the molecules
         target_batch = batch_data.targets()
         features_batch, atom_descriptors_batch = batch_data.features(), batch_data.atom_descriptors()
 
@@ -124,6 +122,7 @@ class MPNNDataset(MoleculeDataset):
     def bulid_dataloader(self, config, is_train=True):
         num_workers = config.run_cfg.get("num_workers", 2)
         class_balance = config.run_cfg.get("class_balance", False)
+        atom_messages = config.model_cfg.get("atom_messages", False)
         shuffle = (is_train == True)
         seed = config.run_cfg.get("seed", 42)
 
@@ -146,12 +145,12 @@ class MPNNDataset(MoleculeDataset):
                         batch_size=config.run_cfg.batch_size,
                         sampler=self._sampler,
                         num_workers=num_workers,
-                        collate_fn=self.collate_fn,
+                        collate_fn=lambda data_list: self.collate_fn(data_list, atom_messages),
                         timeout=self._timeout,
                         worker_init_fn=worker_init,
         )
 
-    def batch_graph(self) -> BatchMolGraph:
+    def batch_graph(self, atom_messages=False) -> BatchMolGraph:
         r"""
         Constructs a :class:`~chemprop.features.BatchMolGraph` with the graph featurization of all the molecules.
         .. note::
@@ -172,9 +171,15 @@ class MPNNDataset(MoleculeDataset):
                         SMILES_TO_GRAPH[d.smiles] = mol_graph
                 mol_graphs.append(mol_graph)
 
-            self._batch_graph = BatchMolGraph(mol_graphs)
-
+            self._batch_graph = BatchMolGraph(mol_graphs, atom_messages=atom_messages)
         return self._batch_graph
+
+    def targets(self) -> List[List[Optional[float]]]:
+        """
+        Returns the targets associated with each molecule.
+        :return: A list of lists of floats (or None) containing the targets.
+        """
+        return [d.targets for d in self._data]
 
     def features(self) -> List[np.ndarray]:
         """

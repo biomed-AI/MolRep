@@ -7,6 +7,7 @@ from torch_geometric.utils import degree, dense_to_sparse
 from torch_geometric.nn import ECConv
 from torch_scatter import scatter_add
 
+from molrep.models.base_model import BaseModel
 from molrep.common.registry import registry
 
 
@@ -59,7 +60,7 @@ class ECCLayer(nn.Module):
 
 
 @registry.register_model("ecc")
-class ECC(nn.Module):
+class ECC(BaseModel):
     """
     Uses fixed architecture.
 
@@ -271,6 +272,12 @@ class ECC(nn.Module):
             x = self.multiclass_softmax(x) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
         return x
 
+    def get_batch_nums(self, data):
+        data = data["pygdata"]
+        batch_nodes = data.x.shape[0]
+        batch_edges = data.edge_attr.shape[0]
+        return batch_nodes, batch_edges
+
     def get_gap_activations(self, data):
         output = self.forward(data)
         output.backward()
@@ -283,8 +290,6 @@ class ECC(nn.Module):
     def get_intermediate_activations_gradients(self, data):
         output = self.forward(data)
         output.backward()
-
-        conv_grads = [conv_g.grad for conv_g in self.conv_grads]
         return self.conv_acts, self.conv_grads
 
     def activations_hook(self, grad):

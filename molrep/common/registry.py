@@ -17,6 +17,7 @@ class Registry:
         "task_name_mapping": {},
         "processor_name_mapping": {},
         "model_name_mapping": {},
+        "explainer_name_mapping": {},
         "dataset_name_mapping": {},
         "lr_scheduler_name_mapping": {},
         "experiment_name_mapping": {},
@@ -130,6 +131,28 @@ class Registry:
         return wrap
 
     @classmethod
+    def register_explainer(cls, name):
+        r"""
+        Register a Explainer to registry with key 'name'
+        Args:
+            name: Key with which the explainer will be registered.
+        Usage:
+            from molrep.util.registry import registry
+        """
+
+        def wrap(explainer_cls):
+            if name in cls.mapping["explainer_name_mapping"]:
+                raise KeyError(
+                    "Name '{}' already registered for {}.".format(
+                        name, cls.mapping["explainer_name_mapping"][name]
+                    )
+                )
+            cls.mapping["explainer_name_mapping"][name] = explainer_cls
+            return explainer_cls
+
+        return wrap
+
+    @classmethod
     def register_dataset(cls, name):
         r"""
         Register a dataset to registry with key 'name'
@@ -213,6 +236,10 @@ class Registry:
     @classmethod
     def get_model_class(cls, name):
         return cls.mapping["model_name_mapping"].get(name, None)
+
+    @classmethod
+    def get_explainer_class(cls, name):
+        return cls.mapping["explainer_name_mapping"].get(name, None)
 
     @classmethod
     def get_task_class(cls, name):

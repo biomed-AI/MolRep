@@ -16,16 +16,17 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-from molrep.processors.mpnn_embeddings import BatchMolGraph, get_atom_fdim, get_bond_fdim, mol2graph
-from molrep.processors.mpnn_embeddings import index_select_ND, get_activation_function
-
 import math
 import torch.nn.functional as F
 
 from molrep.common.registry import registry
+from molrep.models.base_model import BaseModel
+from molrep.processors.features import BatchMolGraph, mol2graph
+from molrep.processors.features import get_atom_onehot_feature_dim, get_bond_onehot_feature_dim
+
 
 @registry.register_model("cmpnn")
-class CMPNN(nn.Module):
+class CMPNN(BaseModel):
     """
     A CMPNN is a model which contains a message passing network following by feed-forward layers.
     """
@@ -65,10 +66,6 @@ class CMPNN(nn.Module):
         self.create_ffn()
         self.initialize_weights()
 
-    @property
-    def device(self):
-        return list(self.parameters())[0].device
-
     @classmethod
     def from_config(cls, cfg=None):
         model_configs = cfg.model_cfg
@@ -84,10 +81,6 @@ class CMPNN(nn.Module):
             model_configs=model_configs,
         )
         return model
-
-    @classmethod
-    def default_config_path(cls, model_type):
-        return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT[model_type])
 
     def initialize_weights(self):
         """
@@ -180,8 +173,13 @@ class CMPNN(nn.Module):
         if self.multiclass:
             output = output.reshape((output.size(0), -1, self.num_classes)) # batch size x num targets x num classes per target
             output = self.multiclass_softmax(output) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
-
         return output
+
+    def get_batch_nums(self, data):
+        _, atom_grads, _, bond_grads = self.get_gradients(data)
+        batch_nodes = atom_grads.shape[0] if atom_grads is not None else None
+        batch_edges = bond_grads.shape[0] if bond_grads is not None else None
+        return batch_nodes, batch_edges
 
     def get_intermediate_activations_gradients(self, data):
         batch, features_batch, _ = data
@@ -207,7 +205,6 @@ class CMPNN(nn.Module):
         output = self.ffn(self.encoder(batch, features_batch))
 
         self.encoder.encoder.get_gradients(output)
-
         atom_grads = self.encoder.encoder.f_atoms.grad
         bond_grads = self.encoder.encoder.f_bonds.grad
         return self.encoder.encoder.f_atoms[1:, :], atom_grads[1:, :], None, None
@@ -443,13 +440,10 @@ class MPN(nn.Module):
         super(MPN, self).__init__()
         self.args = args
         self.atom_descriptors = None
-        
-        self.atom_fdim = atom_fdim or get_atom_fdim()
-        self.bond_fdim = bond_fdim or get_bond_fdim(atom_messages=args['atom_messages'])
-        # self.atom_fdim = atom_fdim or get_atom_fdim(args)
-        # self.bond_fdim = bond_fdim or get_bond_fdim(args) + \
-        #                     (not args.atom_messages) * self.atom_fdim # * 2
-        
+
+        self.atom_fdim = atom_fdim or get_atom_onehot_feature_dim()
+        self.bond_fdim = bond_fdim or get_bond_onehot_feature_dim(atom_messages=args['atom_messages'])
+
         self.encoder = MPNEncoder(self.args, self.atom_fdim, self.bond_fdim, max_num_nodes)
 
     def featurize(self, batch: Union[List[str], BatchMolGraph],
@@ -465,7 +459,50 @@ class MPN(nn.Module):
                 batch = mol2graph(batch)
             else:
                 batch = mol2graph(batch)
-    
-        output = self.encoder.forward(batch, features_batch)
 
+        output = self.encoder.forward(batch, features_batch)
         return output
+
+
+def index_select_ND(source: torch.Tensor, index: torch.Tensor) -> torch.Tensor:
+    """
+    Selects the message features from source corresponding to the atom or bond indices in index.
+    Args:
+        - source: A tensor of shape (num_bonds, hidden_size) containing message features.
+        - index: A tensor of shape (num_atoms/num_bonds, max_num_bonds) containing the atom or bond
+                 indices to select from source.
+    Return: A tensor of shape (num_atoms/num_bonds, max_num_bonds, hidden_size) containing the message
+            features corresponding to the atoms/bonds specified in index.
+    """
+    index_size = index.size()  # (num_atoms/num_bonds, max_num_bonds)
+    suffix_dim = source.size()[1:]  # (hidden_size,)
+    final_size = index_size + suffix_dim  # (num_atoms/num_bonds, max_num_bonds, hidden_size)
+
+    target = source.index_select(dim=0, index=index.view(-1))  # (num_atoms/num_bonds * max_num_bonds, hidden_size)
+    target = target.view(final_size)  # (num_atoms/num_bonds, max_num_bonds, hidden_size)
+    
+    target[index==0] = 0
+    return target
+
+
+def get_activation_function(activation: str) -> nn.Module:
+    """
+    Gets an activation function module given the name of the activation.
+    Args:
+        - activation: The name of the activation function.
+    Return: The activation function module.
+    """
+    if activation == 'ReLU':
+        return nn.ReLU()
+    elif activation == 'LeakyReLU':
+        return nn.LeakyReLU(0.1)
+    elif activation == 'PReLU':
+        return nn.PReLU()
+    elif activation == 'tanh':
+        return nn.Tanh()
+    elif activation == 'SELU':
+        return nn.SELU()
+    elif activation == 'ELU':
+        return nn.ELU()
+    else:
+        raise ValueError(f'Activation "{activation}" not supported.')

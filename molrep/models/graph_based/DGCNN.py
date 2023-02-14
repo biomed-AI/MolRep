@@ -6,11 +6,11 @@ from torch.nn import functional as F
 from torch_geometric.nn import MessagePassing, global_sort_pool
 from torch_geometric.utils import add_self_loops, degree
 
-
+from molrep.models.base_model import BaseModel
 from molrep.common.registry import registry
 
 @registry.register_model("dgcnn")
-class DGCNN(nn.Module):
+class DGCNN(BaseModel):
     """
     DGCNN is a model which contains a message passing network following by feed-forward layers.
     """
@@ -67,10 +67,6 @@ class DGCNN(nn.Module):
             self.relu = nn.ReLU()
         assert not (self.classification and self.regression and self.multiclass)
 
-    @property
-    def device(self):
-        return list(self.parameters())[0].device
-
     @classmethod
     def from_config(cls, cfg=None):
         model_configs = cfg.model_cfg
@@ -86,10 +82,6 @@ class DGCNN(nn.Module):
             model_configs=model_configs,
         )
         return model
-
-    @classmethod
-    def default_config_path(cls, model_type):
-        return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT[model_type])
 
     def unbatch(self, x, batch):
         sizes = degree(batch, dtype=torch.long).tolist()
@@ -164,30 +156,34 @@ class DGCNN(nn.Module):
 
         return out_dense
 
+    def get_batch_nums(self, data):
+        data = data["pygdata"]
+        batch_nodes = data.x.shape[0]
+        batch_edges = data.edge_attr.shape[0]
+        return batch_nodes, batch_edges
+
     def get_gap_activations(self, data):
         output = self.forward(data)
         output.backward()
         return self.conv_acts[-1], None
 
     def get_prediction_weights(self):
-        w = self.fc2.weight.t()
+        w = self.dense_layer[-1].weight.t()
         return w[:, 0]
 
     def get_intermediate_activations_gradients(self, data):
         output = self.forward(data)
         output.backward()
-
-        conv_grads = [conv_g.grad for conv_g in self.conv_grads]
         return self.conv_acts, self.conv_grads
 
     def activations_hook(self, grad):
         self.conv_grads.append(grad)
 
     def get_gradients(self, batch_data):
-
         data = batch_data["pygdata"]
         data.x.requires_grad_()
         data.x.retain_grad()
+
         output = self.forward({"pygdata": data})
         output.backward()
 

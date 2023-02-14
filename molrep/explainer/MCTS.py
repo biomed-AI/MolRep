@@ -14,12 +14,9 @@ from rdkit import rdBase
 from rdkit.Chem import AllChem
 from rdkit import DataStructs
 
-import os
-import pickle
-
-from molrep.explainer.attribution.utils.fuseprop import find_clusters, extract_subgraph
-from molrep.explainer.attribution.utils.fuseprop.chemprop_utils import *
-from molrep.explainer.attribution.utils.gnn_utils import *
+from molrep.explainer.utils.fuseprop import find_clusters, extract_subgraph
+from molrep.explainer.utils.fuseprop.chemprop_utils import *
+from molrep.explainer.utils.gnn_utils import *
 
 MIN_ATOMS = 3
 C_PUCT = 10
@@ -41,7 +38,6 @@ class MCTSNode():
         return C_PUCT * self.P * math.sqrt(n) / (1 + self.N)
 
 class MCTS:
-
     def __init__(self, name: Optional[Text] = None, 
                  rollout=20, c_puct=10, max_atoms=15, min_atoms=3, prop_delta=0.3, ncand=1, ncpu=2):
         self.name = name or self.__class__.__name__

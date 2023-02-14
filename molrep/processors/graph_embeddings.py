@@ -25,6 +25,7 @@ from ogb.graphproppred import PygGraphPropPredDataset
 from molrep.processors.utils.graph_utils import *
 from molrep.common.utils import *
 from molrep.common.registry import registry
+from molrep.processors.features import mol_to_graph_data_obj
 
 
 @registry.register_processor("graph")
@@ -143,45 +144,73 @@ class GraphEmbeddings():
             # dynamically set maximum num nodes (useful if using dense batching, e.g. diffpool)
             self._max_num_nodes = dataset[0].max_num_nodes if hasattr(dataset[0], 'max_num_nodes') else max([da.x.shape[0] for da in dataset])
 
-        elif self.dataset_name.startswith('ogb'):
+        # elif self.dataset_name.startswith('ogb'):
             
-            pyg_dataset = PygGraphPropPredDataset(name=self.dataset_name.replace('_', '-'), root=registry.get_path("cache_root"))
-            dataset = [data for data in pyg_dataset]
+        #     pyg_dataset = PygGraphPropPredDataset(name=self.dataset_name.replace('_', '-'), root=registry.get_path("cache_root"))
+        #     dataset = [data for data in pyg_dataset]
+
+        #     self._dim_features = dataset[0].x.size(1)
+        #     self._dim_edge_features = dataset[0].edge_attr.size(1)
+        #     self._max_num_nodes = dataset[0].max_num_nodes if hasattr(dataset[0], 'max_num_nodes') else max([da.x.shape[0] for da in dataset])
+        #     torch.save(dataset, features_path)
+
+        # else:
+        #     self.load_data_from_df()
+        #     graphs_data, num_node_labels, num_edge_labels = parse_tu_data(self.model_name, self.temp_dir)
+        #     targets = graphs_data.pop("graph_labels")
+        #     smiles_list = graphs_data.pop("smiles")
+
+        #     # dynamically set maximum num nodes (useful if using dense batching, e.g. diffpool)
+        #     self._max_num_nodes = max([len(v) for (k, v) in graphs_data['graph_nodes'].items()])
+
+        #     dataset = []
+        #     for i, (target, smiles) in enumerate(zip(targets, smiles_list), 1):
+        #         graph_data = {k: v[i] for (k, v) in graphs_data.items()}
+        #         G = create_graph_from_tu_data(graph_data, target, num_node_labels, num_edge_labels, smiles=smiles)
+
+        #         G.max_num_nodes = self._max_num_nodes
+        #         if self.precompute_kron_indices:
+        #             laplacians, v_plus_list = self._precompute_kron_indices(G)
+        #             G.laplacians = laplacians
+        #             G.v_plus = v_plus_list
+
+        #         data = self._to_data(G)
+        #         dataset.append(data)
+
+        #     self._dim_features = dataset[0].x.size(1)
+        #     self._dim_edge_features = dataset[0].edge_attr.size(1)
+        #     torch.save(dataset, features_path)
+
+        # if self.save_temp_data == False:
+        #     del_file(self.temp_dir)
+
+        else:
+            smiles_list = self.whole_data_df[self.smiles_col]
+            rdkit_mol_objs_list = [AllChem.MolFromSmiles(s) for s in smiles_list]
+            labels = self.whole_data_df[self.target_cols]
+            # convert 0 to -1
+            labels = labels.replace(0, -1)
+            # convert nan to 0
+            labels = labels.fillna(0).values
+
+            dataset = []
+            if labels.ndim == 1:
+                labels = np.expand_dims(labels, axis=1)
+
+            for i in range(len(smiles_list)):
+                rdkit_mol = rdkit_mol_objs_list[i]
+                if rdkit_mol is None:
+                    continue
+                data = mol_to_graph_data_obj(rdkit_mol)
+                data.id = torch.tensor([i])
+                data.y = torch.tensor([labels[i]])
+                data.smiles = smiles_list[i]
+                dataset.append(data)
 
             self._dim_features = dataset[0].x.size(1)
             self._dim_edge_features = dataset[0].edge_attr.size(1)
             self._max_num_nodes = dataset[0].max_num_nodes if hasattr(dataset[0], 'max_num_nodes') else max([da.x.shape[0] for da in dataset])
             torch.save(dataset, features_path)
-    
-        else:
-            self.load_data_from_df()
-            graphs_data, num_node_labels, num_edge_labels = parse_tu_data(self.model_name, self.temp_dir)
-            targets = graphs_data.pop("graph_labels")
-            smiles_list = graphs_data.pop("smiles")
-
-            # dynamically set maximum num nodes (useful if using dense batching, e.g. diffpool)
-            self._max_num_nodes = max([len(v) for (k, v) in graphs_data['graph_nodes'].items()])
-
-            dataset = []
-            for i, (target, smiles) in enumerate(zip(targets, smiles_list), 1):
-                graph_data = {k: v[i] for (k, v) in graphs_data.items()}
-                G = create_graph_from_tu_data(graph_data, target, num_node_labels, num_edge_labels, smiles=smiles)
-
-                G.max_num_nodes = self._max_num_nodes
-                if self.precompute_kron_indices:
-                    laplacians, v_plus_list = self._precompute_kron_indices(G)
-                    G.laplacians = laplacians
-                    G.v_plus = v_plus_list
-
-                data = self._to_data(G)
-                dataset.append(data)
-
-            self._dim_features = dataset[0].x.size(1)
-            self._dim_edge_features = dataset[0].edge_attr.size(1)
-            torch.save(dataset, features_path)
-
-        if self.save_temp_data == False:
-            del_file(self.temp_dir)
 
         return dataset
 

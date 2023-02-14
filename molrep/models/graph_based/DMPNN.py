@@ -10,21 +10,19 @@ Yang et al "Analyzing Learned Molecular Representations for Property Prediction"
 
 
 from typing import List, Union
-
 from rdkit import Chem
 
-import os
 import torch
 import torch.nn as nn
 import numpy as np
 
-from molrep.processors.mpnn_embeddings import BatchMolGraph, get_atom_fdim, get_bond_fdim, mol2graph
-from molrep.processors.mpnn_embeddings import index_select_ND, get_activation_function
-
+from molrep.models.base_model import BaseModel
 from molrep.common.registry import registry
+from molrep.processors.features import BatchMolGraph, get_atom_feature_dims, get_bond_feature_dims, mol2graph
+
 
 @registry.register_model("dmpnn")
-class DMPNN(nn.Module):
+class DMPNN(BaseModel):
     """A :class:`DMPNN` is a model which contains a message passing network following by feed-forward layers."""
 
     MODEL_CONFIG_DICT = {
@@ -61,10 +59,6 @@ class DMPNN(nn.Module):
 
         self.initialize_weights()
 
-    @property
-    def device(self):
-        return list(self.parameters())[0].device
-
     @classmethod
     def from_config(cls, cfg=None):
         model_configs = cfg.model_cfg
@@ -80,10 +74,6 @@ class DMPNN(nn.Module):
             model_configs=model_configs,
         )
         return model
-
-    @classmethod
-    def default_config_path(cls, model_type):
-        return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT[model_type])
 
     def initialize_weights(self):
         """
@@ -342,8 +332,8 @@ class MPN(nn.Module):
         :param bond_fdim: Bond feature vector dimension.
         """
         super(MPN, self).__init__()
-        self.atom_fdim = atom_fdim or get_atom_fdim()
-        self.bond_fdim = bond_fdim or get_bond_fdim(atom_messages=args.atom_messages)
+        self.atom_fdim = atom_fdim or get_atom_feature_dims()
+        self.bond_fdim = bond_fdim or get_bond_feature_dims(atom_messages=args.atom_messages)
 
         self.atom_descriptors = args.atom_descriptors
 
@@ -373,3 +363,47 @@ class MPN(nn.Module):
             output = self.encoder.forward(batch, features_batch)
 
         return output
+
+
+def index_select_ND(source: torch.Tensor, index: torch.Tensor) -> torch.Tensor:
+    """
+    Selects the message features from source corresponding to the atom or bond indices in index.
+    Args:
+        - source: A tensor of shape (num_bonds, hidden_size) containing message features.
+        - index: A tensor of shape (num_atoms/num_bonds, max_num_bonds) containing the atom or bond
+                 indices to select from source.
+    Return: A tensor of shape (num_atoms/num_bonds, max_num_bonds, hidden_size) containing the message
+            features corresponding to the atoms/bonds specified in index.
+    """
+    index_size = index.size()  # (num_atoms/num_bonds, max_num_bonds)
+    suffix_dim = source.size()[1:]  # (hidden_size,)
+    final_size = index_size + suffix_dim  # (num_atoms/num_bonds, max_num_bonds, hidden_size)
+
+    target = source.index_select(dim=0, index=index.view(-1))  # (num_atoms/num_bonds * max_num_bonds, hidden_size)
+    target = target.view(final_size)  # (num_atoms/num_bonds, max_num_bonds, hidden_size)
+    
+    target[index==0] = 0
+    return target
+
+
+def get_activation_function(activation: str) -> nn.Module:
+    """
+    Gets an activation function module given the name of the activation.
+    Args:
+        - activation: The name of the activation function.
+    Return: The activation function module.
+    """
+    if activation == 'ReLU':
+        return nn.ReLU()
+    elif activation == 'LeakyReLU':
+        return nn.LeakyReLU(0.1)
+    elif activation == 'PReLU':
+        return nn.PReLU()
+    elif activation == 'tanh':
+        return nn.Tanh()
+    elif activation == 'SELU':
+        return nn.SELU()
+    elif activation == 'ELU':
+        return nn.ELU()
+    else:
+        raise ValueError(f'Activation "{activation}" not supported.')

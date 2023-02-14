@@ -1,14 +1,28 @@
 
 
-import os, datetime
+import os
+import time
+import datetime
+import sklearn
+import collections
 
-from molrep.common.utils import *
+import torch
+import numpy as np
+from rdkit import Chem
+from rdkit.Chem import rdDepictor
+from rdkit.Chem.Draw import rdMolDraw2D
+
 from molrep.common.registry import registry
 from molrep.models.losses import get_loss_func
 from molrep.experiments.experiment import Experiment
 
-@registry.register_experiment("property_prediction")
-class PropertyExperiment(Experiment):
+import matplotlib as mpl
+GREEN_COL = mpl.colors.to_rgb("#1BBC9B")
+RED_COL = mpl.colors.to_rgb("#F06060")
+
+
+@registry.register_experiment("molecular_explainer")
+class ExplainerExperiment(Experiment):
     """
     Experiment provides a layer of abstraction to avoid that all models implement the same interface
     """
@@ -17,6 +31,16 @@ class PropertyExperiment(Experiment):
         super().__init__(
             cfg=cfg, task=task, datasets=datasets, model=model, job_id=job_id,
         )
+        self._explainer = None
+
+    @property
+    def explainer(self):
+        """
+        A property to get the explainer model on the device.
+        """
+        if self._explainer is None:
+            explainer_cls = registry.get_explainer_class(self.config.run_cfg.get("explainer", "IG"))
+            self._explainer = explainer_cls()
 
     def train(self):
         start_time = time.time()
@@ -57,7 +81,7 @@ class PropertyExperiment(Experiment):
             else:
                 self._save_checkpoint(cur_epoch, is_best=False)
 
-        # evaluate phase: evaluate
+        # evaluate phase: test & explainer
         test_epoch = "best" if len(self.valid_splits) > 0 else cur_epoch
         test_results = self.evaluate(cur_epoch=test_epoch, skip_reload=self.evaluate_only)
         self._save_test_results(test_results)
@@ -95,7 +119,7 @@ class PropertyExperiment(Experiment):
     @torch.no_grad()
     def eval_epoch(self, split_name, cur_epoch, skip_reload=False):
         """
-        Evaluate the model on a given split.
+        Evaluate and Explain the model on a given split.
         Args:
             split_name (str): name of the split to evaluate on.
             cur_epoch (int): current epoch.
@@ -114,50 +138,3 @@ class PropertyExperiment(Experiment):
         return self.task.evaluation(self.model, data_loader, loss_func=self.loss_func, scaler=self.feature_scaler, device=self.device)
 
 
-    def _load_checkpoint(self, url_or_filename):
-        """
-        Resume from a checkpoint.
-        """
-        if os.path.isfile(url_or_filename):
-            checkpoint = torch.load(url_or_filename, map_location=self.device)
-        else:
-            raise RuntimeError("checkpoint url or path is invalid")
-
-        state_dict = checkpoint["model"]
-        self.model.load_state_dict(state_dict)
-
-        self.optimizer.load_state_dict(checkpoint["optimizer"])
-        if self.feature_scaler and "scaler" in checkpoint:
-            self.feature_scaler.load_state_dict(checkpoint["scaler"])
-
-        self.start_epoch = checkpoint["epoch"] + 1
-        self.logger.log("Resume checkpoint from {}".format(url_or_filename))
-
-    def _save_checkpoint(self, cur_epoch, is_best=False):
-        """
-        Save the checkpoint at the current epoch.
-        """
-        save_obj = {
-            "model": self.model.state_dict(),
-            "optimizer": self.optimizer.state_dict(),
-            "config": self.config.to_dict(),
-            "scaler": self.feature_scaler.state_dict() if self.feature_scaler else None,
-            "epoch": cur_epoch,
-        }
-        save_to = os.path.join(
-            self.result_dir,
-            "checkpoint_{}.pth".format("best" if is_best else cur_epoch),
-        )
-        self.logger.log("Saving checkpoint at epoch {} to {}.".format(cur_epoch, save_to))
-        torch.save(save_obj, save_to)
-
-    def _reload_best_model(self, model):
-        """
-        Load the best checkpoint for evaluation.
-        """
-        checkpoint_path = os.path.join(self.result_dir, "checkpoint_best.pth")
-
-        self.logger.log("Loading checkpoint from {}.".format(checkpoint_path))
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
-        model.load_state_dict(checkpoint["model"])
-        return model

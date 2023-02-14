@@ -67,11 +67,11 @@ class PropertyTask(BaseTask):
         y_preds, y_labels = [], []
         for i, batch_data in enumerate(data_loader):
 
+            target_batch = batch_data["targets"]
             for k, v in batch_data.items():
                 if type(v) == torch.Tensor or issubclass(type(v), Batch):
                     batch_data[k] = v.to(device, non_blocking=True)
 
-            target_batch = batch_data["targets"].cpu()
             mask = torch.Tensor([[not np.isnan(x) for x in tb] for tb in target_batch]).to(device)
             labels = torch.Tensor([[0 if np.isnan(x) else x for x in tb] for tb in target_batch]).to(device)
             class_weights = torch.ones(labels.shape).to(device)
@@ -115,15 +115,15 @@ class PropertyTask(BaseTask):
 
     def evaluation(self, model, data_loader, loss_func, scaler=None, device="cpu"):
         model.eval()
-        
+
         loss_all = 0
         y_preds, y_labels = [], []
         for _, batch_data in enumerate(data_loader):
+            target_batch = batch_data["targets"]
             for k, v in batch_data.items():
                 if type(v) == torch.Tensor or issubclass(type(v), Batch):
                     batch_data[k] = v.to(device, non_blocking=True)
 
-            target_batch = batch_data["targets"].cpu()
             mask = torch.Tensor([[not np.isnan(x) for x in tb] for tb in target_batch]).to(device)
             labels = torch.Tensor([[0 if np.isnan(x) else x for x in tb] for tb in target_batch]).to(device)
             class_weights = torch.ones(labels.shape).to(device)
@@ -131,7 +131,7 @@ class PropertyTask(BaseTask):
             output = model(batch_data)
             if not isinstance(output, tuple):
                 output = (output,)
-            
+
             # Inverse scale if regression
             if scaler is not None:
                 output = list(output)

@@ -41,11 +41,10 @@ class MoleculeDataset(Dataset):
         return self._data[index]
 
     @classmethod
-    def construct_dataset(cls, indices, features_path):
+    def construct_dataset(cls, indices, features_path, **kwargs):
         raise NotImplementedError
 
-    @classmethod
-    def collate_fn(cls, batch):
+    def collate_fn(self, batch, **kwargs):
         raise NotImplementedError
 
     def bulid_dataloader(self, is_train=True):

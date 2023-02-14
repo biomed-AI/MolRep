@@ -7,11 +7,12 @@ from torch.nn import functional as F
 from torch_geometric.utils import degree
 from torch_geometric.nn import GATConv, global_max_pool
 
+from molrep.models.base_model import BaseModel
 from molrep.common.registry import registry
 
 
 @registry.register_model("gat")
-class GAT(nn.Module):
+class GAT(BaseModel):
     """
     GAT is a model which contains a message passing network following by feed-forward layers.
     """
@@ -64,10 +65,6 @@ class GAT(nn.Module):
             self.relu = nn.ReLU()
         assert not (self.classification and self.regression and self.multiclass)
 
-    @property
-    def device(self):
-        return list(self.parameters())[0].device
-
     @classmethod
     def from_config(cls, cfg=None):
         model_configs = cfg.model_cfg
@@ -83,10 +80,6 @@ class GAT(nn.Module):
             model_configs=model_configs,
         )
         return model
-
-    @classmethod
-    def default_config_path(cls, model_type):
-        return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT[model_type])
 
     def unbatch(self, x, batch):
         sizes = degree(batch, dtype=torch.long).tolist()
@@ -163,6 +156,12 @@ class GAT(nn.Module):
 
     def return_attention(self):
         return self.attention_weights
+
+    def get_batch_nums(self, data):
+        data = data["pygdata"]
+        batch_nodes = data.x.shape[0]
+        batch_edges = data.edge_attr.shape[0]
+        return batch_nodes, batch_edges
 
     def get_gap_activations(self, data):
         output = self.forward(data)

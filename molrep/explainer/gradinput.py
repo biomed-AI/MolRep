@@ -2,29 +2,13 @@
 
 import abc
 import torch
-from typing import Any, Callable, List, MutableMapping, Optional, Text, Tuple
+from typing import Optional, Text
 
-class AttributionTechnique(abc.ABC):
-    """Abstract class for an attribution technique."""
+from molrep.explainer.base_explainer import BaseExplainer
+from molrep.common.registry import registry
 
-    name: Text
-    sample_size: int  # Number of graphs to hold in memory per input.
-    
-
-    @abc.abstractmethod
-    def attribute(self, data, model, model_name):
-        """Compute GraphTuple with node and edges importances.
-        Assumes that x (GraphTuple) has node and edge information as 2D arrays
-        and the returned attribution will be a list of GraphsTuple, for each
-        graph inside of x, with the same shape but with 1D node and edge arrays.
-        Args:
-          x: Input to get attributions for.
-          model: model that gives gradients, predictions, activations, etc.
-          task_index: index for task to focus attribution.
-          batch_index: index for example to focus attribution.
-        """
-
-class GradInput(AttributionTechnique):
+@registry.register_explainer("gradinput")
+class GradInput(BaseExplainer):
     """GradInput: Gradient times input.
     GradInput uses the gradient of a target y w.r.t its input and multiplies it
     by its input. The magnitud of the derivitate at a particular

@@ -45,7 +45,7 @@ run:
   warmup_epochs: 2.0
   weight_decay: 0.1
   batch_size: 50
-  num_epochs: 100
+  num_epochs: 200
 
   seed: 42
   output_dir: "outputs/property_prediction/CMPNN"

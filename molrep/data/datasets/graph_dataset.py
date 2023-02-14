@@ -53,8 +53,7 @@ class GraphDataset(MoleculeDataset):
         features = torch.load(features_path)
         return cls([features[idx] for idx in indices])
 
-    @classmethod
-    def collate_fn(cls, batch, follow_batch=[]):
+    def collate_fn(self, batch, follow_batch=[]):
         batch_data = Batch.from_data_list(batch, follow_batch)
         return {
             "pygdata": batch_data,
@@ -64,6 +63,7 @@ class GraphDataset(MoleculeDataset):
     def bulid_dataloader(self, config, is_train=True):
         num_workers = config.run_cfg.get("num_workers", 2)
         class_balance = config.run_cfg.get("class_balance", False)
+        follow_batch = config.run_cfg.get("follow_batch", [])
         shuffle = (is_train == True)
         seed = config.run_cfg.get("seed", 42)
 
@@ -86,7 +86,7 @@ class GraphDataset(MoleculeDataset):
                         batch_size=config.run_cfg.batch_size,
                         sampler=self._sampler,
                         num_workers=num_workers,
-                        collate_fn=self.collate_fn,
+                        collate_fn=lambda data_list: self.collate_fn(data_list, follow_batch),
                         timeout=self._timeout,
                         worker_init_fn=worker_init,
         )
@@ -114,7 +114,7 @@ class Batch(data.Batch):
             copy_data.append(Data(x=d.x.float(),
                                   y=d.y,
                                   edge_index=d.edge_index,
-                                  edge_attr=d.edge_attr,
+                                  edge_attr=d.edge_attr.float(),
                                   v_outs=d.v_outs if hasattr(d, 'v_outs') else None,
                                   g_outs=d.g_outs if hasattr(d, 'g_outs') else None,
                                   e_outs=d.e_outs if hasattr(d, 'e_outs') else None,

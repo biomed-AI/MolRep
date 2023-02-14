@@ -95,10 +95,10 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
             testset_indices = self.splits[0]["test"]
 
             dataset_cls = registry.get_dataset_class(self.model_processer_mapping[self.model_name])
-            train_dataset_cls = dataset_cls.construct_dataset(trainset_indices, self.features_path)
-            datasets["train"] = train_dataset_cls.bulid_dataloader(self.config, is_train=True)
-            test_dataset_cls = dataset_cls.construct_dataset(testset_indices, self.features_path)
-            datasets["test"] = test_dataset_cls.bulid_dataloader(self.config, is_train=False)
+            train_dataset = dataset_cls.construct_dataset(trainset_indices, self.features_path)
+            datasets["train"] = train_dataset.bulid_dataloader(self.config, is_train=True)
+            test_dataset = dataset_cls.construct_dataset(testset_indices, self.features_path)
+            datasets["test"] = test_dataset.bulid_dataloader(self.config, is_train=False)
 
         elif run_type == "train_val_test":
             datasets = {
@@ -116,14 +116,14 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
 
             dataset_cls = registry.get_dataset_class(self.model_processer_mapping[self.model_name])
 
-            train_dataset_cls = dataset_cls.construct_dataset(trainset_indices, self.features_path)
-            datasets["train"] = train_dataset_cls.bulid_dataloader(self.config, is_train=True)
+            train_dataset = dataset_cls.construct_dataset(trainset_indices, self.features_path)
+            datasets["train"] = train_dataset.bulid_dataloader(self.config, is_train=True)
 
-            valid_dataset_cls = dataset_cls.construct_dataset(validset_indices, self.features_path)
-            datasets["val"] = valid_dataset_cls.bulid_dataloader(self.config, is_train=False)
+            valid_dataset = dataset_cls.construct_dataset(validset_indices, self.features_path)
+            datasets["val"] = valid_dataset.bulid_dataloader(self.config, is_train=False)
 
-            test_dataset_cls = dataset_cls.construct_dataset(testset_indices, self.features_path)
-            datasets["test"] = test_dataset_cls.bulid_dataloader(self.config, is_train=False)
+            test_dataset = dataset_cls.construct_dataset(testset_indices, self.features_path)
+            datasets["test"] = test_dataset.bulid_dataloader(self.config, is_train=False)
 
         elif run_type == "kfold":
             outer_folds = len(self.splits)
@@ -138,10 +138,11 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
                 testset_indices = self.splits[outer_k]["test"]
 
                 dataset_cls = registry.get_dataset_class(self.model_processer_mapping[self.model_name])
-                train_dataset_cls = dataset_cls.construct_dataset(trainset_indices, self.features_path)
-                datasets[str(outer_k)]["train"] = train_dataset_cls.bulid_dataloader(self.config, is_train=True)
-                test_dataset_cls = dataset_cls.construct_dataset(testset_indices, self.features_path)
-                datasets[str(outer_k)]["test"] = test_dataset_cls.bulid_dataloader(self.config, is_train=False)
+                train_dataset = dataset_cls.construct_dataset(trainset_indices, self.features_path)
+                datasets[str(outer_k)]["train"] = train_dataset.bulid_dataloader(self.config, is_train=True)
+
+                test_dataset = dataset_cls.construct_dataset(testset_indices, self.features_path)
+                datasets[str(outer_k)]["test"] = test_dataset.bulid_dataloader(self.config, is_train=False)
 
         return datasets
 

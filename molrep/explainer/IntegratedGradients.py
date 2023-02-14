@@ -1,68 +1,17 @@
 
 
-import abc
 from copy import deepcopy
 import torch
 import functools
 
 import numpy as np
-from typing import Text, Tuple
+from typing import Tuple
 
-from torch_geometric import data
-from molrep.evaluations.DatasetWrapper import Graph_data, MPNN_data
+from molrep.explainer.base_explainer import BaseExplainer
+from molrep.common.registry import registry
 
-
-class Data(data.Data):
-    def __init__(self,
-                 x=None,
-                 edge_index=None,
-                 edge_attr=None,
-                 y=None,
-                 v_outs=None,
-                 e_outs=None,
-                 g_outs=None,
-                 o_outs=None,
-                 laplacians=None,
-                 v_plus=None,
-                 smiles=None,
-                 max_num_nodes=200,
-                 **kwargs):
-
-        additional_fields = {
-            'v_outs': v_outs,
-            'e_outs': e_outs,
-            'g_outs': g_outs,
-            'o_outs': o_outs,
-            'laplacians': laplacians,
-            'v_plus': v_plus,
-            'max_num_nodes': max_num_nodes,
-            'smiles': smiles
-        }
-        super().__init__(x, edge_index, edge_attr, y, **additional_fields)
-
-
-class AttributionTechnique(abc.ABC):
-    """Abstract class for an attribution technique."""
-
-    name: Text
-    sample_size: int  # Number of graphs to hold in memory per input.
-    
-
-    @abc.abstractmethod
-    def attribute(self, data, model, model_name):
-        """Compute GraphTuple with node and edges importances.
-        Assumes that x (GraphTuple) has node and edge information as 2D arrays
-        and the returned attribution will be a list of GraphsTuple, for each
-        graph inside of x, with the same shape but with 1D node and edge arrays.
-        Args:
-          x: Input to get attributions for.
-          model: model that gives gradients, predictions, activations, etc.
-          task_index: index for task to focus attribution.
-          batch_index: index for example to focus attribution.
-        """
-
-
-class IntegratedGradients(AttributionTechnique):
+@registry.register_explainer("ig")
+class IntegratedGradients(BaseExplainer):
     r"""IG: path intergral between a graph and a counterfactual.
     Because IntegratedGradients is based on path integrals, it has nice
     properties associated to integrals, namely IG(x+y) = IG(x)+ IG(y) and
@@ -76,7 +25,6 @@ class IntegratedGradients(AttributionTechnique):
     mechanism in neural network models for chemistry"
     (https://www.pnas.org/content/116/24/11624).
     """
-
 
     def __init__(self,
                  num_steps: int = 200,
@@ -99,46 +47,38 @@ class IntegratedGradients(AttributionTechnique):
         if not isinstance(output, tuple):
             output = (output,)
 
-        if model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT']:
-            node_null = np.zeros((1, data.x.size()[1]))
-            edge_null = np.zeros((1, data.edge_attr.size()[1])) if data.edge_attr is not None else None
-            self.reference_fn = self.make_reference_fn(node_null, edge_null)
+        node_null = np.zeros((1, data.x.size()[1]))
+        edge_null = np.zeros((1, data.edge_attr.size()[1])) if data.edge_attr is not None else None
+        self.reference_fn = self.make_reference_fn(node_null, edge_null)
 
-            n = self.num_steps
-            ref = self.reference_fn(data)
-            n_nodes = data.x.shape[0]
-            n_edges = data.edge_attr.shape[0] if data.edge_attr is not None else 0
-            # print(node_null.shape, data.x.size(), ref.x.size())
-            interp_data, node_steps, edge_steps = self.interpolate_graphs(ref, data, n, model_name)
+        n = self.num_steps
+        ref = self.reference_fn(data)
+        n_nodes = data.x.shape[0]
+        n_edges = data.edge_attr.shape[0] if data.edge_attr is not None else 0
+        # print(node_null.shape, data.x.size(), ref.x.size())
+        interp_data, node_steps, edge_steps = self.interpolate_graphs(ref, data, n, model_name)
 
-            _, atom_grads, _, bond_grads = [model.get_gradients(data) for data in interp_data][0]
-            # Node shapes: [n_nodes * n, nodes.shape[-1]] -> [n_nodes*n].
-            atom_grads = torch.tensor(atom_grads, dtype=torch.float)
-            node_steps = torch.tensor(node_steps, dtype=torch.float, device=atom_grads.device)
-            node_values = torch.einsum('ij,ij->i', atom_grads, node_steps)
-            # Node shapes: [n_nodes * n] -> [n_nodes, n].
-            node_values = torch.reshape(node_values, (n, n_nodes)).t()
-            # Node shapes: [n_nodes, n] -> [n_nodes].
-            atom_weights = torch.sum(node_values, axis=1)
+        _, atom_grads, _, bond_grads = [model.get_gradients(data) for data in interp_data][0]
+        # Node shapes: [n_nodes * n, nodes.shape[-1]] -> [n_nodes*n].
+        atom_grads = torch.tensor(atom_grads, dtype=torch.float)
+        node_steps = torch.tensor(node_steps, dtype=torch.float, device=atom_grads.device)
+        node_values = torch.einsum('ij,ij->i', atom_grads, node_steps)
+        # Node shapes: [n_nodes * n] -> [n_nodes, n].
+        node_values = torch.reshape(node_values, (n, n_nodes)).t()
+        # Node shapes: [n_nodes, n] -> [n_nodes].
+        atom_weights = torch.sum(node_values, axis=1)
 
-            if bond_grads is not None:
-                bond_grads = torch.tensor(bond_grads, dtype=torch.float)
-                edge_steps = torch.tensor(edge_steps, dtype=torch.float, device=bond_grads.device)
-                edge_values = torch.einsum('ij,ij->i', bond_grads, edge_steps)
-                edge_values = torch.reshape(edge_values, (n, n_edges)).t()
-                bond_weights = torch.sum(edge_values, axis=1)
-            else:
-                bond_weights = None
-
-        elif ['MPNN', 'DMPNN', 'CMPNN']:
-            atom_features, atom_grads, bond_features, bond_grads = model.get_gradients(data)
-            
-            atom_weights = torch.einsum('ij,ij->i', atom_features, atom_grads) if atom_grads is not None else None
-            bond_weights = torch.einsum('ij,ij->i', bond_features, bond_grads) if bond_grads is not None else None
+        if bond_grads is not None:
+            bond_grads = torch.tensor(bond_grads, dtype=torch.float)
+            edge_steps = torch.tensor(edge_steps, dtype=torch.float, device=bond_grads.device)
+            edge_values = torch.einsum('ij,ij->i', bond_grads, edge_steps)
+            edge_values = torch.reshape(edge_values, (n, n_edges)).t()
+            bond_weights = torch.sum(edge_values, axis=1)
+        else:
+            bond_weights = None
 
         model.eval()
         return atom_weights, bond_weights, output
-
 
     def make_reference_fn(self, node_vec, edge_vec):
         """Make reference function."""

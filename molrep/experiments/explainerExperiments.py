@@ -21,7 +21,7 @@ from molrep.tasks.explainerNetWrapper import ExplainerNetWrapper
 from molrep.models.schedulers import build_lr_scheduler
 
 from molrep.common.config_from_dict import Config
-from molrep.explainer.metrics import attribution_metric as att_metrics
+from molrep.explainer import attribution_metric as att_metrics
 from molrep.common.utils import *
 
 import matplotlib as mpl

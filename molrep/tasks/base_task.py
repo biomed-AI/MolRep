@@ -54,7 +54,7 @@ class BaseTask:
     def evaluate_predictions(self, **kwargs):
         raise NotImplementedError
 
-    def evaluation(self, model, data_loader, **kwargs):
+    def evaluation(self, **kwargs):
         pass
 
     def after_evaluation(self, **kwargs):
