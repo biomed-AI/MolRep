@@ -26,6 +26,7 @@ from molrep.data.datasets import *
 from molrep.data.builders import *
 from molrep.tasks import *
 from molrep.models import *
+from molrep.explainer import *
 from molrep.processors import *
 from molrep.experiments import *
 
@@ -37,6 +38,7 @@ def now():
 def parse_args():
     parser = argparse.ArgumentParser(description="Training")
     parser.add_argument("--cfg-path", required=True, help="path to configuration file.")
+    parser.add_argument("--job_id", type=str, required=False, default='now', help=".")
     parser.add_argument(
         "--options",
         nargs="+",
@@ -53,7 +55,7 @@ def get_experiments_class(cfg):
     """
     Get runner class from config. Default to epoch-based runner.
     """
-    experiment_cls = registry.get_experiment_class(cfg.datasets_cfg.get("task", "property_prediction"))
+    experiment_cls = registry.get_experiment_class(cfg.run_cfg.get("task", "property_prediction"))
     return experiment_cls
 
 
@@ -69,10 +71,11 @@ def setup_seeds(config):
 
 
 def main():
-    job_id = now()
-
-    cfg = Config(parse_args())
+    args = parse_args()
+    cfg = Config(args)
     setup_seeds(cfg)
+
+    job_id = args.job_id if args.job_id != 'now' else now()
 
     task = tasks.setup_task(cfg)
     dataset = task.build_datasets(cfg)

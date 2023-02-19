@@ -20,7 +20,7 @@ import math
 import torch.nn.functional as F
 
 from molrep.common.registry import registry
-from molrep.models.base_model import BaseModel
+from molrep.models.base_model import BaseModel, ModelOutputs
 from molrep.processors.features import BatchMolGraph, mol2graph
 from molrep.processors.features import get_atom_onehot_feature_dim, get_bond_onehot_feature_dim
 
@@ -35,7 +35,7 @@ class CMPNN(BaseModel):
         "cmpnn_default": "configs/models/cmpnn_default.yaml",
     }
 
-    def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=200):
+    def __init__(self, dim_features, dim_target, model_configs, max_num_nodes=200):
         """
         Initializes the CMPNN.
         :param classification: Whether the model is a classification model.
@@ -47,20 +47,6 @@ class CMPNN(BaseModel):
         self.max_num_nodes = max_num_nodes
 
         self.model_configs = model_configs
-
-        self.task_type = dataset_configs["task_type"]
-        self.multiclass_num_classes = dataset_configs["multiclass_num_classes"] if self.task_type == 'Multi-Classification' else None
-
-        self.classification = self.task_type == 'Classification'
-        if self.classification:
-            self.sigmoid = nn.Sigmoid()
-        self.multiclass = self.task_type == 'Multi-Classification'
-        if self.multiclass:
-            self.multiclass_softmax = nn.Softmax(dim=2)
-        self.regression = self.task_type == 'Regression'
-        if self.regression:
-            self.relu = nn.ReLU()
-        assert not (self.classification and self.regression and self.multiclass)
 
         self.create_encoder()
         self.create_ffn()
@@ -77,7 +63,6 @@ class CMPNN(BaseModel):
         model = cls(
             dim_features=dim_features,
             dim_target=dim_target,
-            dataset_configs=dataset_configs,
             model_configs=model_configs,
         )
         return model
@@ -112,9 +97,6 @@ class CMPNN(BaseModel):
         """
         args = self.model_configs
 
-        self.multiclass = self.task_type == 'Multi-Classification'
-        if self.multiclass:
-            self.num_classes = self.multiclass_num_classes
         if args['features_only']:
             first_linear_dim = self.dim_features
         else:
@@ -167,22 +149,25 @@ class CMPNN(BaseModel):
         batch, features_batch = data["smiles"], data["features"]
         output = self.ffn(self.encoder(batch, features_batch))
 
-        # Don't apply sigmoid during training b/c using BCEWithLogitsLoss
-        if self.classification and not self.training:
-            output = self.sigmoid(output)
-        if self.multiclass:
-            output = output.reshape((output.size(0), -1, self.num_classes)) # batch size x num targets x num classes per target
-            output = self.multiclass_softmax(output) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
-        return output
+        node_feats = self.encoder.encoder.f_atoms[1:, :]
+        edge_feats = self.encoder.encoder.f_bonds[1:, :]
+        return ModelOutputs(
+            logits=output,
+            node_features=self.unbatch(node_feats, data, is_atom=True), # (batch_size, node hidden features)
+            edge_features=self.unbatch(edge_feats, data, is_atom=False), # (batch_size, edge hidden features)
+        )
 
-    def get_batch_nums(self, data):
-        _, atom_grads, _, bond_grads = self.get_gradients(data)
-        batch_nodes = atom_grads.shape[0] if atom_grads is not None else None
-        batch_edges = bond_grads.shape[0] if bond_grads is not None else None
-        return batch_nodes, batch_edges
+    def unbatch(self, x, data, is_atom=True,):
+        mol_graph = data['smiles']
+        if is_atom:
+            sizes = [int(a_size) for (_, a_size) in mol_graph.a_scope]
+            return list(x.split(sizes, dim=0))
+        else:
+            sizes = [int(b_size) for (_, b_size) in mol_graph.b_scope]
+            return list(x.split(sizes, dim=0))
 
     def get_intermediate_activations_gradients(self, data):
-        batch, features_batch, _ = data
+        batch, features_batch = data["smiles"], data["features"]
         output = self.ffn(self.encoder(batch, features_batch))
 
         conv_acts, conv_grads = self.encoder.encoder.get_intermediate_activations_gradients(output)
@@ -190,9 +175,8 @@ class CMPNN(BaseModel):
         return conv_acts, conv_grads
 
     def get_gap_activations(self, data):
-        batch, features_batch, _ = data
+        batch, features_batch = data["smiles"], data["features"]
         output = self.ffn(self.encoder(batch, features_batch))
-        
         conv_acts, _ = self.encoder.encoder.get_intermediate_activations_gradients(output)
         return conv_acts[-1], None
 
@@ -201,13 +185,12 @@ class CMPNN(BaseModel):
         return w[:,0]
 
     def get_gradients(self, data):
-        batch, features_batch, _ = data
+        batch, features_batch = data["smiles"], data["features"]
         output = self.ffn(self.encoder(batch, features_batch))
-
         self.encoder.encoder.get_gradients(output)
         atom_grads = self.encoder.encoder.f_atoms.grad
         bond_grads = self.encoder.encoder.f_bonds.grad
-        return self.encoder.encoder.f_atoms[1:, :], atom_grads[1:, :], None, None
+        return self.encoder.encoder.f_atoms[1:, :], atom_grads[1:, :], self.encoder.encoder.f_bonds[1:, :], bond_grads[1:, :]
 
 
 class MPNEncoder(nn.Module):
@@ -241,18 +224,15 @@ class MPNEncoder(nn.Module):
 
         w_h_input_size_atom = self.hidden_size + self.bond_fdim
         self.W_h_atom = nn.Linear(w_h_input_size_atom, self.hidden_size, bias=self.bias)
-
         w_h_input_size_bond = self.hidden_size
 
         for depth in range(self.depth-1):
             self._modules[f'W_h_{depth}'] = nn.Linear(w_h_input_size_bond, self.hidden_size, bias=self.bias)
-        
+
         self.W_o = nn.Linear(
                 (self.hidden_size)*2,
                 self.hidden_size)
-        
         self.gru = BatchGRU(self.hidden_size)
-        
         self.lr = nn.Linear(self.hidden_size*3, self.hidden_size, bias=self.bias)
 
     def get_gradients(self, output):
@@ -286,7 +266,6 @@ class MPNEncoder(nn.Module):
 
         # Message passing
         for depth in range(self.depth - 1):
-
             agg_message = index_select_ND(message_bond, a2b)
             agg_message = agg_message.sum(dim=1) * agg_message.max(dim=1)[0]
             message_atom = message_atom + agg_message
@@ -318,18 +297,13 @@ class MPNEncoder(nn.Module):
                 mask[i, a_size:] = 0
             else:
                 feat[i] = atom_hiddens.narrow(0, a_start, self.max_num_nodes)
-        
         return feat, mask
 
-
     def forward(self, mol_graph: BatchMolGraph, features_batch=None) -> torch.FloatTensor:
-
-        # f_atoms, f_bonds, a2b, b2a, b2revb, a_scope, b_scope, bonds = mol_graph.get_components()
         f_atoms, f_bonds, a2b, b2a, b2revb, a_scope, b_scope = mol_graph.get_components(atom_messages=self.atom_messages)
         if next(self.parameters()).is_cuda:
-            f_atoms, f_bonds, a2b, b2a, b2revb = (
-                    f_atoms.cuda(), f_bonds.cuda(), 
-                    a2b.cuda(), b2a.cuda(), b2revb.cuda())
+            f_atoms, f_bonds, a2b, b2a, b2revb = (f_atoms.cuda(), f_bonds.cuda(),
+                                                        a2b.cuda(), b2a.cuda(), b2revb.cuda())
 
         f_atoms.requires_grad_()
         f_atoms.retain_grad()
@@ -359,22 +333,22 @@ class MPNEncoder(nn.Module):
                 agg_message = index_select_ND(message_bond, a2b)
                 agg_message = agg_message.sum(dim=1) * agg_message.max(dim=1)[0]
                 message_atom = message_atom + agg_message
-                
+
                 # directed graph
                 rev_message = message_bond[b2revb]  # num_bonds x hidden
                 message_bond = message_atom[b2a] - rev_message  # num_bonds x hidden
-                
+
                 message_bond = self._modules[f'W_h_{depth}'](message_bond)
                 message_bond = self.dropout_layer(self.act_func(input_bond + message_bond))
-        
+
         agg_message = index_select_ND(message_bond, a2b)
         agg_message = agg_message.sum(dim=1) * agg_message.max(dim=1)[0]
         agg_message = self.lr(torch.cat([agg_message, message_atom, input_atom], 1))
         agg_message = self.gru(agg_message, a_scope)
-        
+
         atom_hiddens = self.act_func(self.W_o(agg_message))  # num_atoms x hidden
         atom_hiddens = self.dropout_layer(atom_hiddens)  # num_atoms x hidden
-        
+
         # Readout
         mol_vecs = []
         for i, (a_start, a_size) in enumerate(a_scope):
@@ -382,9 +356,8 @@ class MPNEncoder(nn.Module):
                 assert 0
             cur_hiddens = atom_hiddens.narrow(0, a_start, a_size)
             mol_vecs.append(cur_hiddens.mean(0))
-        mol_vecs = torch.stack(mol_vecs, dim=0)
-
-        return mol_vecs  # B x H
+        mol_vecs = torch.stack(mol_vecs, dim=0)  # B x H
+        return mol_vecs
 
 
 class BatchGRU(nn.Module):
@@ -394,9 +367,8 @@ class BatchGRU(nn.Module):
         self.gru  = nn.GRU(self.hidden_size, self.hidden_size, batch_first=True, 
                            bidirectional=True)
         self.bias = nn.Parameter(torch.Tensor(self.hidden_size))
-        self.bias.data.uniform_(-1.0 / math.sqrt(self.hidden_size), 
+        self.bias.data.uniform_(-1.0 / math.sqrt(self.hidden_size),
                                 1.0 / math.sqrt(self.hidden_size))
-
 
     def forward(self, node, a_scope):
         hidden = node

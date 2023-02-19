@@ -1,0 +1,11 @@
+ogbg-mollipo:
+  name: "ogbg-mollipo"
+  task_type: "Regression"
+  split_type: "defined"
+  metric_type: "rmse"
+
+  storage:
+    - ogbg_mollipo/mapping/mol.csv.gz
+  smiles_column: "smiles"
+  target_columns: ['exp']
+  num_tasks: 1

@@ -5,20 +5,19 @@ from torch import nn
 from torch.nn import functional as F
 
 from torch_geometric.utils import degree
-from torch_geometric.nn import GATConv, global_max_pool
+from torch_geometric.nn import SAGEConv, global_max_pool
 
 from molrep.models.base_model import BaseModel
 from molrep.common.registry import registry
 
-
-@registry.register_model("gat")
-class GAT(BaseModel):
+@registry.register_model("graphsage")
+class GraphSAGE(BaseModel):
     """
-    GAT is a model which contains a message passing network following by feed-forward layers.
+    GraphSAGE is a model which contains a message passing network following by feed-forward layers.
     """
 
     MODEL_CONFIG_DICT = {
-        "gat_default": "configs/models/gat_default.yaml",
+        "graphsage_default": "configs/models/graphsage_default.yaml",
     }
 
     def __init__(self, dim_features, dim_target, model_configs, dataset_configs, max_num_nodes=200):
@@ -26,10 +25,7 @@ class GAT(BaseModel):
 
         num_layers = model_configs['num_layers']
         dim_embedding = model_configs['dim_embedding']
-        heads = model_configs['head']
-        dropout = model_configs['dropout']
         self.aggregation = model_configs['aggregation']  # can be mean or max
-
         self.dim_embedding = dim_embedding
         self.max_num_nodes = max_num_nodes
 
@@ -38,26 +34,25 @@ class GAT(BaseModel):
 
         self.layers = nn.ModuleList([])
         for i in range(num_layers):
-            dim_input = dim_features if i == 0 else dim_embedding*heads
+            dim_input = dim_features if i == 0 else dim_embedding
 
-            conv = GATConv(dim_input, dim_embedding, heads=heads, dropout=dropout)
+            conv = SAGEConv(dim_input, dim_embedding)
             # Overwrite aggregation method (default is set to mean
             conv.aggr = self.aggregation
 
             self.layers.append(conv)
 
         # For graph classification
-        self.fc1 = nn.Linear(heads * num_layers * dim_embedding, heads * dim_embedding)
-        self.fc2 = nn.Linear(heads * dim_embedding, dim_embedding)
-        self.fc3 = nn.Linear(dim_embedding, dim_target)
+        self.fc1 = nn.Linear(num_layers * dim_embedding, dim_embedding)
+        self.fc2 = nn.Linear(dim_embedding, dim_target)
 
         self.task_type = dataset_configs["task_type"]
-        self.multiclass_num_classes = dataset_configs["multiclass_num_classes"] if self.task_type == 'Multi-Classification' else None
+        self.multiclass_num_classes = dataset_configs["multiclass_num_classes"] if self.task_type == 'MultiClass-Classification' else None
 
         self.classification = self.task_type == 'Classification'
         if self.classification:
             self.sigmoid = nn.Sigmoid()
-        self.multiclass = self.task_type == 'Multi-Classification'
+        self.multiclass = self.task_type == 'MultiClass-Classification'
         if self.multiclass:
             self.multiclass_softmax = nn.Softmax(dim=2)
         self.regression = self.task_type == 'Regression'
@@ -90,7 +85,7 @@ class GAT(BaseModel):
 
         for idx, node_feat in enumerate(node_feat_list):
             node_num = node_feat.size(0)
-            
+
             if node_num <= self.max_num_nodes:
                 feat[idx, :node_num] = node_feat
                 mask[idx, node_num:] = 0
@@ -101,37 +96,33 @@ class GAT(BaseModel):
         return feat, mask
 
     def featurize(self, data):
-        batch_data = data["pygdata"]
-        x, edge_index, batch = batch_data.x, batch_data.edge_index, batch_data.batch
-        
+        data = data["pygdata"]
+        x, edge_index, batch = data.x, data.edge_index, data.batch
         x_all = []
         for i, layer in enumerate(self.layers):
-
-            x, attention_w = layer(x, edge_index, return_attention_weights=True)
-            
+            x = layer(x, edge_index)
             if self.aggregation == 'max':
                 x = torch.relu(self.fc_max(x))
             x_all.append(x)
+        # x = torch.cat(x_all, dim=1)
         x = torch.stack(x_all, dim=1).mean(1)
         return self.unbatch(x, batch)
 
     def forward(self, data):
-        batch_data = data["pygdata"]
-        x, edge_index, batch = batch_data.x, batch_data.edge_index, batch_data.batch
+        data = data["pygdata"]
+        x, edge_index, batch = data.x, data.edge_index, data.batch
         x.requires_grad = True
 
         x_all = []
         self.conv_acts = []
         self.conv_grads = []
-        self.attention_weights = []
 
         for i, layer in enumerate(self.layers):
 
             with torch.enable_grad():
-                x, attention_w = layer(x, edge_index, return_attention_weights=True)
+                x = layer(x, edge_index)
             x.register_hook(self.activations_hook)
-            self.conv_acts.append(torch.relu(x))
-            self.attention_weights.append(attention_w)
+            self.conv_acts.append(x)
 
             if self.aggregation == 'max':
                 x = torch.relu(self.fc_max(x))
@@ -141,8 +132,7 @@ class GAT(BaseModel):
         x = global_max_pool(x, batch)
 
         x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
+        x = self.fc2(x)
 
         # Don't apply sigmoid during training b/c using BCEWithLogitsLoss
         if self.classification and not self.training:
@@ -154,14 +144,13 @@ class GAT(BaseModel):
 
         return x
 
-    def return_attention(self):
-        return self.attention_weights
-
-    def get_batch_nums(self, data):
+    def get_node_feats(self, data):
         data = data["pygdata"]
-        batch_nodes = data.x.shape[0]
-        batch_edges = data.edge_attr.shape[0]
-        return batch_nodes, batch_edges
+        return data.x.shape
+
+    def get_edge_feats(self, data):
+        data = data["pygdata"]
+        return data.edge_attr.shape
 
     def get_gap_activations(self, data):
         output = self.forward(data)

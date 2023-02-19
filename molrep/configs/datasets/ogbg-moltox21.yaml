@@ -1,0 +1,13 @@
+
+ogbg-moltox21:
+  name: "ogbg-moltox21"
+  task_type: "Classification"
+  split_type: "defined"
+  metric_type: "auc"
+
+  storage:
+    - ogbg_moltox21/mapping/mol.csv.gz
+  smiles_column: "smiles"
+  target_columns: ['NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase', 'NR-ER', 'NR-ER-LBD', 'NR-PPAR-gamma', 'SR-ARE', 'SR-ATAD5', 'SR-HSE', 'SR-MMP', 'SR-p53']
+  num_tasks: 12
+  multiclass_num_classes: 1

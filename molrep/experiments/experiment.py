@@ -3,10 +3,20 @@
 import os
 import datetime
 
+from torch.utils.data import DataLoader, DistributedSampler
+
 from molrep.common.utils import *
 from molrep.common.registry import registry
 from molrep.models.losses import get_loss_func
 from molrep.common.logger import Logger
+from molrep.data.datasets.base_dataset import MoleculeSampler
+
+from molrep.common.dist_utils import (
+    get_rank,
+    get_world_size,
+    is_main_process,
+    main_process,
+)
 
 @registry.register_experiment("base")
 class Experiment:
@@ -33,6 +43,7 @@ class Experiment:
         self._loss_func = None
 
         self.start_epoch = 0
+        self.use_distributed = False
 
         # self.setup_seeds()
         self.setup_output_dir()
@@ -42,7 +53,6 @@ class Experiment:
     def device(self):
         if self._device is None:
             self._device = torch.device(self.config.run_cfg.device)
-
         return self._device
 
     @property
@@ -54,8 +64,9 @@ class Experiment:
         if self._model.device != self.device:
             self._model = self._model.to(self.device)
             self._wrapped_model = self._model
+            return self._wrapped_model
 
-        return self._wrapped_model
+        return self._model
 
     @property
     def optimizer(self):
@@ -63,8 +74,8 @@ class Experiment:
         if self._optimizer is None:
             self._optimizer = torch.optim.AdamW(
                 params=self.model.parameters(),
-                lr=float(self.config.run_cfg.init_lr),
-                weight_decay=float(self.config.run_cfg.weight_decay),
+                lr=float(self.config.run_cfg.get("init_lr", 0.0001)),
+                weight_decay=float(self.config.run_cfg.get("weight_decay", 0)),
             )
 
         return self._optimizer
@@ -126,17 +137,38 @@ class Experiment:
             # create dataloaders
             split_names = sorted(self.datasets.keys())
             datasets = [self.datasets[split] for split in split_names]
-            self._dataloaders = {k: v for k, v in zip(split_names, datasets)}
+            is_trains = [split in self.train_splits for split in split_names]
+
+            batch_sizes = [
+                self.config.run_cfg.batch_size
+                if split == "train"
+                else self.config.run_cfg.get("batch_size_eval", self.config.run_cfg.batch_size)
+                for split in split_names
+            ]
+
+            collate_fns = []
+            for dataset in datasets:
+                collate_fns.append(getattr(dataset, "collate_fn", None))
+
+            dataloaders = self.create_loaders(
+                datasets=datasets,
+                num_workers=self.config.run_cfg.get("num_workers", 0),
+                batch_sizes=batch_sizes,
+                is_trains=is_trains,
+                collate_fns=collate_fns,
+            )
+            self._dataloaders = {k: v for k, v in zip(split_names, dataloaders)}
 
         return self._dataloaders
 
     @property
     def metric_type(self):
-        return str(self.config.datasets_cfg.metric_type)
+        _metric_type = self.config.datasets_cfg.metric_type
+        return _metric_type if isinstance(_metric_type, list) else [str(_metric_type)]
 
     @property
     def max_epoch(self):
-        return int(self.config.run_cfg.num_epochs)
+        return self.config.run_cfg.get("num_epochs", 1)
 
     @property
     def log_freq(self):
@@ -160,12 +192,20 @@ class Experiment:
         """
         Set to True to skip training.
         """
-        return self.config.run_cfg.evaluate_only
+        return self.config.run_cfg.get("evaluate_only", False)
+
+    @property
+    def train_splits(self):
+        train_splits = self.config.run_cfg.get("train_splits", ["train"])
+
+        if len(train_splits) == 0:
+            logging.info("Empty train splits.")
+
+        return train_splits
 
     @property
     def valid_splits(self):
-        if self.dataloaders["val"] is None:
-            # self.logger.log("No validation splits found.")
+        if "val" not in self.datasets.keys():
             return []
         return ['val']
 
@@ -182,7 +222,7 @@ class Experiment:
     def setup_output_dir(self):
         lib_root = Path(registry.get_path("repo_root"))
 
-        output_dir = lib_root / "outputs" / self.config.datasets_cfg.get("task", "property_prediction")
+        output_dir = lib_root / "outputs" / self.config.run_cfg.get("task", "property_prediction")
         output_dir = output_dir / f"{self.config.model_cfg.arch}_{self.config.datasets_cfg.name}"
         output_dir = output_dir / self.job_id
         result_dir = output_dir / "result"
@@ -203,23 +243,23 @@ class Experiment:
 
         self.log_config()
         # resume from checkpoint if specified
-        if not self.evaluate_only and self.resume_ckpt_path is not None:
-            self._load_checkpoint(self.resume_ckpt_path)
+        if self.evaluate_only or self.resume_ckpt_path is not None:
+            self._load_checkpoint(self.resume_ckpt_path, evaluate_only=self.evaluate_only)
 
         for cur_epoch in range(self.start_epoch, self.max_epoch):
             # training phase
             if not self.evaluate_only:
-                self.logger.log("Start training")
+                print("Start training")
                 train_stats = self.train_epoch(cur_epoch)
                 self.log_stats(split_name="train", stats=train_stats)
 
             # evaluation phase
             if len(self.valid_splits) > 0:
                 for split_name in self.valid_splits:
-                    self.logger.log("Evaluating on {}.".format(split_name))
+                    print("Evaluating on {}.".format(split_name))
 
                     val_log = self.eval_epoch(
-                        split_name=split_name, cur_epoch=cur_epoch
+                        split_name=split_name, cur_epoch=cur_epoch,
                     )
                     
                     agg_metrics = val_log["agg_metrics"]
@@ -240,7 +280,7 @@ class Experiment:
 
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        self.logger.log("Training time {}".format(total_time_str))
+        print("Training time {}".format(total_time_str))
 
     def evaluate(self, cur_epoch="best", skip_reload=False):
         test_logs = dict()
@@ -248,7 +288,7 @@ class Experiment:
         if len(self.test_splits) > 0:
             for split_name in self.test_splits:
                 test_logs[split_name] = self.eval_epoch(
-                    split_name=split_name, cur_epoch=cur_epoch, skip_reload=skip_reload
+                    split_name=split_name, cur_epoch=cur_epoch, skip_reload=skip_reload,
                 )
 
             return test_logs
@@ -268,7 +308,6 @@ class Experiment:
             device=self.device,
         )
 
-    @torch.no_grad()
     def eval_epoch(self, split_name, cur_epoch, skip_reload=False):
         """
         Evaluate the model on a given split.
@@ -289,7 +328,7 @@ class Experiment:
         model.eval()
         return self.task.evaluation(self.model, data_loader, scaler=self.feature_scaler, device=self.device)
 
-    def _load_checkpoint(self, url_or_filename):
+    def _load_checkpoint(self, url_or_filename, evaluate_only=False):
         """
         Resume from a checkpoint.
         """
@@ -305,8 +344,10 @@ class Experiment:
         if self.feature_scaler and "scaler" in checkpoint:
             self.feature_scaler.load_state_dict(checkpoint["scaler"])
 
-        self.start_epoch = checkpoint["epoch"] + 1
-        self.logger.log("Resume checkpoint from {}".format(url_or_filename))
+        if not evaluate_only:
+            self.start_epoch = checkpoint["epoch"] + 1
+
+        print("Resume checkpoint from {}".format(url_or_filename))
 
     def _save_checkpoint(self, cur_epoch, is_best=False):
         """
@@ -323,7 +364,7 @@ class Experiment:
             self.result_dir,
             "checkpoint_{}.pth".format("best" if is_best else cur_epoch),
         )
-        self.logger.log("Saving checkpoint at epoch {} to {}.".format(cur_epoch, save_to))
+        print("Saving checkpoint at epoch {} to {}.".format(cur_epoch, save_to))
         torch.save(save_obj, save_to)
 
     def _save_test_results(self, test_results):
@@ -332,7 +373,7 @@ class Experiment:
         """
 
         for k, result in test_results.items():
-            self.logger.log("Evaluating on {}.".format(k))
+            print("Evaluating on {}.".format(k))
             self.log_stats(result, k)
 
             save_obj = {
@@ -340,7 +381,7 @@ class Experiment:
                 "targets": result['targets']
             }
             save_to = os.path.join(self.result_dir, "predictions.pth")
-            self.logger.log("Saving predictions to {}.".format(save_to))
+            print("Saving predictions to {}.".format(save_to))
             torch.save(save_obj, save_to)
 
     def _reload_best_model(self, model):
@@ -349,26 +390,85 @@ class Experiment:
         """
         checkpoint_path = os.path.join(self.result_dir, "checkpoint_best.pth")
 
-        self.logger.log("Loading checkpoint from {}.".format(checkpoint_path))
+        print("Loading checkpoint from {}.".format(checkpoint_path))
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         model.load_state_dict(checkpoint["model"])
         return model
 
+
+    def create_loaders(
+        self,
+        datasets,
+        num_workers,
+        batch_sizes,
+        is_trains,
+        collate_fns,
+    ):
+        """
+        Create dataloaders for training and validation.
+        """
+        class_balance = self.config.run_cfg.get("class_balance", False)
+        seed = self.config.run_cfg.get("seed", 42)
+        follow_batch = self.config.run_cfg.get("follow_batch", [])
+        atom_messages = self.config.model_cfg.get("atom_messages", False)
+        kwargs = {"atom_messages": atom_messages, "follow_batch": follow_batch}
+
+        def _create_loader(dataset, num_workers, bsz, is_train, collate_fn):
+            # create a single dataloader for each split
+            # map-style dataset are concatenated together
+            # setup distributed sampler
+            if self.use_distributed:
+                sampler = DistributedSampler(
+                    dataset,
+                    shuffle=is_train,
+                    num_replicas=get_world_size(),
+                    rank=get_rank(),
+                )
+                if not self.use_dist_eval_sampler:
+                    # e.g. retrieval evaluation
+                    sampler = sampler if is_train else None
+            else:
+                # sampler = None
+                sampler = MoleculeSampler(
+                    dataset=dataset,
+                    class_balance=class_balance,
+                    shuffle=is_train,
+                    seed=seed
+                )
+
+            loader = DataLoader(
+                dataset,
+                batch_size=bsz,
+                num_workers=num_workers,
+                pin_memory=True,
+                sampler=sampler,
+                shuffle=sampler is None and is_train,
+                collate_fn=lambda data_list: collate_fn(data_list, **kwargs),
+                drop_last=True if is_train else False,
+            )
+
+            return loader
+
+        loaders = []
+
+        for dataset, bsz, is_train, collate_fn in zip(
+            datasets, batch_sizes, is_trains, collate_fns
+        ):
+            loader = _create_loader(dataset, num_workers, bsz, is_train, collate_fn)
+            loaders.append(loader)
+        return loaders
+
     def log_stats(self, stats, split_name):
         if isinstance(stats, dict):
-            log_stats = {**{f"{split_name}_{k}": v for k, v in stats.items() if k not in ["predictions", "targets"]}}
-            # with open(os.path.join(self.output_dir, "log.txt"), "a") as f:
-            #     f.write(json.dumps(log_stats) + "\n")
+            log_stats = {**{f"{split_name}_{k}": v for k, v in stats.items() if k in ["epoch", "loss", "best_epoch"] + self.metric_type}}
             self.logger.log(json.dumps(log_stats) + "\n")
         elif isinstance(stats, list):
             pass
 
     def log_config(self):
-        # with open(os.path.join(self.output_dir, "log.txt"), "a") as f:
-        #     f.write(json.dumps(self.config.to_dict(), indent=4) + "\n")
         self.logger.log(json.dumps(self.config.to_dict(), indent=4) + "\n")
 
     def setup_logger(self):
         LOGGER_BASE = os.path.join(self.output_dir, "logger")
         Path(LOGGER_BASE).mkdir(parents=True, exist_ok=True)
-        self.logger = Logger(str(os.path.join(LOGGER_BASE, f"logging.log")), mode='a')
+        self.logger = Logger(str(os.path.join(LOGGER_BASE, f"logging.log")), mode='w')

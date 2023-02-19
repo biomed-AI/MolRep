@@ -16,9 +16,8 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torch.nn as nn
 
-from molrep.processors.features import *
+from molrep.processors.features import get_features_generator
 from molrep.common.registry import registry
 
 
@@ -70,12 +69,7 @@ class MPNNEmbeddings:
 
         else:
             data_x = self.whole_data_df.loc[:,self.smiles_col].values
-            data_y = self.whole_data_df.loc[:,self.target_cols]
-            
-            # convert 0 to -1
-            data_y = data_y.replace(0, -1)
-            # convert nan to 0
-            data_y = data_y.fillna(0).values
+            data_y = self.whole_data_df.loc[:,self.target_cols].values
 
             smiles_all, x_all, y_all = self.load_data_from_smiles(data_x, data_y)
 

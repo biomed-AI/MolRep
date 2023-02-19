@@ -9,9 +9,6 @@
  @contact: jiahua.rao@gmail.com
 """
 
-
-from typing import Dict
-
 from omegaconf import OmegaConf
 from molrep.common.registry import registry
 
@@ -19,7 +16,6 @@ from molrep.common.registry import registry
 class Config:
     def __init__(self, args):
         self.config = {}
-
         self.args = args
 
         # Register the config and configuration for setup
@@ -53,9 +49,7 @@ class Config:
         if not model_type:
             model_type = model.get("model_type", None)
         # else use the model type selected by user.
-
         assert model_type is not None, "Missing model_type."
-
         model_config_path = model_cls.default_config_path(model_type=model_type)
 
         model_config = OmegaConf.create()
@@ -69,7 +63,27 @@ class Config:
 
     @staticmethod
     def build_runner_config(config):
-        return {"run": config.run}
+        runs = config.get("run", None)
+        if runs is None:
+            raise KeyError(
+                "Expecting 'run' as the root key for dataset configuration."
+            )
+
+        run_cfg = OmegaConf.create()
+        task_type = runs.get("task", None)
+        assert task_type is not None, "Missing task type of running."
+
+        builder_cls = registry.get_builder_class("base")
+        run_config_path = builder_cls.default_task_config_path(task=task_type)
+        default_config = {"run": OmegaConf.load(run_config_path)["run"]}
+
+        # hiararchy override, customized config > default config
+        run_config = OmegaConf.merge(
+            run_cfg,
+            default_config,
+            {"run": config["run"]},
+        )
+        return run_config
 
     @staticmethod
     def build_dataset_config(config):
@@ -82,12 +96,11 @@ class Config:
         dataset_config = OmegaConf.create()
 
         builder_cls = registry.get_builder_class("base")
-        dataset_config_type = datasets.get("task", None)
-        assert dataset_config_type is not None, "Missing dataset type."
-        dataset_config_path = builder_cls.default_config_path(type=dataset_config_type)
-
         name = datasets.get("name", None)
-        default_config = {"datasets": OmegaConf.load(dataset_config_path)["datasets"][name]}
+        task = datasets.get("task_type", None)
+        assert name is not None and task is not None, "Missing dataset name or type."
+        dataset_config_path = builder_cls.default_config_path(task=task, name=name)
+        default_config = {"datasets": OmegaConf.load(dataset_config_path)[name]}
 
         # hiararchy override, customized config > default config
         dataset_config = OmegaConf.merge(
@@ -125,6 +138,10 @@ class Config:
     @property
     def model_cfg(self):
         return self.config.model
+
+    @property
+    def explainer_cfg(self):
+        return self.config.run.explainer
 
     def to_dict(self):
         return OmegaConf.to_container(self.config)

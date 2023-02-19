@@ -16,14 +16,14 @@ import torch.nn.functional as F
 import torch
 from molrep.models.metrics import *
 from molrep.common.utils import *
-from molrep.explainer.methods.utils.utils import *
+from molrep.explainer.utils.utils import *
 
-from molrep.explainer.methods.IntegratedGradients import IntegratedGradients
-from molrep.explainer.methods.CAM import CAM
-from molrep.explainer.methods.MCTS import MCTS
-from molrep.explainer.methods.GradInput import GradInput
-from molrep.explainer.methods.GradCAM import GradCAM
-from molrep.explainer.methods.Random import RandomBaseline
+from molrep.explainer.IntegratedGradients import IntegratedGradients
+from molrep.explainer.CAM import CAM
+from molrep.explainer.MCTS import MCTS
+from molrep.explainer.GradInput import GradInput
+from molrep.explainer.GradCAM import GradCAM
+from molrep.explainer.Random import RandomBaseline
 
 from collections import defaultdict
 
@@ -209,7 +209,7 @@ class ExplainerNetWrapper:
                 output[0] = torch.Tensor(scaler.inverse_transform(output[0].detach().cpu().numpy()))
                 output = tuple(output)
 
-            if self.task_type == 'Multi-Classification':
+            if self.task_type == 'MultiClass-Classification':
                 labels = labels.long()
                 # loss = torch.cat([self.loss_fun(labels[:, target_index], output[0][:, target_index, :]).unsqueeze(1) for target_index in range(output[0].size(1))], dim=1) * class_weights * mask
                 loss = self.loss_fun(labels[:, 0], output[0][:, 0, :]) * class_weights * mask
@@ -225,7 +225,7 @@ class ExplainerNetWrapper:
         # atom_importance = atom_attr_preds if len(atom_attr_preds) > 0 else None
         # bond_importance = bond_attr_preds if len(bond_attr_preds) > 0 else None
 
-        # if self.task_type == 'Multi-Classification':
+        # if self.task_type == 'MultiClass-Classification':
         #     y_preds = torch.argmax(torch.FloatTensor(y_preds), dim=2)
 
         # results = self.evaluate_predictions(preds=y_preds, targets=y_labels,
@@ -265,7 +265,7 @@ class ExplainerNetWrapper:
             if not isinstance(output, tuple):
                 output = (output,)
 
-            if self.task_type == 'Multi-Classification':
+            if self.task_type == 'MultiClass-Classification':
                 labels = labels.long()
                 # loss = torch.cat([self.loss_fun(labels[:, target_index], output[0][:, target_index, :]).unsqueeze(1) for target_index in range(output[0].size(1))], dim=1) * class_weights * mask
                 loss = self.loss_fun(labels[:, 0], output[0][:, 0, :]) * class_weights * mask
@@ -289,7 +289,7 @@ class ExplainerNetWrapper:
         if self.task_type == 'Classification':
             y_preds = torch.sigmoid(torch.FloatTensor(y_preds))
         
-        # if self.task_type == 'Multi-Classification':
+        # if self.task_type == 'MultiClass-Classification':
         #     y_preds = F.log_softmax(torch.FloatTensor(y_preds), dim=2)
         #     y_preds = torch.argmax(y_preds, dim=2)
         
@@ -330,7 +330,7 @@ class ExplainerNetWrapper:
                 output[0] = torch.Tensor(scaler.inverse_transform(output[0].detach().cpu().numpy()))
                 output = tuple(output)
 
-            if self.task_type == 'Multi-Classification':
+            if self.task_type == 'MultiClass-Classification':
                 labels = labels.long()
                 # loss = torch.cat([self.loss_fun(labels[:, target_index], output[0][:, target_index, :]).unsqueeze(1) for target_index in range(output[0].size(1))], dim=1) * class_weights * mask
                 loss = self.loss_fun(labels[:, 0], output[0][:, 0, :]) * class_weights * mask
@@ -343,7 +343,7 @@ class ExplainerNetWrapper:
             y_preds.extend(output[0].data.cpu().numpy().tolist())
             y_labels.extend(target_batch)
 
-        # if self.task_type == 'Multi-Classification':
+        # if self.task_type == 'MultiClass-Classification':
         #     y_preds = torch.argmax(torch.FloatTensor(y_preds), dim=2)
 
         results = self.evaluate_predictions(preds=y_preds, targets=y_labels,

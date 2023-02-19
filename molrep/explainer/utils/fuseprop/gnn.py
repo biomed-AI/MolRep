@@ -2,10 +2,10 @@ import torch
 import torch.nn as nn
 import rdkit.Chem as Chem
 import torch.nn.functional as F
-from molrep.explainer.methods.utils.fuseprop.mol_graph import MolGraph
-from molrep.explainer.methods.utils.fuseprop.encoder import GraphEncoder
-from molrep.explainer.methods.utils.fuseprop.decoder import GraphDecoder
-from molrep.explainer.methods.utils.fuseprop.nnutils import *
+from molrep.explainer.utils.fuseprop.mol_graph import MolGraph
+from molrep.explainer.utils.fuseprop.encoder import GraphEncoder
+from molrep.explainer.utils.fuseprop.decoder import GraphDecoder
+from molrep.explainer.utils.fuseprop.nnutils import *
 
 def make_cuda(graph_tensors):
     make_tensor = lambda x: x if type(x) is torch.Tensor else torch.tensor(x)

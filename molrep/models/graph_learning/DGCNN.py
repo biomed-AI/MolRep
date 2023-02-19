@@ -54,12 +54,12 @@ class DGCNN(BaseModel):
                                          nn.Linear(self.hidden_dense_dim, dim_target))
 
         self.task_type = dataset_configs["task_type"]
-        self.multiclass_num_classes = dataset_configs["multiclass_num_classes"] if self.task_type == 'Multi-Classification' else None
+        self.multiclass_num_classes = dataset_configs["multiclass_num_classes"] if self.task_type == 'MultiClass-Classification' else None
 
         self.classification = self.task_type == 'Classification'
         if self.classification:
             self.sigmoid = nn.Sigmoid()
-        self.multiclass = self.task_type == 'Multi-Classification'
+        self.multiclass = self.task_type == 'MultiClass-Classification'
         if self.multiclass:
             self.multiclass_softmax = nn.Softmax(dim=2)
         self.regression = self.task_type == 'Regression'
@@ -156,11 +156,13 @@ class DGCNN(BaseModel):
 
         return out_dense
 
-    def get_batch_nums(self, data):
+    def get_node_feats(self, data):
         data = data["pygdata"]
-        batch_nodes = data.x.shape[0]
-        batch_edges = data.edge_attr.shape[0]
-        return batch_nodes, batch_edges
+        return data.x.shape
+
+    def get_edge_feats(self, data):
+        data = data["pygdata"]
+        return data.edge_attr.shape
 
     def get_gap_activations(self, data):
         output = self.forward(data)

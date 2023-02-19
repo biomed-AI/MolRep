@@ -3,22 +3,11 @@
 import os
 import time
 import datetime
-import sklearn
-import collections
 
 import torch
-import numpy as np
-from rdkit import Chem
-from rdkit.Chem import rdDepictor
-from rdkit.Chem.Draw import rdMolDraw2D
 
 from molrep.common.registry import registry
-from molrep.models.losses import get_loss_func
 from molrep.experiments.experiment import Experiment
-
-import matplotlib as mpl
-GREEN_COL = mpl.colors.to_rgb("#1BBC9B")
-RED_COL = mpl.colors.to_rgb("#F06060")
 
 
 @registry.register_experiment("molecular_explainer")
@@ -33,14 +22,18 @@ class ExplainerExperiment(Experiment):
         )
         self._explainer = None
 
+    def test_loader(self, split_name):
+        return self.dataloaders[split_name]
+
     @property
     def explainer(self):
         """
         A property to get the explainer model on the device.
         """
         if self._explainer is None:
-            explainer_cls = registry.get_explainer_class(self.config.run_cfg.get("explainer", "IG"))
-            self._explainer = explainer_cls()
+            explainer_cls = registry.get_explainer_class(self.config.run_cfg.get("explainer", None).name.lower())
+            self._explainer = explainer_cls(self.config.explainer_cfg)
+        return self._explainer
 
     def train(self):
         start_time = time.time()
@@ -49,27 +42,26 @@ class ExplainerExperiment(Experiment):
 
         self.log_config()
         # resume from checkpoint if specified
-        if not self.evaluate_only and self.resume_ckpt_path is not None:
-            self._load_checkpoint(self.resume_ckpt_path)
+        if self.evaluate_only and self.resume_ckpt_path is not None:
+            self._load_checkpoint(self.resume_ckpt_path, evaluate_only=self.evaluate_only)
 
-        self.logger.log("Start training")
         for cur_epoch in range(self.start_epoch, self.max_epoch):
             # training phase
             if not self.evaluate_only:
-                self.logger.log(f"Training on Epoch:{cur_epoch}")
+                print(f"Training on Epoch:{cur_epoch}")
                 train_stats = self.train_epoch(cur_epoch)
                 self.log_stats(split_name="train", stats=train_stats)
 
             # evaluation phase
             if len(self.valid_splits) > 0:
                 for split_name in self.valid_splits:
-                    self.logger.log("Evaluating on {}.".format(split_name))
+                    print("Evaluating on {}.".format(split_name))
 
                     val_log = self.eval_epoch(
-                        split_name=split_name, cur_epoch=cur_epoch
+                        split_name=split_name, cur_epoch=cur_epoch, eval_explainer=False,
                     )
                     
-                    agg_metrics = val_log[self.metric_type]
+                    agg_metrics = val_log[self.metric_type[0]]
                     if agg_metrics > best_agg_metric and split_name == "val":
                         best_epoch, best_agg_metric = cur_epoch, agg_metrics
 
@@ -79,7 +71,8 @@ class ExplainerExperiment(Experiment):
                     self.log_stats(val_log, split_name)
 
             else:
-                self._save_checkpoint(cur_epoch, is_best=False)
+                if not self.evaluate_only:
+                    self._save_checkpoint(cur_epoch, is_best=False)
 
         # evaluate phase: test & explainer
         test_epoch = "best" if len(self.valid_splits) > 0 else cur_epoch
@@ -88,16 +81,16 @@ class ExplainerExperiment(Experiment):
 
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        self.logger.log("Training time {}".format(total_time_str))
+        print("Training time {}".format(total_time_str))
 
     def evaluate(self, cur_epoch="best", skip_reload=False):
         test_logs = dict()
-        self.logger.log(f"Loading trained model from Epoch: {cur_epoch}\n")
+        print(f"Loading trained model from Epoch: {cur_epoch}\n")
 
         if len(self.test_splits) > 0:
             for split_name in self.test_splits:
                 test_logs[split_name] = self.eval_epoch(
-                    split_name=split_name, cur_epoch=cur_epoch, skip_reload=skip_reload
+                    split_name=split_name, cur_epoch=cur_epoch, skip_reload=skip_reload, eval_explainer=True,
                 )
         return test_logs
 
@@ -116,8 +109,7 @@ class ExplainerExperiment(Experiment):
             device=self.device,
         )
 
-    @torch.no_grad()
-    def eval_epoch(self, split_name, cur_epoch, skip_reload=False):
+    def eval_epoch(self, split_name, cur_epoch, skip_reload=False, eval_explainer=True):
         """
         Evaluate and Explain the model on a given split.
         Args:
@@ -135,6 +127,40 @@ class ExplainerExperiment(Experiment):
             model = self._reload_best_model(model)
 
         model.eval()
-        return self.task.evaluation(self.model, data_loader, loss_func=self.loss_func, scaler=self.feature_scaler, device=self.device)
+        kwargs = {"eval_explainer": eval_explainer, "is_testing": split_name in self.test_splits}
+        return self.task.evaluation(self.model, self.explainer, data_loader, loss_func=self.loss_func, scaler=self.feature_scaler, device=self.device, **kwargs)
+
+    def _save_test_results(self, test_results):
+        """
+        Save the test results at the Final evaluation.
+        """
+        for k, result in test_results.items():
+            print("Evaluating on {}.".format(k))
+            self.log_stats(result, k)
+
+            save_obj = {
+                "predictions": result['predictions'],
+                "targets": result['targets']
+            }
+            save_to = os.path.join(self.result_dir, f"{k}_predictions.pth")
+            print("Saving predictions to {}.".format(save_to))
+            torch.save(save_obj, save_to)
+
+            save_obj = {
+                "atom_importance": result['atom_importance'],
+                "bond_importance": result['bond_importance']
+            }
+            save_to = os.path.join(self.result_dir, f"{k}_explainer_predictions.pth")
+            print("Saving explainer predictions to {}.".format(save_to))
+            torch.save(save_obj, save_to)
+
+            save_to = os.path.join(self.result_dir, "svg")
+            os.makedirs(save_to, exist_ok=True)
+            self.task.visualization(
+                dataset=self.test_loader(split_name=k).dataset,
+                atom_importance=result['atom_importance'],
+                bond_importance=result['bond_importance'],
+                svg_dir=save_to
+            )
 
 

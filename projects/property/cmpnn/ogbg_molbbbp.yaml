@@ -28,7 +28,6 @@ model:
 
 datasets:
   name: "ogbg-molbbbp"
-  task: "property_prediction"
   task_type: "Classification"
   split_type: "defined"
   metric_type: "auc"
@@ -38,6 +37,7 @@ datasets:
   target_columns: ["p_np"]
 
 run:
+  task: "property_prediction"
   device: "cuda"
   distributed: False
   evaluate_only: False

@@ -26,7 +26,7 @@ class GradCAM(BaseExplainer):
 
     def __init__(self,
                  last_layer_only: bool = True,
-                 reduce_fn=torch.mean,
+                 reduce_fn = torch.mean,
                  name: Optional[Text] = None):
         """GradCAM constructor.
         Args:
@@ -46,7 +46,7 @@ class GradCAM(BaseExplainer):
             raise ValueError(
                 'reduce_fn should have a signature like tf.reduce_mean!')
 
-    def attribute(self, data, model, model_name, scaler=None):
+    def attribute(self, data, model, **kwargs):
         """Gets attribtutions."""
         model.train()
 

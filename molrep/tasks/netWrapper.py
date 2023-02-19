@@ -168,7 +168,7 @@ class NetWrapper:
             if not isinstance(output, tuple):
                 output = (output,)
 
-            if self.task_type == 'Multi-Classification':
+            if self.task_type == 'MultiClass-Classification':
                 labels = labels.long()
                 loss = torch.cat([self.loss_fun(labels[:, target_index], output[0][:, target_index, :]).unsqueeze(1) for target_index in range(output[0].size(1))], dim=1) * class_weights * mask
             else:
@@ -260,7 +260,7 @@ class NetWrapper:
                 output[0] = torch.Tensor(scaler.inverse_transform(output[0].detach().cpu().numpy()))
                 output = tuple(output)
 
-            if self.task_type == 'Multi-Classification':
+            if self.task_type == 'MultiClass-Classification':
                 labels = labels.long()
                 loss = torch.cat([self.loss_fun(labels[:, target_index], output[0][:, target_index, :]).unsqueeze(1) for target_index in range(output[0].size(1))], dim=1) * class_weights * mask
             else:

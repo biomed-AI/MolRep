@@ -27,19 +27,13 @@ class GradInput(BaseExplainer):
         self.name = name or self.__class__.__name__
         self.sample_size = 1
 
-    def attribute(self, data, model, model_name, scaler=None):
+    def attribute(self, data, model, **kwargs):
         """Gets attribtutions."""
         model.train()
-        
-        output = model(data)
-        if not isinstance(output, tuple):
-            output = (output,)
-        # embeds = model.featurize(data)
-
         atom_features, atom_grads, bond_features, bond_grads = model.get_gradients(data)
 
         atom_weights = torch.einsum('ij,ij->i', atom_features, atom_grads) if atom_grads is not None else None
         bond_weights = torch.einsum('ij,ij->i', bond_features, bond_grads) if bond_grads is not None else None
 
         model.eval()
-        return atom_weights, bond_weights, output
+        return atom_weights, bond_weights

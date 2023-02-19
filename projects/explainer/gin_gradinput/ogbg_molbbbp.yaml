@@ -1,0 +1,59 @@
+# Copyright (c) 2022, Sun Yat-sen Univeristy, inc.
+# All rights reserved.
+
+# @author: Jiahua Rao
+# @license: BSD-3-Clause, For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+# @contact: jiahua.rao@gmail.com
+
+
+model:
+  arch: gin
+  model_type: gin_default
+  
+  num_layers: 2
+  hidden_size: 64
+
+  train_eps: True
+  aggregation: mean
+
+  dropout: 0.2
+
+datasets:
+  name: "ogbg-molbbbp"
+  task: "property_prediction"
+  task_type: "Classification"
+  split_type: "defined"
+  metric_type: "auc"
+
+  path: ""
+  smiles_column: "smiles"
+  target_columns: ["p_np"]
+
+
+run:
+  task: "molecular_explainer"
+  device: "cpu"
+  distributed: False
+  type: "train_val_test"
+  evaluate_only: False
+  # resume_ckpt_path: outputs/property_prediction/gin_ogbg-molbbbp/20230214_191939/result/checkpoint_best.pth
+
+  # optimization-specific
+  optimizer: Adam
+  lr_sched: "linear_warmup_step_lr"
+  init_lr: 0.0001
+  max_lr: 0.001
+  min_lr: 0.000001
+  step_size: 10
+  warmup_epochs: 2.0
+  weight_decay: 0.1
+  num_epochs: 2
+
+  batch_size: 50
+  seed: 42
+  
+  num_workers: 4
+  class_balance: False
+
+  explainer:
+    name: GradInput

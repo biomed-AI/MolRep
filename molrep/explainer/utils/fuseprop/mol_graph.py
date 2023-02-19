@@ -3,9 +3,9 @@ import random
 import rdkit
 import rdkit.Chem as Chem
 import networkx as nx
-from molrep.explainer.methods.utils.fuseprop.chemutils import *
-from molrep.explainer.methods.utils.fuseprop.nnutils import *
-from molrep.explainer.methods.utils.fuseprop.vocab import common_atom_vocab
+from molrep.explainer.utils.fuseprop.chemutils import *
+from molrep.explainer.utils.fuseprop.nnutils import *
+from molrep.explainer.utils.fuseprop.vocab import common_atom_vocab
 from collections import deque
 
 add = lambda x,y : x + y if type(x) is int else (x[0] + y, x[1] + y)

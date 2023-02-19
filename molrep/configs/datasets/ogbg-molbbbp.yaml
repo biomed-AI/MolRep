@@ -1,0 +1,13 @@
+
+ogbg-molbbbp:
+  name: "ogbg-molbbbp"
+  task_type: "Classification"
+  split_type: "defined"
+  metric_type: "auc"
+
+  storage:
+    - ogbg_molbbbp/mapping/mol.csv.gz
+  smiles_column: "smiles"
+  target_columns: ["p_np"]
+  num_tasks: 1
+  multiclass_num_classes: 1

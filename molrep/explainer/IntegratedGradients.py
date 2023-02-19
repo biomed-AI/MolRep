@@ -3,9 +3,14 @@
 from copy import deepcopy
 import torch
 import functools
+from pathlib import Path
 
 import numpy as np
 from typing import Tuple
+
+from torch_geometric.utils import degree
+from torch_geometric.data import Data, Batch
+from torch.utils.data import DataLoader
 
 from molrep.explainer.base_explainer import BaseExplainer
 from molrep.common.registry import registry
@@ -26,6 +31,12 @@ class IntegratedGradients(BaseExplainer):
     (https://www.pnas.org/content/116/24/11624).
     """
 
+    model_processer_mapping = {
+        "mpnn": "mpnn", "dmpnn": "mpnn", "cmpnn": "mpnn",
+        "graphsage": "graph", "graphnet": "graph", "gin": "graph",
+        "bilstm": "sequence", "salstm": "sequence", "transformer": "sequence",
+    }
+
     def __init__(self,
                  num_steps: int = 200,
                  name = None):
@@ -36,29 +47,36 @@ class IntegratedGradients(BaseExplainer):
         self.sample_size = num_steps
 
 
-    def attribute(self, data,
-                        model,
-                        model_name,
-                        scaler=None):
-        
+    def attribute(self, data, model, **kwargs):
         model.train()
+        config = kwargs['config']
 
         output = model(data)
         if not isinstance(output, tuple):
             output = (output,)
 
-        node_null = np.zeros((1, data.x.size()[1]))
-        edge_null = np.zeros((1, data.edge_attr.size()[1])) if data.edge_attr is not None else None
+        # node_feats = model.get_node_feats(data)
+        # edge_feats = model.get_edge_feats(data)
+
+        n_nodes = node_feats.shape[0]
+        n_edges = edge_feats.shape[0] if edge_feats is not None else 0
+
+        node_null = np.zeros((1, node_feats.size()[1]))
+        edge_null = np.zeros((1, edge_feats.size()[1])) if edge_feats is not None else None
         self.reference_fn = self.make_reference_fn(node_null, edge_null)
 
         n = self.num_steps
-        ref = self.reference_fn(data)
-        n_nodes = data.x.shape[0]
-        n_edges = data.edge_attr.shape[0] if data.edge_attr is not None else 0
-        # print(node_null.shape, data.x.size(), ref.x.size())
-        interp_data, node_steps, edge_steps = self.interpolate_graphs(ref, data, n, model_name)
+        data = data["pygdata"]
 
-        _, atom_grads, _, bond_grads = [model.get_gradients(data) for data in interp_data][0]
+        sizes = degree(data.batch, dtype=torch.long).tolist()
+        node_feat_list = data.x.split(sizes, dim=0)
+        assert len(node_feat_list) == 1, "Batch size of IntegratedGradients should be set to 1."    #TODO
+
+        ref = self.reference_fn(data)
+        # print(node_null.shape, data.x.size(), ref.x.size())
+        interp_data, node_steps, edge_steps = self.interpolate_graphs(ref, data, n, config)
+
+        _, atom_grads, _, bond_grads = model.get_gradients({"pygdata": interp_data})
         # Node shapes: [n_nodes * n, nodes.shape[-1]] -> [n_nodes*n].
         atom_grads = torch.tensor(atom_grads, dtype=torch.float)
         node_steps = torch.tensor(node_steps, dtype=torch.float, device=atom_grads.device)
@@ -117,7 +135,9 @@ class IntegratedGradients(BaseExplainer):
     def interpolate_graphs(self, start: Tuple = None
                                , end: Tuple = None
                                , num_steps: int = 50
-                               , model_name: str = ''):
+                               , config = None):
+        model_name = config.model_cfg.arch
+        dataset_cls = registry.get_dataset_class((self.model_processer_mapping[model_name]))
 
         nodes_interp = self._interp_array(start.x.cpu().detach().numpy(), end.x.cpu().detach().numpy(), num_steps)
         edges_interp = self._interp_array(start.edge_attr.cpu().detach().numpy(), end.edge_attr.cpu().detach().numpy(), num_steps)
@@ -129,14 +149,20 @@ class IntegratedGradients(BaseExplainer):
             datadict['x'] = torch.tensor(nodes, dtype=datadict['x'].dtype, device=datadict['x'].device)
             datadict['edge_attr'] = torch.tensor(edges, dtype=datadict['edge_attr'].dtype, device=datadict['edge_attr'].device)
             interp_graphs.append(Data(**datadict))
-        
-        if model_name in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'GAT']:
-            interp_dataset = Graph_data._construct_dataset(interp_graphs, np.arange(len(interp_graphs)))
-            interp_data = Graph_data._construct_dataloader(interp_dataset, len(interp_graphs), shuffle=False)
-        elif model_name in ['MPNN', 'DMPNN', 'CMPNN']:
-            interp_dataset = MPNN_data._construct_dataset(interp_graphs, np.arange(len(interp_graphs)))
-            interp_data = MPNN_data._construct_dataloader(interp_dataset, len(interp_graphs), shuffle=False)
-        else:
-            raise print("explainer Model Must be in ['DGCNN', 'GIN', 'ECC', 'GraphSAGE', 'DiffPool', 'GraphNet', 'MPNN', 'DMPNN', 'CMPNN']")
+
+        interp_dataset = dataset_cls(interp_graphs)
+        interp_data = DataLoader(
+                        dataset=interp_dataset,
+                        batch_size=len(interp_graphs),
+                        collate_fn=lambda data_list: self.collate_fn(data_list),
+                        shuffle=False
+        )
+
         return interp_data, node_steps, edge_steps
 
+    def collate_fn(data):
+        batch_data = Batch.from_data_list(data)
+        return {
+            "pygdata": batch_data,
+            "targets": batch_data.y,
+        }

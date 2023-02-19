@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from molrep.explainer.methods.utils.fuseprop.nnutils import *
+from molrep.explainer.utils.fuseprop.nnutils import *
 
 class GRU(nn.Module):
 

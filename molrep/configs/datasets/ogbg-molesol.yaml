@@ -1,0 +1,12 @@
+
+ogbg-molesol:
+  name: "ogbg-molesol"
+  task_type: "Regression"
+  split_type: "defined"
+  metric_type: "rmse"
+
+  storage:
+    - ogbg_molesol/mapping/mol.csv.gz
+  smiles_column: "smiles"
+  target_columns: ['measured log solubility in mols per litre']
+  num_tasks: 1

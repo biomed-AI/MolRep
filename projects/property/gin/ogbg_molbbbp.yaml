@@ -25,12 +25,12 @@ datasets:
   split_type: "defined"
   metric_type: "auc"
 
-  path: ""
   smiles_column: "smiles"
   target_columns: ["p_np"]
 
 run:
-  device: "cuda"
+  task: "property_prediction"
+  device: "cpu"
   distributed: False
   evaluate_only: False
   type: "train_val_test"
@@ -44,11 +44,10 @@ run:
   step_size: 10
   warmup_epochs: 2.0
   weight_decay: 0.1
-  batch_size: 50
   num_epochs: 200
 
+  batch_size: 50
   seed: 42
-  output_dir: "outputs/property_prediction/CMPNN"
 
   num_workers: 4
   class_balance: False

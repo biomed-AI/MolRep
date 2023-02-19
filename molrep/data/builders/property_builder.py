@@ -44,7 +44,7 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
 
         elif dataset_path.suffix == '.csv':
             self.whole_data_df = pd.read_csv(dataset_path)
-        
+
         elif dataset_path.suffix == '.sdf':
             self.whole_data_df = self._load_sdf_files(dataset_path)
         
@@ -84,7 +84,7 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
 
         if run_type == "train_test":
             datasets = {
-                "train": None, "val": None, "test": None
+                "train": None, "test": None
             }
 
             indices = self.splits[0]["model_selection"][0]
@@ -96,9 +96,9 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
 
             dataset_cls = registry.get_dataset_class(self.model_processer_mapping[self.model_name])
             train_dataset = dataset_cls.construct_dataset(trainset_indices, self.features_path)
-            datasets["train"] = train_dataset.bulid_dataloader(self.config, is_train=True)
+            datasets["train"] = train_dataset
             test_dataset = dataset_cls.construct_dataset(testset_indices, self.features_path)
-            datasets["test"] = test_dataset.bulid_dataloader(self.config, is_train=False)
+            datasets["test"] = test_dataset
 
         elif run_type == "train_val_test":
             datasets = {
@@ -117,13 +117,13 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
             dataset_cls = registry.get_dataset_class(self.model_processer_mapping[self.model_name])
 
             train_dataset = dataset_cls.construct_dataset(trainset_indices, self.features_path)
-            datasets["train"] = train_dataset.bulid_dataloader(self.config, is_train=True)
+            datasets["train"] = train_dataset
 
             valid_dataset = dataset_cls.construct_dataset(validset_indices, self.features_path)
-            datasets["val"] = valid_dataset.bulid_dataloader(self.config, is_train=False)
+            datasets["val"] = valid_dataset
 
             test_dataset = dataset_cls.construct_dataset(testset_indices, self.features_path)
-            datasets["test"] = test_dataset.bulid_dataloader(self.config, is_train=False)
+            datasets["test"] = test_dataset
 
         elif run_type == "kfold":
             outer_folds = len(self.splits)
@@ -139,10 +139,13 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
 
                 dataset_cls = registry.get_dataset_class(self.model_processer_mapping[self.model_name])
                 train_dataset = dataset_cls.construct_dataset(trainset_indices, self.features_path)
-                datasets[str(outer_k)]["train"] = train_dataset.bulid_dataloader(self.config, is_train=True)
+                datasets[str(outer_k)]["train"] = train_dataset
 
                 test_dataset = dataset_cls.construct_dataset(testset_indices, self.features_path)
-                datasets[str(outer_k)]["test"] = test_dataset.bulid_dataloader(self.config, is_train=False)
+                datasets[str(outer_k)]["test"] = test_dataset
+
+        else:
+            raise NotImplementedError()
 
         return datasets
 
@@ -158,8 +161,8 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
             dataset = PygGraphPropPredDataset(self.dataset_name, root=self.cache_root)
             split_idx = dataset.get_idx_split()
             splits = [{"test": list(split_idx['test'].data.numpy()),
-                            'model_selection': [{"train": list(split_idx['train'].data.numpy()) + list(split_idx['valid'].data.numpy()),
-                                                 "validation": list(split_idx['test'].data.numpy())}]}]
+                            'model_selection': [{"train": list(split_idx['train'].data.numpy()),
+                                                 "validation": list(split_idx['valid'].data.numpy())}]}]
 
             with open(splits_filename, "w") as f:
                 json.dump(splits, f, cls=NumpyEncoder)

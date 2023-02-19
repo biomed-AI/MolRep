@@ -6,17 +6,16 @@
 # @contact: jiahua.rao@gmail.com
 
 
-
 model:
   arch: cmpnn
   model_type: cmpnn_default
-  
-  dim_embedding: 256
-  ffn_hidden_size: 512
+
+  dim_embedding: 128
+  ffn_hidden_size: 256
   ffn_num_layers: 2
 
   depth: 4
-  dropout: 0.1
+  dropout: 0.5
 
   activation: "ReLU"
   undirected: False

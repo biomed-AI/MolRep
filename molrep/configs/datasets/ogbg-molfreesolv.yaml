@@ -1,0 +1,12 @@
+
+ogbg-molfreesolv:
+  name: "ogbg-molfreesolv"
+  task_type: "Regression"
+  split_type: "defined"
+  metric_type: "rmse"
+
+  storage:
+    - ogbg_molfreesolv/mapping/mol.csv.gz
+  smiles_column: "smiles"
+  target_columns: ['expt']
+  num_tasks: 1

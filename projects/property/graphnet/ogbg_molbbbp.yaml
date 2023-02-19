@@ -1,0 +1,55 @@
+# Copyright (c) 2022, Sun Yat-sen Univeristy, inc.
+# All rights reserved.
+
+# @author: Jiahua Rao
+# @license: BSD-3-Clause, For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+# @contact: jiahua.rao@gmail.com
+
+
+model:
+  arch: graphnet
+  model_type: graphnet_default
+
+  dim_node_hidden: 256
+  dim_edge_hidden: 32
+
+  num_step_set2set: 2
+  num_layer_set2set: 2
+
+  num_layers: 2
+  aggregation_type: mean
+
+datasets:
+  name: "ogbg-molbbbp"
+  task: "property_prediction"
+  task_type: "Classification"
+  split_type: "defined"
+  metric_type: "auc"
+
+  path: ""
+  smiles_column: "smiles"
+  target_columns: ["p_np"]
+
+run:
+  task: "property_prediction"
+  device: "cpu"
+  distributed: False
+  evaluate_only: False
+  type: "train_val_test"
+
+  # optimization-specific
+  optimizer: Adam
+  lr_sched: "linear_warmup_step_lr"
+  init_lr: 0.0001
+  max_lr: 0.001
+  min_lr: 0.000001
+  step_size: 10
+  warmup_epochs: 2.0
+  weight_decay: 0.1
+  num_epochs: 30
+
+  batch_size: 16
+  seed: 42
+
+  num_workers: 0
+  class_balance: False

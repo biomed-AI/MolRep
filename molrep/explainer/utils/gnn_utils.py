@@ -1,13 +1,11 @@
 
 
 import torch
-import functools
 import numpy as np
 
 from rdkit import Chem
 from torch_geometric import data
-from molrep.evaluations.DatasetWrapper import Graph_data
-from molrep.processors.graph_embeddings import GraphEmbeddings
+from molrep.data.datasets.graph_dataset import GraphDataset
 from molrep.processors.utils.graph_utils import *
 
 from networkx import normalized_laplacian_matrix
@@ -232,12 +230,9 @@ def get_gnn_data_from_smiles(smiles):
         data = to_data(G)
         dataset.append(data)
         G.clear()
-    
-    dim_features = dataset[0].x.size(1)
-    dim_edge_features = dataset[0].edge_attr.size(1)
 
-    graph_dataset = Graph_data._construct_dataset(dataset, np.arange(len(dataset)))
-    graph_data = Graph_data._construct_dataloader(graph_dataset, 50, shuffle=False)
+    graph_data = GraphDataset(dataset)
+    # graph_data = graph_dataset.bulid_dataloader(is_train=False, batch_size=50)
 
     return graph_data, valid_indices
 

@@ -107,6 +107,81 @@ Data (including Explainable Dataset) could be download from [Google_Driver](http
 |CMPNN|CMPNN is the graph neural network that improve the molecular graph embedding by strengthening the message interactions between edges (bonds) and nodes (atoms).|[Song et al.](https://www.ijcai.org/Proceedings/2020/0392.pdf)|
 
 
+
+The following table shows the supported tasks, datasets and models in our library.
+
+|                  Tasks                   |     Supported Models            |             Supported Datasets             |
+| :--------------------------------------: | :-----------------------------: | :----------------------------------------: |
+|          Molecular Pre-training          |      AtomMask, EdgePred, ContextPred GraphCL, GraphLoG, GraphMVP, JOAO, Motif,        |           ZINC              |
+|          Molecular Property Prediciton          |    MPNN, CMPNN, GIN, GraphNET, GraphSAGE, DiffPool, GAT, MAT, CoMPT, LSTM, MAT, Transformer, XGBoost, RandomForest           |         BBBP, BACE, HIV, Tox21,             |
+|          Molecular Explainer         |      CAM, GradCAM, SmoothGrad, GradInput, IG, MCTS         |           3MR, Benzene, Mutagenicity, Hepatotoxicity, CYP450            |
+|            Hyper-parameters Search               |          Grid-Search, Bayesian-Search            |                              |
+|            Molecular Link Prediction             |          xxx            |                  xxxx            |
+
+
+### Model Zoo
+Model zoo summarizes supported models in MolRep, to view:
+```python
+>>> from molrep.models import model_zoo
+>>> print(model_zoo)
+# ==================================================
+# Architectures                  Types
+# ==================================================
+# mpnn                           graph_learning
+# dmpnn                          graph_learning
+# cmpnn                          graph_learning
+# dgcnn                          graph_learning
+# diffpool                       graph_learning
+# ecc                            graph_learning
+# gat                            graph_learning
+# gin                            graph_learning
+# graphnet                       graph_learning
+# graphsage                      graph_learning
+# compt                          graph_learning
+# lstm                           sequence_learning
+# mat                            sequence_learning
+# transformer                    sequence_learning
+# xgboost                        machine_learning
+# randomforest                   machine_learning
+# graphcl                        pre_learning
+```
+
+## Molecular Property Prediction & Explainer
+```python
+>>> import torch
+>>> from molrep.models import load_model_and_preprocess
+>>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# loads CMPNN base model, with trained checkpoints on HIV dataset.
+>>> model, mol_processors, _ = load_model_and_preprocess(name="cmpnn", model_type="classification", trained_on="hiv", is_eval=True, device=device)
+# preprocess the molecule
+>>> mol_data = mol_processors["eval"]("Cl[C@H](/C=C/C)Br").to(device)
+# prediction
+>>> model.predict({"data": mol_data})
+# {'HIV_active': 0}
+# explainer
+>>> model.explainer({"data": mol_data})
+```
+
+## Molecular Explainer
+
+```python
+>>> import torch
+>>> from molrep.models import load_model_and_preprocess
+>>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# loads CMPNN base model, with trained checkpoints on HIV dataset.
+>>> model, mol_processors, _ = load_model_and_preprocess(name="cmpnn", model_type="classification", trained_on="hiv", is_eval=True, device=device)
+# preprocess the molecule
+>>> mol_data = mol_processors["eval"]("Cl[C@H](/C=C/C)Br").to(device)
+# explainer
+>>> model.explainer({"data": mol_data})
+```
+
+## Training
+```python
+python train.py --cfg-path "projects/property/gin/ogbg_molbbbp.yaml"
+```
+
+
 ### Training
 
 To train a model by K-fold, run [5-fold-training_example.ipynb](https://github.com/Jh-SYSU/MolRep/blob/main/Examples/5-fold-training_example.ipynb).

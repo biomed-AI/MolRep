@@ -47,49 +47,65 @@ class GraphDataset(MoleculeDataset):
                  if a slice is provided.
         """
         return self._data[index]
+    
+    @property
+    def smiles(self) -> List[str]:
+        return [d.smiles for d in self._data]
 
     @classmethod
     def construct_dataset(cls, indices, features_path):
         features = torch.load(features_path)
         return cls([features[idx] for idx in indices])
 
-    def collate_fn(self, batch, follow_batch=[]):
+    def collate_fn(self, batch, **kwargs):
+        follow_batch = kwargs["follow_batch"] if "follow_batch" in kwargs.keys() else []
         batch_data = Batch.from_data_list(batch, follow_batch)
         return {
             "pygdata": batch_data,
             "targets": batch_data.y,
         }
 
-    def bulid_dataloader(self, config, is_train=True):
-        num_workers = config.run_cfg.get("num_workers", 2)
-        class_balance = config.run_cfg.get("class_balance", False)
-        follow_batch = config.run_cfg.get("follow_batch", [])
-        shuffle = (is_train == True)
-        seed = config.run_cfg.get("seed", 42)
+    # def bulid_dataloader(self, config=None, is_train=True, **kwargs):
+    #     if config is not None:
+    #         num_workers = config.run_cfg.get("num_workers", 0)
+    #         class_balance = config.run_cfg.get("class_balance", False)
+    #         follow_batch = config.run_cfg.get("follow_batch", [])
 
-        self._context = None
-        self._timeout = 0
-        is_main_thread = threading.current_thread() is threading.main_thread()
-        if not is_main_thread and num_workers > 0:
-            self._context = 'forkserver'  # In order to prevent a hanging
-            self._timeout = 3600  # Just for sure that the DataLoader won't hang
+    #         seed = config.run_cfg.get("seed", 42)
+    #         batch_size = config.run_cfg.get("batch_size", 50)
 
-        self._sampler = MoleculeSampler(
-            dataset=self._data,
-            class_balance=class_balance,
-            shuffle=shuffle,
-            seed=seed
-        )
+    #     else:
+    #         num_workers = kwargs["num_workers"] if "num_workers" in kwargs.keys() else 0
+    #         class_balance = kwargs["class_balance"] if "class_balance" in kwargs.keys() else False
+    #         follow_batch = kwargs["follow_batch"] if "follow_batch" in kwargs.keys() else []
 
-        return DataLoader(
-                        dataset=self._data,
-                        batch_size=config.run_cfg.batch_size,
-                        sampler=self._sampler,
-                        num_workers=num_workers,
-                        collate_fn=lambda data_list: self.collate_fn(data_list, follow_batch),
-                        timeout=self._timeout,
-                        worker_init_fn=worker_init,
-        )
+    #         seed = kwargs["seed"] if "seed" in kwargs.keys() else 42
+    #         batch_size = kwargs["batch_size"] if "batch_size" in kwargs.keys() else 50
+
+    #     shuffle = (is_train == True)
+    #     self._context = None
+    #     self._timeout = 0
+    #     is_main_thread = threading.current_thread() is threading.main_thread()
+    #     if not is_main_thread and num_workers > 0:
+    #         self._context = 'forkserver'  # In order to prevent a hanging
+    #         self._timeout = 3600  # Just for sure that the DataLoader won't hang
+
+    #     self._sampler = MoleculeSampler(
+    #         dataset=self._data,
+    #         class_balance=class_balance,
+    #         shuffle=shuffle,
+    #         seed=seed
+    #     )
+
+    #     return DataLoader(
+    #                     dataset=self._data,
+    #                     batch_size=batch_size,
+    #                     sampler=self._sampler,
+    #                     num_workers=num_workers,
+    #                     collate_fn=lambda data_list: self.collate_fn(data_list, follow_batch),
+    #                     timeout=self._timeout,
+    #                     worker_init_fn=worker_init,
+    #     )
 
     def targets(self) -> List[List[Optional[float]]]:
         """

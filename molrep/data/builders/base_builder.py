@@ -25,8 +25,41 @@ def load_config(cfg_path):
 @registry.register_builder("base")
 class BaseDatasetBuilder:
 
+    TASK_CONFIG_DICT = {
+        "property_prediction": "molrep/configs/runs/property_prediction.yaml",
+        "property_hyperseach": "molrep/configs/runs/property_prediction.yaml",
+        "molecular_explainer": "molrep/configs/runs/property_prediction.yaml",
+        "molecular_pretraining": "molrep/configs/runs/property_prediction.yaml",
+        "molecular_interaction": "molrep/configs/runs/property_prediction.yaml",
+    }
+
     DATASET_CONFIG_DICT = {
-        "property_prediction": "molrep/configs/datasets/property_prediction.yaml",
+        "Classification": {
+            # Molecular Property Classification From OGB-Benchmark.
+            "ogbg-molhiv": "molrep/configs/datasets/ogbg-molhiv.yaml",
+            "ogbg-molbace": "molrep/configs/datasets/ogbg-molbace.yaml",
+            "ogbg-molbbbp": "molrep/configs/datasets/ogbg-molbbbp.yaml",
+            "ogbg-molclintox": "molrep/configs/datasets/ogbg-molclintox.yaml",
+            "ogbg-molmuv": "molrep/configs/datasets/ogbg-molmuv.yaml",
+            "ogbg-molsider": "molrep/configs/datasets/ogbg-molsider.yaml",
+            "ogbg-moltox21": "molrep/configs/datasets/ogbg-moltox21.yaml",
+            "ogbg-moltoxcast": "molrep/configs/datasets/ogbg-moltoxcast.yaml",
+
+            # Molecular Property Classification.
+            "hepatotoxicity": "molrep/configs/datasets/hepatotoxicity.yaml",
+            },
+
+        "Regression": {
+            # Molecular Property Regression From OGB-Benchmark.
+            "ogbg-molesol": "molrep/configs/datasets/ogbg-molesol.yaml",
+            "ogbg-molfreesolv": "molrep/configs/datasets/ogbg-molfreesolv.yaml",
+            "ogbg-mollipo": "molrep/configs/datasets/ogbg-mollipo.yaml",
+        },
+
+        "Pretraining": {
+            # Molecular Pretraing Dataset.
+            "zinc": "molrep/configs/datasets/zinc.yaml",
+        }
     }
 
     def __init__(self, cfg=None):
@@ -47,8 +80,12 @@ class BaseDatasetBuilder:
         self.cache_root = registry.get_path("cache_root")
 
     @classmethod
-    def default_config_path(cls, type="property_prediction"):
-        return os.path.join(registry.get_path("repo_root"), cls.DATASET_CONFIG_DICT[type])
+    def default_config_path(cls, task, name):
+        return os.path.join(registry.get_path("repo_root"), cls.DATASET_CONFIG_DICT[task][name])
+
+    @classmethod
+    def default_task_config_path(cls, task="property_prediction"):
+        return os.path.join(registry.get_path("repo_root"), cls.TASK_CONFIG_DICT[task])
 
     def build_datasets(self):
         # download, split, etc...

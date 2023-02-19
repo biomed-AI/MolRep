@@ -4,7 +4,7 @@ import itertools
 from rdkit import Chem
 from rdkit.Chem import rdFMCS
 from collections import defaultdict, deque
-from molrep.explainer.methods.utils.fuseprop.vocab import MAX_VALENCE
+from molrep.explainer.utils.fuseprop.vocab import MAX_VALENCE
 
 lg = rdkit.RDLogger.logger() 
 lg.setLevel(rdkit.RDLogger.CRITICAL)

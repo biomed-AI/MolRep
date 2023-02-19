@@ -1,0 +1,13 @@
+
+ogbg-molclintox:
+  name: "ogbg-molclintox"
+  task_type: "Classification"
+  split_type: "defined"
+  metric_type: "auc"
+
+  storage:
+    - ogbg_molclintox/mapping/mol.csv.gz
+  smiles_column: "smiles"
+  target_columns: ['FDA_APPROVED', 'CT_TOX']
+  num_tasks: 2
+  multiclass_num_classes: 1

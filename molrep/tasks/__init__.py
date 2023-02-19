@@ -14,12 +14,13 @@ from molrep.common.registry import registry
 
 from molrep.tasks.base_task import BaseTask
 from molrep.tasks.property_prediction import PropertyTask
+from molrep.tasks.molecular_explainer import ExplainerTask
 
 
 def setup_task(cfg):
-    assert "task" in cfg.datasets_cfg, "Task name must be provided."
+    assert "task" in cfg.run_cfg, "Task name must be provided."
 
-    task_name = cfg.datasets_cfg.task
+    task_name = cfg.run_cfg.task
     task = registry.get_task_class(task_name).setup_task(cfg=cfg)
     assert task is not None, "Task {} not properly registered.".format(task_name)
 
@@ -29,4 +30,5 @@ def setup_task(cfg):
 __all__ = [
     'BaseTask',
     'PropertyTask',
+    'ExplainerTask',
 ]

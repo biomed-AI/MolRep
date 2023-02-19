@@ -19,17 +19,17 @@ from molrep.models.sequence_based.BiLSTM import BiLSTM
 from molrep.models.sequence_based.SALSTM import SALSTM
 from molrep.models.sequence_based.Transformer import Transformer
 
-from molrep.models.graph_based.GIN import GIN
-from molrep.models.graph_based.ECC import ECC
-from molrep.models.graph_based.GAT import GAT
-from molrep.models.graph_based.DGCNN import DGCNN
-from molrep.models.graph_based.DiffPool import DiffPool
-from molrep.models.graph_based.GraphSAGE import GraphSAGE
-from molrep.models.graph_based.GraphNet import GraphNet
+from molrep.models.graph_learning.GIN import GIN
+from molrep.models.graph_learning.ECC import ECC
+from molrep.models.graph_learning.GAT import GAT
+from molrep.models.graph_learning.DGCNN import DGCNN
+from molrep.models.graph_learning.DiffPool import DiffPool
+from molrep.models.graph_learning.GraphSAGE import GraphSAGE
+from molrep.models.graph_learning.GraphNet import GraphNet
 
-from molrep.models.graph_based.MPNN import MPNN
-from molrep.models.graph_based.CMPNN import CMPNN
-from molrep.models.graph_based.DMPNN import DMPNN
+from molrep.models.graph_learning.MPNN import MPNN
+from molrep.models.graph_learning.CMPNN import CMPNN
+from molrep.models.graph_learning.DMPNN import DMPNN
 
 from molrep.models.unsupervised_based.VAE import VAE
 from molrep.models.unsupervised_based.RandomForest import RandomForest

@@ -22,22 +22,31 @@ from molrep.tasks.base_task import BaseTask
 
 @registry.register_task("property_prediction")
 class PropertyTask(BaseTask):
-    def __init__(self, task_type, num_tasks, metric_type):
+    def __init__(self, task_type, num_tasks, metric_type, multiclass_num_classes = 1):
         super().__init__()
 
         self.task_type = task_type
         self.num_tasks = num_tasks
         self.metric_type = metric_type
 
+        self.classification = self.task_type == 'Classification'
+        self.multiclass = self.task_type == 'MultiClass-Classification'
+        self.regression = self.task_type == 'Regression'
+        self.multiclass_num_classes = multiclass_num_classes
+        assert not (self.classification and self.regression and self.multiclass)
+
     @classmethod
     def setup_task(cls, cfg):
         task_type = cfg.datasets_cfg.task_type
         num_tasks = cfg.datasets_cfg.num_tasks
         metric_type = cfg.datasets_cfg.metric_type
+        multiclass_num_classes = cfg.datasets_cfg.multiclass_num_classes
+
         return cls(
             task_type = task_type,
             num_tasks = num_tasks,
             metric_type = metric_type,
+            multiclass_num_classes = multiclass_num_classes,
         )
 
     def build_datasets(self, cfg):
@@ -77,33 +86,28 @@ class PropertyTask(BaseTask):
             class_weights = torch.ones(labels.shape).to(device)
 
             optimizer.zero_grad()
-            output = model(batch_data)
-            if not isinstance(output, tuple):
-                output = (output,)
+            outputs = model(batch_data)
+            logits = outputs.logits
 
-            # Inverse scale if regression
-            if scaler is not None:
-                output = list(output)
-                output[0] = torch.Tensor(scaler.inverse_transform(output[0].detach().cpu().numpy()))
-                output = tuple(output)
+            # Logits Inverse scale if regression
+            if self.regression and scaler is not None:
+                logits = torch.FloatTensor(scaler.inverse_transform(logits.detach().cpu().numpy()))
 
-            if self.task_type == 'Multi-Classification':
+            if self.multiclass:
                 labels = labels.long()
-                loss = torch.cat([loss_func(labels[:, target_index], output[0][:, target_index, :]).unsqueeze(1) for target_index in range(output[0].size(1))], dim=1) * class_weights * mask
+                logits = torch.softmax(logits.reshape(logits.size(0), -1, self.multiclass_num_classes), dim=-1) # batch size x num targets x num classes per target
+                loss = torch.cat([loss_func(logits[:, target_index, :], labels[:, target_index]).unsqueeze(1) for target_index in range(logits.size(1))], dim=1) * class_weights * mask
             else:
-                loss = loss_func(labels, *output) * class_weights * mask
+                loss = loss_func(logits, labels) * class_weights * mask
 
             loss = loss.sum() / mask.sum()
             loss.backward()
             optimizer.step()
             lr_scheduler.step(cur_epoch=epoch, cur_step=i)
 
-            y_preds.extend(output[0].data.cpu().numpy().tolist())
+            y_preds.extend(logits.data.cpu().numpy().tolist())
             y_labels.extend(target_batch)
             loss_all += loss.item() * labels.size()[0]
-
-        if self.task_type != 'Regression':
-            y_preds = torch.sigmoid(torch.FloatTensor(y_preds))
 
         results = self.evaluate_predictions(preds=y_preds, targets=y_labels,
                                             num_tasks=self.num_tasks, metric_type=self.metric_type,
@@ -128,24 +132,24 @@ class PropertyTask(BaseTask):
             labels = torch.Tensor([[0 if np.isnan(x) else x for x in tb] for tb in target_batch]).to(device)
             class_weights = torch.ones(labels.shape).to(device)
 
-            output = model(batch_data)
-            if not isinstance(output, tuple):
-                output = (output,)
+            outputs = model(batch_data)
+            logits = outputs.logits
 
             # Inverse scale if regression
-            if scaler is not None:
-                output = list(output)
-                output[0] = torch.Tensor(scaler.inverse_transform(output[0].detach().cpu().numpy()))
-                output = tuple(output)
+            if self.regression and scaler is not None:
+                logits = torch.FloatTensor(scaler.inverse_transform(logits.detach().cpu().numpy()))
 
-            if self.task_type == 'Multi-Classification':
+            if self.multiclass:
                 labels = labels.long()
-                loss = torch.cat([loss_func(labels[:, target_index], output[0][:, target_index, :]).unsqueeze(1) for target_index in range(output[0].size(1))], dim=1) * class_weights * mask
+                logits = torch.softmax(logits.reshape(logits.size(0), -1, self.multiclass_num_classes), dim=-1)
+                loss = torch.cat([loss_func(logits[:, target_index, :], labels[:, target_index]).unsqueeze(1) for target_index in range(logits.size(1))], dim=1) * class_weights * mask
             else:
-                loss = loss_func(labels, *output) * class_weights * mask
+                loss = loss_func(logits, labels) * class_weights * mask
             loss = loss.sum() / mask.sum()
 
-            y_preds.extend(output[0].data.cpu().numpy().tolist())
+            if self.classification:
+                logits = torch.sigmoid(logits)
+            y_preds.extend(logits.data.cpu().numpy().tolist())
             y_labels.extend(target_batch)
             loss_all += loss.item() * labels.size()[0]
 

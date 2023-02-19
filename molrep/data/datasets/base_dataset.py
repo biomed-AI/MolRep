@@ -47,9 +47,10 @@ class MoleculeDataset(Dataset):
     def collate_fn(self, batch, **kwargs):
         raise NotImplementedError
 
-    def bulid_dataloader(self, is_train=True):
-        raise NotImplementedError
+    # def bulid_dataloader(self, config=None, is_train=True, **kwargs):
+    #     raise NotImplementedError
 
+    @property
     def smiles(self) -> List[str]:
         """
         Returns a list containing the SMILES associated with each molecule.

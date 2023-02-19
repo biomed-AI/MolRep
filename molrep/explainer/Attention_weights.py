@@ -1,5 +1,6 @@
 
 import abc
+from typing import Callable, List, Optional, Text
 
 class AttributionTechnique(abc.ABC):
     """Abstract class for an attribution technique."""

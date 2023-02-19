@@ -58,8 +58,8 @@ def load_dataset_config(cfg_path):
 class DatasetZoo:
     def __init__(self) -> None:
         self.dataset_zoo = {
-            k: list(OmegaConf.load(dict_values)['datasets'].keys())
-            for k, v in sorted(registry.mapping["builder_name_mapping"].items()) for dict_values in v.DATASET_CONFIG_DICT.values()
+            dataset_type: list(dataset_names.keys())
+            for k, v in sorted(registry.mapping["builder_name_mapping"].items()) for dataset_type, dataset_names in v.DATASET_CONFIG_DICT.items()
         }
 
 

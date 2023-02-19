@@ -1,0 +1,13 @@
+
+ogbg-molmuv:
+  name: "ogbg-molmuv"
+  task_type: "Classification"
+  split_type: "defined"
+  metric_type: "auc"
+
+  storage:
+    - 'ogbg_molmuv/mapping/mol.csv.gz'
+  smiles_column: "smiles"
+  target_columns: ['MUV-466','MUV-548','MUV-600','MUV-644','MUV-652','MUV-689','MUV-692','MUV-712','MUV-713','MUV-733','MUV-737','MUV-810','MUV-832','MUV-846','MUV-852','MUV-858','MUV-859']
+  num_tasks: 17
+  multiclass_num_classes: 1
