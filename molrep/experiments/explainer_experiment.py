@@ -6,6 +6,7 @@ import datetime
 
 import torch
 
+from molrep.common.utils import compare_metrics
 from molrep.common.registry import registry
 from molrep.experiments.experiment import Experiment
 
@@ -16,9 +17,9 @@ class ExplainerExperiment(Experiment):
     Experiment provides a layer of abstraction to avoid that all models implement the same interface
     """
 
-    def __init__(self, cfg, task, model, datasets, job_id):
+    def __init__(self, cfg, task, model, datasets, job_id, scaler=None):
         super().__init__(
-            cfg=cfg, task=task, datasets=datasets, model=model, job_id=job_id,
+            cfg=cfg, task=task, datasets=datasets, scaler=scaler, model=model, job_id=job_id,
         )
         self._explainer = None
 
@@ -62,7 +63,7 @@ class ExplainerExperiment(Experiment):
                     )
                     
                     agg_metrics = val_log[self.metric_type[0]]
-                    if agg_metrics > best_agg_metric and split_name == "val":
+                    if compare_metrics(agg_metrics, best_agg_metric, self.metric_type[0]) and split_name == "val":
                         best_epoch, best_agg_metric = cur_epoch, agg_metrics
 
                         self._save_checkpoint(cur_epoch, is_best=True)

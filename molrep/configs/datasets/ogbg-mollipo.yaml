@@ -1,6 +1,6 @@
 ogbg-mollipo:
   name: "ogbg-mollipo"
-  task_type: "Regression"
+  task_type: "regression"
   split_type: "defined"
   metric_type: "rmse"
 

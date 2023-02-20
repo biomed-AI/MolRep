@@ -7,33 +7,30 @@
 
 
 model:
-  arch: cmpnn
-  model_type: cmpnn_default
+  arch: gin
+  model_type: gin_default
   
-  dim_embedding: 128
-  ffn_hidden_size: 256
-  ffn_num_layers: 2
+  num_layers: 5
+  hidden_size: 300
 
-  depth: 2
+  aggregation: mean
+
   dropout: 0.5
 
-  activation: "ReLU"
-  undirected: False
-  bias: False
-  atom_messages: False
-
-  features_only: False
-  atom_descriptors: null
-  use_input_features: False
 
 datasets:
-  name: "ogbg-molhiv"
-  task_type: "classification"
+  name: "ogbg-molesol"
+  task_type: "regression"
   split_type: "defined"
-  metric_type: "auc"
+  metric_type: ["rmse"]
+  scaler_targets: True
 
+  storage:
+    - ogbg_molesol/mapping/mol.csv.gz
   smiles_column: "smiles"
-  target_columns: ["HIV_active"]
+  target_columns: ['measured log solubility in mols per litre']
+  num_tasks: 1
+
 
 run:
   task: "property_prediction"

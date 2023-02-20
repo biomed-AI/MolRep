@@ -19,9 +19,8 @@ from rdkit import Chem
 
 from molrep.processors.features import BatchMolGraph, MolGraph
 
-from molrep.common.utils import worker_init
 from molrep.common.registry import registry
-from molrep.data.datasets.base_dataset import MoleculeDataset, MoleculeSampler
+from molrep.data.datasets.base_dataset import MoleculeDataset
 
 
 # Cache of graph featurizations
@@ -118,48 +117,6 @@ class MPNNDataset(MoleculeDataset):
             "atom_descriptors": atom_descriptors_batch,
         }
 
-    # def bulid_dataloader(self, config=None, is_train=True, **kwargs):
-    #     if config is not None:
-    #         num_workers = config.run_cfg.get("num_workers", 2)
-    #         class_balance = config.run_cfg.get("class_balance", False)
-    #         atom_messages = config.model_cfg.get("atom_messages", False)
-
-    #         seed = config.run_cfg.get("seed", 42)
-    #         batch_size = config.run_cfg.get("batch_size", 50)
-
-    #     else:
-    #         num_workers = kwargs["num_workers"] if "num_workers" in kwargs.keys() else 2
-    #         class_balance = kwargs["class_balance"] if "class_balance" in kwargs.keys() else False
-    #         atom_messages = kwargs["atom_messages"] if "atom_messages" in kwargs.keys() else False
-
-    #         seed = kwargs["seed"] if "seed" in kwargs.keys() else 42
-    #         batch_size = kwargs["batch_size"] if "batch_size" in kwargs.keys() else 50
-
-    #     shuffle = (is_train == True)
-    #     self._context = None
-    #     self._timeout = 0
-    #     is_main_thread = threading.current_thread() is threading.main_thread()
-    #     if not is_main_thread and num_workers > 0:
-    #         self._context = 'forkserver'  # In order to prevent a hanging
-    #         self._timeout = 3600  # Just for sure that the DataLoader won't hang
-
-    #     self._sampler = MoleculeSampler(
-    #         dataset=self._data,
-    #         class_balance=class_balance,
-    #         shuffle=shuffle,
-    #         seed=seed
-    #     )
-
-    #     return DataLoader(
-    #                     dataset=self._data,
-    #                     batch_size=batch_size,
-    #                     sampler=self._sampler,
-    #                     num_workers=num_workers,
-    #                     collate_fn=lambda data_list: self.collate_fn(data_list, atom_messages),
-    #                     timeout=self._timeout,
-    #                     worker_init_fn=worker_init,
-    #     )
-
     def batch_graph(self, atom_messages=False) -> BatchMolGraph:
         r"""
         Constructs a :class:`~chemprop.features.BatchMolGraph` with the graph featurization of all the molecules.
@@ -193,6 +150,12 @@ class MPNNDataset(MoleculeDataset):
         :return: A list of lists of floats (or None) containing the targets.
         """
         return [d.targets for d in self._data]
+    
+    def set_targets(self, targets: List[List[Optional[float]]]) -> None:
+        assert len(self._data) == len(targets)
+        for i in range(len(self._data)):
+            target = torch.FloatTensor([targets[i]])
+            self._data[i].targets = target.unsqueeze(1) if target.ndim == 1 else target
 
     def features(self) -> List[np.ndarray]:
         """

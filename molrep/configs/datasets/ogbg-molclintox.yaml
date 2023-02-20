@@ -1,7 +1,7 @@
 
 ogbg-molclintox:
   name: "ogbg-molclintox"
-  task_type: "Classification"
+  task_type: "classification"
   split_type: "defined"
   metric_type: "auc"
 

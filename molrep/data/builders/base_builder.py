@@ -34,8 +34,8 @@ class BaseDatasetBuilder:
     }
 
     DATASET_CONFIG_DICT = {
-        "Classification": {
-            # Molecular Property Classification From OGB-Benchmark.
+        "classification": {
+            # Molecular Property classification From OGB-Benchmark.
             "ogbg-molhiv": "molrep/configs/datasets/ogbg-molhiv.yaml",
             "ogbg-molbace": "molrep/configs/datasets/ogbg-molbace.yaml",
             "ogbg-molbbbp": "molrep/configs/datasets/ogbg-molbbbp.yaml",
@@ -45,18 +45,18 @@ class BaseDatasetBuilder:
             "ogbg-moltox21": "molrep/configs/datasets/ogbg-moltox21.yaml",
             "ogbg-moltoxcast": "molrep/configs/datasets/ogbg-moltoxcast.yaml",
 
-            # Molecular Property Classification.
+            # Molecular Property classification.
             "hepatotoxicity": "molrep/configs/datasets/hepatotoxicity.yaml",
             },
 
-        "Regression": {
+        "regression": {
             # Molecular Property Regression From OGB-Benchmark.
             "ogbg-molesol": "molrep/configs/datasets/ogbg-molesol.yaml",
             "ogbg-molfreesolv": "molrep/configs/datasets/ogbg-molfreesolv.yaml",
             "ogbg-mollipo": "molrep/configs/datasets/ogbg-mollipo.yaml",
         },
 
-        "Pretraining": {
+        "pretraining": {
             # Molecular Pretraing Dataset.
             "zinc": "molrep/configs/datasets/zinc.yaml",
         }
@@ -90,8 +90,8 @@ class BaseDatasetBuilder:
     def build_datasets(self):
         # download, split, etc...
         self._download_and_load_data()
-        datasets = self.build()
-        return datasets
+        datasets, scaler = self.build()
+        return datasets, scaler
 
     def _download_and_load_data(self):
         """

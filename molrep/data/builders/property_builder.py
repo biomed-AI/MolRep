@@ -21,7 +21,7 @@ from molrep.evaluations.data_split import scaffold_split, defined_split
 
 from molrep.common.registry import registry
 from molrep.data.builders.base_builder import BaseDatasetBuilder
-from molrep.common.utils import filter_invalid_smiles, NumpyEncoder
+from molrep.common.utils import filter_invalid_smiles, NumpyEncoder, StandardScaler
 
 from ogb.graphproppred import PygGraphPropPredDataset
 
@@ -61,7 +61,7 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
 
         self.smiles_col = self.config.datasets_cfg.smiles_column
         self.num_tasks = self.config.datasets_cfg.num_tasks
-        self.multiclass_num_classes = self.config.datasets_cfg.multiclass_num_classes
+        self.multiclass_num_classes = self.config.datasets_cfg.get("multiclass_num_classes", 1)
         self.multi_class = self.multiclass_num_classes > 1
 
         valid_smiles = filter_invalid_smiles(list(self.whole_data_df.loc[:,self.smiles_col]))
@@ -81,10 +81,11 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
         self.config.datasets_cfg.dim_edge_features = processor_cls.dim_edge_features
 
         self.splits = self.setup_splits()
-        datasets = self.construct_datasets()
-        return datasets
+        datasets, scaler = self.construct_datasets()
+        return datasets, scaler
 
     def construct_datasets(self):
+        scaler = None
         run_type = self.config.run_cfg.get("type", None)
 
         self.features_dir = Path(registry.get_path("features_root"))
@@ -104,7 +105,10 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
 
             dataset_cls = registry.get_dataset_class(self.model_dataset_mapping[self.model_name])
             train_dataset = dataset_cls.construct_dataset(trainset_indices, self.features_path)
+            if self.dataset_config.task_type == 'regression' and self.dataset_config.scaler_targets:
+                train_dataset, scaler = self._scale_targets(train_dataset)
             datasets["train"] = train_dataset
+
             test_dataset = dataset_cls.construct_dataset(testset_indices, self.features_path)
             datasets["test"] = test_dataset
 
@@ -125,6 +129,8 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
             dataset_cls = registry.get_dataset_class(self.model_dataset_mapping[self.model_name])
 
             train_dataset = dataset_cls.construct_dataset(trainset_indices, self.features_path)
+            if self.dataset_config.task_type == 'regression' and self.dataset_config.scaler_targets:
+                train_dataset, scaler = self._scale_targets(train_dataset)
             datasets["train"] = train_dataset
 
             valid_dataset = dataset_cls.construct_dataset(validset_indices, self.features_path)
@@ -147,6 +153,8 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
 
                 dataset_cls = registry.get_dataset_class(self.model_dataset_mapping[self.model_name])
                 train_dataset = dataset_cls.construct_dataset(trainset_indices, self.features_path)
+                if self.dataset_config.task_type == 'regression' and self.dataset_config.scaler_targets:
+                    train_dataset, scaler = self._scale_targets(train_dataset)
                 datasets[str(outer_k)]["train"] = train_dataset
 
                 test_dataset = dataset_cls.construct_dataset(testset_indices, self.features_path)
@@ -155,7 +163,7 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
         else:
             raise NotImplementedError()
 
-        return datasets
+        return datasets, scaler
 
     def setup_splits(self):
         split_dir = Path(registry.get_path("split_root"))
@@ -376,3 +384,9 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
 
         return splits
 
+    def _scale_targets(self, dataset):
+        train_targets = dataset.targets()
+        scaler = StandardScaler().fit(train_targets)
+        scaled_targets = scaler.transform(train_targets).tolist()
+        dataset.set_targets(scaled_targets)
+        return dataset, scaler

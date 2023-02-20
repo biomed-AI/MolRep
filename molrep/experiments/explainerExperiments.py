@@ -147,7 +147,7 @@ class ExplainerExperiments:
         
         smiles_list = dataset.get_smiles_list(testing, training)
         oof = pd.DataFrame({'SMILES': smiles_list})
-        if self.dataset_config['task_type'] == 'MultiClass-Classification':
+        if self.dataset_config['task_type'] == 'multiclass-classification':
             oof['preds'] = [p[0].index(max(p[0])) for p in y_preds]
             oof['predictions'] = [y[0] for y in y_preds]
             oof['labels'] = [y[0] for y in y_labels]

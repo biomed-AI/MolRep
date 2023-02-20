@@ -14,7 +14,7 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
 class RandomForest:
     """docstring for RandomForest"""
-    def __init__(self, model_configs, task_type='Regression', logger=None):
+    def __init__(self, model_configs, task_type='regression', logger=None):
         self.model_configs = model_configs
 
         self.max_features = model_configs['max_features']
@@ -30,7 +30,7 @@ class RandomForest:
         self.setup_model()
 
     def setup_model(self):
-        if self.task_type == 'Classification':
+        if self.task_type == 'classification':
             self.model = RandomForestClassifier(n_estimators=self.n_estimators,
                                                 max_features=self.max_features,
                                                 min_samples_leaf=self.min_samples_leaf,
@@ -40,7 +40,7 @@ class RandomForest:
                                                 oob_score=False,
                                                 verbose=1)
 
-        elif self.task_type == 'Regression':
+        elif self.task_type == 'regression':
             self.model = RandomForestRegressor(n_estimators=self.n_estimators,
                                                max_features=self.max_features,
                                                min_samples_leaf=self.min_samples_leaf,
@@ -58,7 +58,7 @@ class RandomForest:
 
 
     def predict(self, test_loader):
-        if self.task_type == 'Classification':
+        if self.task_type == 'classification':
             return self.model.predict_proba(test_loader[0])
         else:
             return self.model.predict(test_loader[0])

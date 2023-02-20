@@ -11,7 +11,7 @@
 #                 'smiles_column': args.smiles_column,
 #                 'target_columns': args.target_columns,
 #                 'task_type': args.task_type,
-#                 'metric_type': "auc" if args.task_type == 'Classification' else "rmse",
+#                 'metric_type': "auc" if args.task_type == 'classification' else "rmse",
 #                 'split_type': "random"
 #                 }
 

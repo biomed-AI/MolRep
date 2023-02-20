@@ -269,7 +269,7 @@ def mol_to_graph_data_obj(mol):
 
     # bonds
     if len(mol.GetBonds()) <= 0:  # mol has no bonds
-        num_bond_features = get_bond_feature_dims()  # bond type & direction
+        num_bond_features = len(get_bond_feature_dims())  # bond type & direction
         edge_index = torch.empty((2, 0), dtype=torch.long)
         edge_attr = torch.empty((0, num_bond_features), dtype=torch.long)
     else:  # mol has bonds

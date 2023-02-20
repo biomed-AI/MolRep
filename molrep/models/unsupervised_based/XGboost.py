@@ -13,7 +13,7 @@ from xgboost import XGBClassifier, XGBRegressor
 
 class XGboost:
     """docstring for XGboost"""
-    def __init__(self, model_configs, task_type='Regression'):
+    def __init__(self, model_configs, task_type='regression'):
         self.model_configs = model_configs
 
         self.max_depth = model_configs['max_depth']
@@ -40,7 +40,7 @@ class XGboost:
         self.setup_model()
 
     def setup_model(self):
-        if self.task_type == 'Classification':
+        if self.task_type == 'classification':
             self.model = XGBClassifier(
                             max_depth=self.max_depth,
                             learning_rate=self.learning_rate,
@@ -60,7 +60,7 @@ class XGboost:
                             n_jobs=8
                         )
 
-        elif self.task_type == 'Regression':
+        elif self.task_type == 'regression':
             self.model = XGBRegressor(
                             max_depth=self.max_depth,
                             learning_rate=self.learning_rate,
@@ -88,7 +88,7 @@ class XGboost:
 
 
     def predict(self, test_loader):
-        if self.task_type == 'Classification':
+        if self.task_type == 'classification':
             return self.model.predict_proba(test_loader[0])
         else:
             return self.model.predict(test_loader[0])

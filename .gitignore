@@ -1,4 +1,5 @@
 .DS_Store
+build
 __pycache__
 cache
 outputs

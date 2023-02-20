@@ -209,7 +209,7 @@ class ExplainerNetWrapper:
                 output[0] = torch.Tensor(scaler.inverse_transform(output[0].detach().cpu().numpy()))
                 output = tuple(output)
 
-            if self.task_type == 'MultiClass-Classification':
+            if self.task_type == 'multiclass-classification':
                 labels = labels.long()
                 # loss = torch.cat([self.loss_fun(labels[:, target_index], output[0][:, target_index, :]).unsqueeze(1) for target_index in range(output[0].size(1))], dim=1) * class_weights * mask
                 loss = self.loss_fun(labels[:, 0], output[0][:, 0, :]) * class_weights * mask
@@ -225,7 +225,7 @@ class ExplainerNetWrapper:
         # atom_importance = atom_attr_preds if len(atom_attr_preds) > 0 else None
         # bond_importance = bond_attr_preds if len(bond_attr_preds) > 0 else None
 
-        # if self.task_type == 'MultiClass-Classification':
+        # if self.task_type == 'multiclass-classification':
         #     y_preds = torch.argmax(torch.FloatTensor(y_preds), dim=2)
 
         # results = self.evaluate_predictions(preds=y_preds, targets=y_labels,
@@ -265,7 +265,7 @@ class ExplainerNetWrapper:
             if not isinstance(output, tuple):
                 output = (output,)
 
-            if self.task_type == 'MultiClass-Classification':
+            if self.task_type == 'multiclass-classification':
                 labels = labels.long()
                 # loss = torch.cat([self.loss_fun(labels[:, target_index], output[0][:, target_index, :]).unsqueeze(1) for target_index in range(output[0].size(1))], dim=1) * class_weights * mask
                 loss = self.loss_fun(labels[:, 0], output[0][:, 0, :]) * class_weights * mask
@@ -286,10 +286,10 @@ class ExplainerNetWrapper:
             if clipping is not None:  # Clip gradient before updating weights
                 torch.nn.utils.clip_grad_norm_(model.parameters(), clipping)
 
-        if self.task_type == 'Classification':
+        if self.task_type == 'classification':
             y_preds = torch.sigmoid(torch.FloatTensor(y_preds))
         
-        # if self.task_type == 'MultiClass-Classification':
+        # if self.task_type == 'multiclass-classification':
         #     y_preds = F.log_softmax(torch.FloatTensor(y_preds), dim=2)
         #     y_preds = torch.argmax(y_preds, dim=2)
         
@@ -330,7 +330,7 @@ class ExplainerNetWrapper:
                 output[0] = torch.Tensor(scaler.inverse_transform(output[0].detach().cpu().numpy()))
                 output = tuple(output)
 
-            if self.task_type == 'MultiClass-Classification':
+            if self.task_type == 'multiclass-classification':
                 labels = labels.long()
                 # loss = torch.cat([self.loss_fun(labels[:, target_index], output[0][:, target_index, :]).unsqueeze(1) for target_index in range(output[0].size(1))], dim=1) * class_weights * mask
                 loss = self.loss_fun(labels[:, 0], output[0][:, 0, :]) * class_weights * mask
@@ -343,7 +343,7 @@ class ExplainerNetWrapper:
             y_preds.extend(output[0].data.cpu().numpy().tolist())
             y_labels.extend(target_batch)
 
-        # if self.task_type == 'MultiClass-Classification':
+        # if self.task_type == 'multiclass-classification':
         #     y_preds = torch.argmax(torch.FloatTensor(y_preds), dim=2)
 
         results = self.evaluate_predictions(preds=y_preds, targets=y_labels,
@@ -373,7 +373,7 @@ class ExplainerNetWrapper:
 
         for i in range(num_tasks):
             # # Skip if all targets or preds are identical, otherwise we'll crash during classification
-            if task_type == 'Classification':
+            if task_type == 'classification':
                 nan = False
                 if all(target == 0 for target in valid_targets[i]) or all(target == 1 for target in valid_targets[i]):
                     nan = True

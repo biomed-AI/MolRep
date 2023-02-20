@@ -62,16 +62,16 @@ Data (including Explainable Dataset) could be download from [Google_Driver](http
 |ESOL|1|Regression|1128|Random|RMSE|[Wu et al.](https://arxiv.org/abs/1703.00564)|
 |FreeSolv|1|Regression|642|Random|RMSE|[Wu et al.](https://arxiv.org/abs/1703.00564)|
 |Lipophilicity|1|Regression|4200|Random|RMSE|[Wu et al.](https://arxiv.org/abs/1703.00564)|
-|BBBP|1|Classification|2039|Scaffold|ROC-AUC|[Wu et al.](https://arxiv.org/abs/1703.00564)|
-|Tox21|12|Classification|7831|Random|ROC-AUC|[Wu et al.](https://arxiv.org/abs/1703.00564)|
-|SIDER|27|Classification|1427|Random|ROC-AUC|[Wu et al.](https://arxiv.org/abs/1703.00564)|
-|ClinTox|2|Classification|1478|Random|ROC-AUC|[Wu et al.](https://arxiv.org/abs/1703.00564)|
-|Liver injury|1|Classification|2788|Random|ROC-AUC|[Xu et al.](https://pubs.acs.org/doi/10.1021/acs.jcim.5b00238)|
-|Mutagenesis|1|Classification|6511|Random|ROC-AUC|[Hansen et al.](https://pubs.acs.org/doi/10.1021/ci900161g)|
-|hERG|1|Classification|4813|Random|ROC-AUC|[Li et al.](https://doi.org/10.1002/minf.201700074)|
-|MUV|17|Classification|93087|Random|PRC-AUC|[Wu et al.](https://arxiv.org/abs/1703.00564)|
-|HIV|1|Classification|41127|Random|ROC-AUC|[Wu et al.](https://arxiv.org/abs/1703.00564)|
-|BACE|1|Classification|1513|Random|ROC-AUC|[Wu et al.](https://arxiv.org/abs/1703.00564)|
+|BBBP|1|classification|2039|Scaffold|ROC-AUC|[Wu et al.](https://arxiv.org/abs/1703.00564)|
+|Tox21|12|classification|7831|Random|ROC-AUC|[Wu et al.](https://arxiv.org/abs/1703.00564)|
+|SIDER|27|classification|1427|Random|ROC-AUC|[Wu et al.](https://arxiv.org/abs/1703.00564)|
+|ClinTox|2|classification|1478|Random|ROC-AUC|[Wu et al.](https://arxiv.org/abs/1703.00564)|
+|Liver injury|1|classification|2788|Random|ROC-AUC|[Xu et al.](https://pubs.acs.org/doi/10.1021/acs.jcim.5b00238)|
+|Mutagenesis|1|classification|6511|Random|ROC-AUC|[Hansen et al.](https://pubs.acs.org/doi/10.1021/ci900161g)|
+|hERG|1|classification|4813|Random|ROC-AUC|[Li et al.](https://doi.org/10.1002/minf.201700074)|
+|MUV|17|classification|93087|Random|PRC-AUC|[Wu et al.](https://arxiv.org/abs/1703.00564)|
+|HIV|1|classification|41127|Random|ROC-AUC|[Wu et al.](https://arxiv.org/abs/1703.00564)|
+|BACE|1|classification|1513|Random|ROC-AUC|[Wu et al.](https://arxiv.org/abs/1703.00564)|
 
 
 ## Methods

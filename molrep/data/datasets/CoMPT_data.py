@@ -163,7 +163,7 @@ def CoMPT_construct_dataset(features_path, train_idxs=None, valid_idxs=None, tes
     return trainset, validset, testset
 
 
-def CoMPT_construct_loader(trainset=None, validset=None, testset=None, batch_size=1, shuffle=True, task_type='Classification', features_scaling=True):
+def CoMPT_construct_loader(trainset=None, validset=None, testset=None, batch_size=1, shuffle=True, task_type='classification', features_scaling=True):
     if features_scaling and trainset is not None:
         features_scaler = trainset.normalize_features(replace_nan_token=0)
         if validset is not None:
@@ -173,7 +173,7 @@ def CoMPT_construct_loader(trainset=None, validset=None, testset=None, batch_siz
     else:
         features_scaler = None
 
-    if task_type == 'Regression' and trainset is not None:
+    if task_type == 'regression' and trainset is not None:
         train_targets = trainset.targets()
         scaler = StandardScaler().fit(train_targets)
         scaled_targets = scaler.transform(train_targets).tolist()

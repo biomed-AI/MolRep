@@ -26,7 +26,7 @@ from scipy import interp
 def calc_metric(y_labels: List, y_preds: List, metric_type: str, multiclass_num_classes: int = 3):
     # Metrics for Classifications
     if metric_type == "auc":
-        # Metric for MultiClass-Classification
+        # Metric for multiclass-classification
         if isinstance(y_preds[0], list):
             y_preds = torch.softmax(torch.FloatTensor(y_preds), dim=1)
             y_labels = torch.nn.functional.one_hot(torch.LongTensor(y_labels), multiclass_num_classes)
@@ -52,12 +52,10 @@ def calc_metric(y_labels: List, y_preds: List, metric_type: str, multiclass_num_
 
             return roc_auc["macro"]
 
-        # print(y_preds)
-        # print(y_labels)
         return roc_auc_score(y_labels, y_preds)
 
     elif metric_type == "acc":
-        # Metric for MultiClass-Classification
+        # Metric for multiclass-classification
         if isinstance(y_preds[0], list):
             y_preds = torch.argmax(torch.FloatTensor(y_preds), dim=1)
             return accuracy_score(y_labels, y_preds)
@@ -70,7 +68,7 @@ def calc_metric(y_labels: List, y_preds: List, metric_type: str, multiclass_num_
         return auc(precision, recall)
 
     elif metric_type == 'precision':
-        # Metric for MultiClass-Classification
+        # Metric for multiclass-classification
         if isinstance(y_preds[0], list):
             y_preds = torch.argmax(torch.FloatTensor(y_preds), dim=1)
             return precision_score(y_labels, y_preds, average="macro")
@@ -79,7 +77,7 @@ def calc_metric(y_labels: List, y_preds: List, metric_type: str, multiclass_num_
         return precision_score(y_labels, y_preds)
 
     elif metric_type == 'recall':
-        # Metric for MultiClass-Classification
+        # Metric for multiclass-classification
         if isinstance(y_preds[0], list):
             y_preds = torch.argmax(torch.FloatTensor(y_preds), dim=1)
             return recall_score(y_labels, y_preds, average="macro")
@@ -88,7 +86,7 @@ def calc_metric(y_labels: List, y_preds: List, metric_type: str, multiclass_num_
         return recall_score(y_labels, y_preds)
 
     elif metric_type == 'f1':
-        # Metric for MultiClass-Classification
+        # Metric for multiclass-classification
         if isinstance(y_preds[0], list):
             y_preds = torch.argmax(torch.FloatTensor(y_preds), dim=1)
             return f1_score(y_labels, y_preds, average="macro")
@@ -109,7 +107,7 @@ def calc_metric(y_labels: List, y_preds: List, metric_type: str, multiclass_num_
     elif metric_type == "mae":
         return mean_absolute_error(y_labels, y_preds)
 
-    elif metric_type == 'R2':
+    elif metric_type == 'r2':
         return r2_score(y_labels, y_preds)
 
     elif metric_type == 'pearson':
@@ -125,7 +123,6 @@ def calc_metric(y_labels: List, y_preds: List, metric_type: str, multiclass_num_
         raise Exception("There is no such metric registered")
 
 def get_metric(y_labels: List, y_preds: List, metric_type: Union[List[str], str]):
-    
     if isinstance(metric_type, List):
         res = {}
         for metric in metric_type:

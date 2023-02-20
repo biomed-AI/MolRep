@@ -5,7 +5,7 @@ Created on 2020.05.19
 @author: Jiahua Rao, Weiming Li, Hui Yang, Jiancong Xie
 
 Code based on:
-Errica et al "A Fair Comparison of Graph Neural Networks for Graph Classification" -> https://github.com/diningphil/gnn-comparison
+Errica et al "A Fair Comparison of Graph Neural Networks for Graph classification" -> https://github.com/diningphil/gnn-comparison
 """
 
 
@@ -75,8 +75,14 @@ class GraphformerDataset(MoleculeDataset):
         """
         return [d.y for d in self._data]
 
+    def set_targets(self, targets: List[List[Optional[float]]]) -> None:
+        assert len(self._data) == len(targets)
+        for i in range(len(self._data)):
+            target = torch.FloatTensor([targets[i]])
+            self._data[i].y = target.unsqueeze(1) if target.ndim == 1 else target
 
-class Batch():
+
+class Batch(data.Batch):
     def __init__(self, idx, attn_bias, attn_edge_type, rel_pos, in_degree, out_degree, x, edge_input, y):
         super(Batch, self).__init__()
         self.idx = idx

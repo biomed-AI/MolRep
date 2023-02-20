@@ -168,7 +168,7 @@ class NetWrapper:
             if not isinstance(output, tuple):
                 output = (output,)
 
-            if self.task_type == 'MultiClass-Classification':
+            if self.task_type == 'multiclass-classification':
                 labels = labels.long()
                 loss = torch.cat([self.loss_fun(labels[:, target_index], output[0][:, target_index, :]).unsqueeze(1) for target_index in range(output[0].size(1))], dim=1) * class_weights * mask
             else:
@@ -189,7 +189,7 @@ class NetWrapper:
             if clipping is not None:  # Clip gradient before updating weights
                 torch.nn.utils.clip_grad_norm_(model.parameters(), clipping)
 
-        if self.task_type != 'Regression':
+        if self.task_type != 'regression':
             y_preds = torch.sigmoid(torch.FloatTensor(y_preds))
             
         results = self.evaluate_predictions(preds=y_preds, targets=y_labels,
@@ -260,7 +260,7 @@ class NetWrapper:
                 output[0] = torch.Tensor(scaler.inverse_transform(output[0].detach().cpu().numpy()))
                 output = tuple(output)
 
-            if self.task_type == 'MultiClass-Classification':
+            if self.task_type == 'multiclass-classification':
                 labels = labels.long()
                 loss = torch.cat([self.loss_fun(labels[:, target_index], output[0][:, target_index, :]).unsqueeze(1) for target_index in range(output[0].size(1))], dim=1) * class_weights * mask
             else:
@@ -302,7 +302,7 @@ class NetWrapper:
 
         for i in range(num_tasks):
             # # Skip if all targets or preds are identical, otherwise we'll crash during classification
-            if task_type == 'Classification':
+            if task_type == 'classification':
                 nan = False
                 if all(target == 0 for target in valid_targets[i]) or all(target == 1 for target in valid_targets[i]):
                     nan = True

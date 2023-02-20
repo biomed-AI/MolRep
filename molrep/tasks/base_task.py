@@ -44,9 +44,9 @@ class BaseTask:
 
         name = datasets_config.get("task", "property_prediction")
         builder = registry.get_builder_class(name)(cfg)
-        datasets = builder.build_datasets()
+        datasets, scaler = builder.build_datasets()
 
-        return datasets
+        return datasets, scaler
 
     def train_epoch(self, **kwargs):
         pass

@@ -41,9 +41,9 @@ class ExplainerTask(BaseTask):
         self.num_tasks = num_tasks
         self.metric_type = metric_type
 
-        self.classification = self.task_type == 'Classification'
-        self.multiclass = self.task_type == 'MultiClass-Classification'
-        self.regression = self.task_type == 'Regression'
+        self.classification = self.task_type == 'classification'
+        self.multiclass = self.task_type == 'multiclass-classification'
+        self.regression = self.task_type == 'regression'
         self.multiclass_num_classes = multiclass_num_classes
         assert not (self.classification and self.regression and self.multiclass)
 
@@ -104,10 +104,6 @@ class ExplainerTask(BaseTask):
             outputs = model(batch_data)
             logits = outputs.logits
 
-            # Inverse scale if regression
-            if self.regression and scaler is not None:
-                logits = torch.FloatTensor(scaler.inverse_transform(logits.detach().cpu().numpy()))
-
             if self.multiclass:
                 labels = labels.long()
                 logits = torch.softmax(logits.reshape(logits.size(0), -1, self.multiclass_num_classes), dim=-1)
@@ -166,7 +162,7 @@ class ExplainerTask(BaseTask):
 
             # Inverse scale if regression
             if self.regression and scaler is not None:
-                logits = torch.FloatTensor(scaler.inverse_transform(logits.detach().cpu().numpy()))
+                logits = torch.FloatTensor(scaler.inverse_transform(logits.detach().cpu().numpy())).to(device)
 
             if self.multiclass:
                 labels = labels.long()
@@ -220,7 +216,7 @@ class ExplainerTask(BaseTask):
 
         for i in range(num_tasks):
             # # Skip if all targets or preds are identical, otherwise we'll crash during classification
-            if task_type == 'Classification':
+            if task_type == 'classification':
                 nan = False
                 if all(target == 0 for target in valid_targets[i]) or all(target == 1 for target in valid_targets[i]):
                     nan = True

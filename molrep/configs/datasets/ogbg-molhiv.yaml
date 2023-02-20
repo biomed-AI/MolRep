@@ -1,7 +1,7 @@
 
 ogbg-molhiv:
   name: "ogbg-molhiv"
-  task_type: "Classification"
+  task_type: "classification"
   split_type: "defined"
   metric_type: "auc"
 

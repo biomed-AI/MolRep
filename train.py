@@ -78,11 +78,11 @@ def main():
     job_id = args.job_id if args.job_id != 'now' else now()
 
     task = tasks.setup_task(cfg)
-    dataset = task.build_datasets(cfg)
+    dataset, scaler = task.build_datasets(cfg)
     model = task.build_model(cfg)
 
     experiment = get_experiments_class(cfg)(
-        cfg=cfg, task=task, datasets=dataset, model=model, job_id=job_id,
+        cfg=cfg, task=task, datasets=dataset, scaler=scaler, model=model, job_id=job_id,
     )
     experiment.train()
 

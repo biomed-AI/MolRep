@@ -131,7 +131,7 @@ class DatasetWrapper:
     def _load_raw_data(self):
 
         self._task_type = self.dataset_config["task_type"]
-        self.multi_class = self._task_type == 'MultiClass-Classification'
+        self.multi_class = self._task_type == 'multiclass-classification'
         self.multiclass_num_classes = self.dataset_config["multiclass_num_classes"] if self.multi_class else None
 
         self.smiles_col = self.dataset_config["smiles_column"]

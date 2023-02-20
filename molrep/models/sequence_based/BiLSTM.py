@@ -37,7 +37,7 @@ class BiLSTM(torch.nn.Module):
                 hidden_dim  : {int} hidden dimension for the dense layer
                 emb_dim     : {int} embeddings dimension
                 type        : [0,1] 0-->binary_classification 1-->multiclass classification
-            task_type: configs.task_type --> Classification or Regression
+            task_type: configs.task_type --> classification or regression
 
         Returns:
             prediction label
@@ -55,15 +55,15 @@ class BiLSTM(torch.nn.Module):
         self.sen_len = 200
 
         self.task_type = dataset_configs["task_type"]
-        self.multiclass_num_classes = dataset_configs["multiclass_num_classes"] if self.task_type == 'MultiClass-Classification' else None
+        self.multiclass_num_classes = dataset_configs["multiclass_num_classes"] if self.task_type == 'multiclass-classification' else None
 
-        self.classification = self.task_type == 'Classification'
+        self.classification = self.task_type == 'classification'
         if self.classification:
             self.sigmoid = nn.Sigmoid()
-        self.multiclass = self.task_type == 'MultiClass-Classification'
+        self.multiclass = self.task_type == 'multiclass-classification'
         if self.multiclass:
             self.multiclass_softmax = nn.Softmax(dim=2)
-        self.regression = self.task_type == 'Regression'
+        self.regression = self.task_type == 'regression'
         if self.regression:
             self.relu = nn.ReLU()
         assert not (self.classification and self.regression and self.multiclass)

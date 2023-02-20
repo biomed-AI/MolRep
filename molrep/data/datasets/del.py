@@ -145,7 +145,7 @@ def MPNN_construct_dataset(features_path, train_idxs=None, valid_idxs=None, test
     testset = _construct_dataset(np.array(smiles_all)[test_idxs], np.array(x_all)[test_idxs], np.array(y_all)[test_idxs]) if test_idxs is not None else None
     return trainset, validset, testset
 
-def MPNN_construct_dataloader(trainset=None, validset=None, testset=None, batch_size=1, shuffle=True, task_type='Classification', seed=0, features_scaling=True):
+def MPNN_construct_dataloader(trainset=None, validset=None, testset=None, batch_size=1, shuffle=True, task_type='classification', seed=0, features_scaling=True):
 
     if features_scaling and trainset is not None:
         features_scaler = trainset.normalize_features(replace_nan_token=0)
@@ -156,7 +156,7 @@ def MPNN_construct_dataloader(trainset=None, validset=None, testset=None, batch_
     else:
         features_scaler = None
 
-    if task_type == 'Regression' and trainset is not None:
+    if task_type == 'regression' and trainset is not None:
         train_targets = trainset.targets()
         scaler = StandardScaler().fit(train_targets)
         scaled_targets = scaler.transform(train_targets).tolist()
@@ -296,7 +296,7 @@ def Graph_construct_dataset(features_path, train_idxs=None, valid_idxs=None, tes
     testset = _construct_dataset(dataset, test_idxs) if test_idxs is not None else None
     return trainset, validset, testset
 
-def Graph_construct_dataloader(trainset=None, validset=None, testset=None, batch_size=1, shuffle=True, seed=0, task_type='Classification', features_scaling=True):
+def Graph_construct_dataloader(trainset=None, validset=None, testset=None, batch_size=1, shuffle=True, seed=0, task_type='classification', features_scaling=True):
 
     if features_scaling and trainset is not None:
         features_scaler = trainset.normalize_features(replace_nan_token=0)
@@ -307,7 +307,7 @@ def Graph_construct_dataloader(trainset=None, validset=None, testset=None, batch
     else:
         features_scaler = None
 
-    if task_type == 'Regression' and trainset is not None:
+    if task_type == 'regression' and trainset is not None:
         train_targets = trainset.targets()
         scaler = StandardScaler().fit(train_targets)
         scaled_targets = scaler.transform(train_targets).tolist()

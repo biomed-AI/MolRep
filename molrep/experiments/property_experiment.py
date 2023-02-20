@@ -12,9 +12,9 @@ class PropertyExperiment(Experiment):
     Experiment provides a layer of abstraction to avoid that all models implement the same interface
     """
 
-    def __init__(self, cfg, task, model, datasets, job_id):
+    def __init__(self, cfg, task, model, datasets, job_id, scaler=None):
         super().__init__(
-            cfg=cfg, task=task, datasets=datasets, model=model, job_id=job_id,
+            cfg=cfg, task=task, datasets=datasets, scaler=scaler, model=model, job_id=job_id,
         )
 
     def train(self):
@@ -45,7 +45,7 @@ class PropertyExperiment(Experiment):
                     )
                     
                     agg_metrics = val_log[self.metric_type[0]]
-                    if agg_metrics > best_agg_metric and split_name == "val":
+                    if compare_metrics(agg_metrics, best_agg_metric, self.metric_type[0]) and split_name == "val":
                         best_epoch, best_agg_metric = cur_epoch, agg_metrics
                         self._save_checkpoint(cur_epoch, is_best=True)
                         self._save_test_results({"val": val_log})
@@ -89,7 +89,6 @@ class PropertyExperiment(Experiment):
             optimizer=self.optimizer,
             lr_scheduler=self.lr_scheduler,
             loss_func=self.loss_func,
-            scaler=self.feature_scaler,
             device=self.device,
         )
 
@@ -112,53 +111,5 @@ class PropertyExperiment(Experiment):
             model = self._reload_best_model(model)
 
         model.eval()
-        return self.task.evaluation(self.model, data_loader, loss_func=self.loss_func, scaler=self.feature_scaler, device=self.device)
+        return self.task.evaluation(self.model, data_loader, loss_func=self.loss_func, scaler=self.scaler, device=self.device)
 
-
-    def _load_checkpoint(self, url_or_filename):
-        """
-        Resume from a checkpoint.
-        """
-        if os.path.isfile(url_or_filename):
-            checkpoint = torch.load(url_or_filename, map_location=self.device)
-        else:
-            raise RuntimeError("checkpoint url or path is invalid")
-
-        state_dict = checkpoint["model"]
-        self.model.load_state_dict(state_dict)
-
-        self.optimizer.load_state_dict(checkpoint["optimizer"])
-        if self.feature_scaler and "scaler" in checkpoint:
-            self.feature_scaler.load_state_dict(checkpoint["scaler"])
-
-        self.start_epoch = checkpoint["epoch"] + 1
-        print("Resume checkpoint from {}".format(url_or_filename))
-
-    def _save_checkpoint(self, cur_epoch, is_best=False):
-        """
-        Save the checkpoint at the current epoch.
-        """
-        save_obj = {
-            "model": self.model.state_dict(),
-            "optimizer": self.optimizer.state_dict(),
-            "config": self.config.to_dict(),
-            "scaler": self.feature_scaler.state_dict() if self.feature_scaler else None,
-            "epoch": cur_epoch,
-        }
-        save_to = os.path.join(
-            self.result_dir,
-            "checkpoint_{}.pth".format("best" if is_best else cur_epoch),
-        )
-        print("Saving checkpoint at epoch {} to {}.".format(cur_epoch, save_to))
-        torch.save(save_obj, save_to)
-
-    def _reload_best_model(self, model):
-        """
-        Load the best checkpoint for evaluation.
-        """
-        checkpoint_path = os.path.join(self.result_dir, "checkpoint_best.pth")
-
-        print("Loading checkpoint from {}.".format(checkpoint_path))
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
-        model.load_state_dict(checkpoint["model"])
-        return model

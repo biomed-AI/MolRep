@@ -10,27 +10,27 @@ def get_loss_func(task_type, model_name, **kwargs):
     :param args: Namespace containing the dataset type ("classification" or "regression").
     :return: A PyTorch loss function.
     """
-    # if task_type == 'Classification' and model_name == 'DiffPool':
+    # if task_type == 'classification' and model_name == 'DiffPool':
     #     return DiffPoolBinaryclassClassificationLoss()
 
-    # if task_type == 'Regression' and model_name == 'DiffPool':
+    # if task_type == 'regression' and model_name == 'DiffPool':
     #     return DiffPoolRegressionLoss()
 
-    # if task_type == 'Classification' and model_name == 'VAE':
+    # if task_type == 'classification' and model_name == 'VAE':
     #     return VAEClassificationLoss()
 
-    # if task_type == 'Regression' and model_name == 'VAE':
+    # if task_type == 'regression' and model_name == 'VAE':
     #     return VAERegressionLoss()
 
-    if task_type == 'Classification':
+    if task_type == 'classification':
         return BCEWithLogitsLoss(**kwargs)
         # return CrossEntropyLoss()
 
-    if task_type == 'Regression':
+    if task_type == 'regression':
         return MSELoss(**kwargs)
         # return MSERegressionLoss()
 
-    if task_type == 'MultiClass-Classification':
+    if task_type == 'multiclass-classification':
         return CrossEntropyLoss(**kwargs)
 
     raise ValueError(f'Task type "{task_type}" and Model "{model_name}" not supported.')

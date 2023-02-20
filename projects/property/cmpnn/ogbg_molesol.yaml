@@ -1,0 +1,19 @@
+
+
+model:
+  arch: cmpnn
+  model_type: cmpnn_default
+
+datasets:
+  name: "ogbg-molesol"
+  task_type: "regression"
+  split_type: "defined"
+  metric_type: ["r2", "rmse"]
+  scaler_targets: False
+
+run:
+  task: "property_prediction"
+  device: "cuda"
+  distributed: False
+  evaluate_only: False
+  type: "train_val_test"

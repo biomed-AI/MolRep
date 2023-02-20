@@ -27,11 +27,11 @@ class PropertyTask(BaseTask):
 
         self.task_type = task_type
         self.num_tasks = num_tasks
-        self.metric_type = metric_type
+        self.metric_type = [str(metric_type)] if isinstance(metric_type, str) else list(metric_type)
 
-        self.classification = self.task_type == 'Classification'
-        self.multiclass = self.task_type == 'MultiClass-Classification'
-        self.regression = self.task_type == 'Regression'
+        self.classification = self.task_type == 'classification'
+        self.multiclass = self.task_type == 'multiclass-classification'
+        self.regression = self.task_type == 'regression'
         self.multiclass_num_classes = multiclass_num_classes
         assert not (self.classification and self.regression and self.multiclass)
 
@@ -40,7 +40,7 @@ class PropertyTask(BaseTask):
         task_type = cfg.datasets_cfg.task_type
         num_tasks = cfg.datasets_cfg.num_tasks
         metric_type = cfg.datasets_cfg.metric_type
-        multiclass_num_classes = cfg.datasets_cfg.multiclass_num_classes
+        multiclass_num_classes = cfg.datasets_cfg.get("multiclass_num_classes", 1)
 
         return cls(
             task_type = task_type,
@@ -60,7 +60,6 @@ class PropertyTask(BaseTask):
             optimizer,
             lr_scheduler,
             loss_func,
-            scaler=None,
             device="cpu",
     ):
         """
@@ -78,8 +77,7 @@ class PropertyTask(BaseTask):
 
             target_batch = batch_data["targets"]
             for k, v in batch_data.items():
-                # if type(v) == torch.Tensor or issubclass(type(v), Batch):
-                if type(v) not in [list]:
+                if type(v) == torch.Tensor or issubclass(type(v), Batch):
                     batch_data[k] = v.to(device, non_blocking=True)
 
             mask = torch.Tensor([[not np.isnan(x) for x in tb] for tb in target_batch]).to(device)
@@ -89,10 +87,6 @@ class PropertyTask(BaseTask):
             optimizer.zero_grad()
             outputs = model(batch_data)
             logits = outputs.logits
-
-            # Logits Inverse scale if regression
-            if self.regression and scaler is not None:
-                logits = torch.FloatTensor(scaler.inverse_transform(logits.detach().cpu().numpy()))
 
             if self.multiclass:
                 labels = labels.long()
@@ -126,8 +120,7 @@ class PropertyTask(BaseTask):
         for _, batch_data in enumerate(data_loader):
             target_batch = batch_data["targets"]
             for k, v in batch_data.items():
-                # if type(v) == torch.Tensor or issubclass(type(v), Batch):
-                if type(v) not in [list]:
+                if type(v) == torch.Tensor or issubclass(type(v), Batch):
                     batch_data[k] = v.to(device, non_blocking=True)
 
             mask = torch.Tensor([[not np.isnan(x) for x in tb] for tb in target_batch]).to(device)
@@ -139,7 +132,7 @@ class PropertyTask(BaseTask):
 
             # Inverse scale if regression
             if self.regression and scaler is not None:
-                logits = torch.FloatTensor(scaler.inverse_transform(logits.detach().cpu().numpy()))
+                logits = torch.FloatTensor(scaler.inverse_transform(logits.detach().cpu().numpy())).to(device)
 
             if self.multiclass:
                 labels = labels.long()
@@ -185,7 +178,7 @@ class PropertyTask(BaseTask):
 
         for i in range(num_tasks):
             # # Skip if all targets or preds are identical, otherwise we'll crash during classification
-            if task_type == 'Classification':
+            if task_type == 'classification':
                 nan = False
                 if all(target == 0 for target in valid_targets[i]) or all(target == 1 for target in valid_targets[i]):
                     nan = True

@@ -19,7 +19,7 @@ class GradInput(BaseExplainer):
     this method is:
       GradInput(x) = w^T * x, where w = gradient(y w.r.t x)
     Based on "Deep Inside Convolutional Networks: Visualising Image
-    Classification models and Saliency Maps"
+    classification models and Saliency Maps"
     (https://arxiv.org/pdf/1312.6034.pdf).
     """
 

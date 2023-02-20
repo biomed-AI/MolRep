@@ -40,17 +40,17 @@ class DMPNN(BaseModel):
         self.dim_target = dim_target
 
         self.task_type = dataset_configs["task_type"]
-        self.multiclass_num_classes = dataset_configs["multiclass_num_classes"] if self.task_type == 'MultiClass-Classification' else None
+        self.multiclass_num_classes = dataset_configs["multiclass_num_classes"] if self.task_type == 'multiclass-classification' else None
 
-        self.classification = self.task_type == 'Classification'
+        self.classification = self.task_type == 'classification'
         if self.classification:
             self.sigmoid = nn.Sigmoid()
 
-        self.multiclass = self.task_type == 'MultiClass-Classification'
+        self.multiclass = self.task_type == 'multiclass-classification'
         if self.multiclass:
             self.multiclass_softmax = nn.Softmax(dim=2)
 
-        self.regression = self.task_type == 'Regression'
+        self.regression = self.task_type == 'regression'
         if self.regression:
             self.relu = nn.ReLU()
 

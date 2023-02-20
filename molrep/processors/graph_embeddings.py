@@ -5,7 +5,7 @@ Created on 2020.05.19
 @author: Jiahua Rao, Weiming Li, Hui Yang, Jiancong Xie
 
 Code based on:
-Errica et al "A Fair Comparison of Graph Neural Networks for Graph Classification" -> https://github.com/diningphil/gnn-comparison
+Errica et al "A Fair Comparison of Graph Neural Networks for Graph classification" -> https://github.com/diningphil/gnn-comparison
 """
 
 import os

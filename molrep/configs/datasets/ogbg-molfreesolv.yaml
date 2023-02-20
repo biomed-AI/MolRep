@@ -1,7 +1,7 @@
 
 ogbg-molfreesolv:
   name: "ogbg-molfreesolv"
-  task_type: "Regression"
+  task_type: "regression"
   split_type: "defined"
   metric_type: "rmse"
 

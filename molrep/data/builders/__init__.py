@@ -45,7 +45,7 @@ def load_dataset(name, cfg_path=None):
         )
         exit(1)
 
-    dataset = builder.build_datasets()
+    dataset, _ = builder.build_datasets()
     return dataset
 
 def load_dataset_config(cfg_path):

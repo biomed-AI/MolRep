@@ -24,13 +24,14 @@ class Experiment:
     Experiment provides a layer of abstraction to avoid that all models implement the same interface
     """
 
-    def __init__(self, cfg, task, model, datasets, job_id):
+    def __init__(self, cfg, task, model, datasets, job_id, scaler=None):
 
         self.config = cfg
         self.job_id = job_id
 
         self.task = task
         self.datasets = datasets
+        self._scaler = scaler
 
         self._model = model
 
@@ -87,13 +88,8 @@ class Experiment:
         return self._loss_func
 
     @property
-    def feature_scaler(self):
-        if self._feature_scaler is None:
-            use_feature_scaler = self.config.run_cfg.get("feature_scaler", None)
-            if use_feature_scaler is not None:
-                self._feature_scaler = StandardScaler()
-
-        return self._feature_scaler
+    def scaler(self):
+        return self._scaler
 
     @property
     def lr_scheduler(self):
@@ -164,7 +160,7 @@ class Experiment:
     @property
     def metric_type(self):
         _metric_type = self.config.datasets_cfg.metric_type
-        return _metric_type if isinstance(_metric_type, list) else [str(_metric_type)]
+        return [str(_metric_type)] if isinstance(_metric_type, str) else list(_metric_type)
 
     @property
     def max_epoch(self):
@@ -261,9 +257,9 @@ class Experiment:
                     val_log = self.eval_epoch(
                         split_name=split_name, cur_epoch=cur_epoch,
                     )
-                    
+
                     agg_metrics = val_log["agg_metrics"]
-                    if agg_metrics > best_agg_metric and split_name == "val":
+                    if compare_metrics(agg_metrics, best_agg_metric, self.metric_type[0]) and split_name == "val":
                         best_epoch, best_agg_metric = cur_epoch, agg_metrics
                         self._save_checkpoint(cur_epoch, is_best=True)
 
@@ -306,7 +302,7 @@ class Experiment:
             optimizer=self.optimizer,
             lr_scheduler=self.lr_scheduler,
             loss_func=self.loss_func,
-            scaler=self.feature_scaler,
+            scaler=self._scaler,
             device=self.device,
         )
 
@@ -328,7 +324,7 @@ class Experiment:
             model = self._reload_best_model(model)
 
         model.eval()
-        return self.task.evaluation(self.model, data_loader, scaler=self.feature_scaler, device=self.device)
+        return self.task.evaluation(self.model, data_loader, scaler=self._scaler, device=self.device)
 
     def _load_checkpoint(self, url_or_filename, evaluate_only=False):
         """
@@ -343,8 +339,9 @@ class Experiment:
         self.model.load_state_dict(state_dict)
 
         self.optimizer.load_state_dict(checkpoint["optimizer"])
-        if self.feature_scaler and "scaler" in checkpoint:
-            self.feature_scaler.load_state_dict(checkpoint["scaler"])
+        if self.scaler and "data_scaler" in checkpoint:
+            self.scaler = StandardScaler(checkpoint['data_scaler']['means'],
+                                         checkpoint['data_scaler']['stds']) if checkpoint['data_scaler'] is not None else None
 
         if not evaluate_only:
             self.start_epoch = checkpoint["epoch"] + 1
@@ -359,7 +356,10 @@ class Experiment:
             "model": self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "config": self.config.to_dict(),
-            "scaler": self.feature_scaler.state_dict() if self.feature_scaler else None,
+            'data_scaler': {
+                'means': self.scaler.means,
+                'stds': self.scaler.stds
+            } if self.scaler is not None else None,
             "epoch": cur_epoch,
         }
         save_to = os.path.join(

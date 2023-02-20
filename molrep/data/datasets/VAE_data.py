@@ -59,7 +59,7 @@ def VAE_construct_dataset(features_path, train_idxs=None, valid_idxs=None, test_
     testset = MoleculeDataset(np.array(x_all)[test_idxs], np.array(y_all)[test_idxs]) if test_idxs is not None else None
     return trainset, validset, testset
 
-def VAE_construct_loader(trainset=None, validset=None, testset=None, batch_size=1, shuffle=True, task_type='Classification', features_scaling=False):
+def VAE_construct_loader(trainset=None, validset=None, testset=None, batch_size=1, shuffle=True, task_type='classification', features_scaling=False):
 
     if features_scaling and trainset is not None:
         features_scaler = trainset.normalize_features(replace_nan_token=0)
@@ -70,7 +70,7 @@ def VAE_construct_loader(trainset=None, validset=None, testset=None, batch_size=
     else:
         features_scaler = None
 
-    if task_type == 'Regression' and trainset is not None:
+    if task_type == 'regression' and trainset is not None:
         train_targets = trainset.targets()
         scaler = StandardScaler().fit(train_targets)
         scaled_targets = scaler.transform(train_targets).tolist()
