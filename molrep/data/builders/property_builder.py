@@ -31,6 +31,14 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
     model_processer_mapping = {
         "mpnn": "mpnn", "dmpnn": "mpnn", "cmpnn": "mpnn",
         "graphsage": "graph", "graphnet": "graph", "gin": "graph",
+        "graphformer": "graph",
+        "bilstm": "sequence", "salstm": "sequence", "transformer": "sequence",
+    }
+
+    model_dataset_mapping = {
+        "mpnn": "mpnn", "dmpnn": "mpnn", "cmpnn": "mpnn",
+        "graphsage": "graph", "graphnet": "graph", "gin": "graph",
+        "graphformer": "graphformer",
         "bilstm": "sequence", "salstm": "sequence", "transformer": "sequence",
     }
 
@@ -94,7 +102,7 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
                 trainset_indices = indices['train']
             testset_indices = self.splits[0]["test"]
 
-            dataset_cls = registry.get_dataset_class(self.model_processer_mapping[self.model_name])
+            dataset_cls = registry.get_dataset_class(self.model_dataset_mapping[self.model_name])
             train_dataset = dataset_cls.construct_dataset(trainset_indices, self.features_path)
             datasets["train"] = train_dataset
             test_dataset = dataset_cls.construct_dataset(testset_indices, self.features_path)
@@ -114,7 +122,7 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
                 validset_indices = []
             testset_indices = self.splits[0]['test']
 
-            dataset_cls = registry.get_dataset_class(self.model_processer_mapping[self.model_name])
+            dataset_cls = registry.get_dataset_class(self.model_dataset_mapping[self.model_name])
 
             train_dataset = dataset_cls.construct_dataset(trainset_indices, self.features_path)
             datasets["train"] = train_dataset
@@ -137,7 +145,7 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
                 trainset_indices = indices['train']
                 testset_indices = self.splits[outer_k]["test"]
 
-                dataset_cls = registry.get_dataset_class(self.model_processer_mapping[self.model_name])
+                dataset_cls = registry.get_dataset_class(self.model_dataset_mapping[self.model_name])
                 train_dataset = dataset_cls.construct_dataset(trainset_indices, self.features_path)
                 datasets[str(outer_k)]["train"] = train_dataset
 

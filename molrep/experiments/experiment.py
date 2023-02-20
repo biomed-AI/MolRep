@@ -265,7 +265,6 @@ class Experiment:
                     agg_metrics = val_log["agg_metrics"]
                     if agg_metrics > best_agg_metric and split_name == "val":
                         best_epoch, best_agg_metric = cur_epoch, agg_metrics
-
                         self._save_checkpoint(cur_epoch, is_best=True)
 
                     val_log.update({"best_epoch": best_epoch})
@@ -290,6 +289,9 @@ class Experiment:
                 test_logs[split_name] = self.eval_epoch(
                     split_name=split_name, cur_epoch=cur_epoch, skip_reload=skip_reload,
                 )
+
+                print("Evaluating on {}.".format(split_name))
+                self.log_stats(test_logs[split_name], split_name)
 
             return test_logs
 
@@ -373,15 +375,12 @@ class Experiment:
         """
 
         for k, result in test_results.items():
-            print("Evaluating on {}.".format(k))
-            self.log_stats(result, k)
-
             save_obj = {
                 "predictions": result['predictions'],
                 "targets": result['targets']
             }
-            save_to = os.path.join(self.result_dir, "predictions.pth")
-            print("Saving predictions to {}.".format(save_to))
+            save_to = os.path.join(self.result_dir, f"{k}_predictions.pth")
+            print("Saving {} predictions to {}.".format(k, save_to))
             torch.save(save_obj, save_to)
 
     def _reload_best_model(self, model):
@@ -471,4 +470,4 @@ class Experiment:
     def setup_logger(self):
         LOGGER_BASE = os.path.join(self.output_dir, "logger")
         Path(LOGGER_BASE).mkdir(parents=True, exist_ok=True)
-        self.logger = Logger(str(os.path.join(LOGGER_BASE, f"logging.log")), mode='w')
+        self.logger = Logger(str(os.path.join(LOGGER_BASE, f"logging.log")), mode='a')

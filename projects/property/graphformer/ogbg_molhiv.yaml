@@ -1,0 +1,50 @@
+
+
+model:
+  arch: graphformer
+  model_type: graphformer_default
+
+  n_layers: 12
+  num_heads: 32
+  hidden_dim: 768
+  ffn_dim: 768
+
+  intput_dropout_rate: 0.0
+  dropout_rate: 0.1
+  weight_decay: 0.01
+  attention_dropout_rate: 0.1
+
+  edge_type: multi_hop
+
+datasets:
+  name: "ogbg-molhiv"
+  task_type: "Classification"
+  split_type: "defined"
+  metric_type: "auc"
+
+  smiles_column: "smiles"
+  target_columns: ["HIV_active"]
+
+run:
+  task: "property_prediction"
+  device: "cuda"
+  distributed: False
+  evaluate_only: False
+  type: "train_val_test"
+
+  # optimization-specific
+  optimizer: Adam
+  lr_sched: "linear_warmup_step_lr"
+  init_lr: 0.001
+  max_lr: 0.001
+  min_lr: 0.000001
+  step_size: 10
+  warmup_epochs: 2.0
+  weight_decay: 0.01
+  num_epochs: 10
+
+  batch_size: 32
+  seed: 42
+
+  num_workers: 4
+  class_balance: False

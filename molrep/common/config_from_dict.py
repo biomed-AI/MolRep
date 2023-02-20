@@ -15,7 +15,7 @@ from molrep.models.sequence_based.BiLSTM import BiLSTM
 from molrep.models.sequence_based.SALSTM import SALSTM
 from molrep.models.sequence_based.Transformer import Transformer
 
-from molrep.models.graph_learning.GIN import GIN
+from molrep.models.graph_learning.gin import GIN
 from molrep.models.graph_learning.ECC import ECC
 from molrep.models.graph_learning.GAT import GAT
 from molrep.models.graph_learning.DGCNN import DGCNN
@@ -24,7 +24,7 @@ from molrep.models.graph_learning.GraphSAGE import GraphSAGE
 from molrep.models.graph_learning.GraphNet import GraphNet
 
 from molrep.models.graph_learning.MPNN import MPNN
-from molrep.models.graph_learning.CMPNN import CMPNN
+from molrep.models.graph_learning.cmpnn import CMPNN
 from molrep.models.graph_learning.DMPNN import DMPNN
 
 from molrep.models.unsupervised_based.VAE import VAE

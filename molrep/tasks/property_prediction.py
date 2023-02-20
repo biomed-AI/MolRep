@@ -78,7 +78,8 @@ class PropertyTask(BaseTask):
 
             target_batch = batch_data["targets"]
             for k, v in batch_data.items():
-                if type(v) == torch.Tensor or issubclass(type(v), Batch):
+                # if type(v) == torch.Tensor or issubclass(type(v), Batch):
+                if type(v) not in [list]:
                     batch_data[k] = v.to(device, non_blocking=True)
 
             mask = torch.Tensor([[not np.isnan(x) for x in tb] for tb in target_batch]).to(device)
@@ -125,7 +126,8 @@ class PropertyTask(BaseTask):
         for _, batch_data in enumerate(data_loader):
             target_batch = batch_data["targets"]
             for k, v in batch_data.items():
-                if type(v) == torch.Tensor or issubclass(type(v), Batch):
+                # if type(v) == torch.Tensor or issubclass(type(v), Batch):
+                if type(v) not in [list]:
                     batch_data[k] = v.to(device, non_blocking=True)
 
             mask = torch.Tensor([[not np.isnan(x) for x in tb] for tb in target_batch]).to(device)

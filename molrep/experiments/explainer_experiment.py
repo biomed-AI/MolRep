@@ -92,6 +92,8 @@ class ExplainerExperiment(Experiment):
                 test_logs[split_name] = self.eval_epoch(
                     split_name=split_name, cur_epoch=cur_epoch, skip_reload=skip_reload, eval_explainer=True,
                 )
+                print("Evaluating on {}.".format(split_name))
+                self.log_stats(test_logs[split_name], split_name)
         return test_logs
 
     def train_epoch(self, epoch):

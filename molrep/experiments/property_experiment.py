@@ -48,6 +48,7 @@ class PropertyExperiment(Experiment):
                     if agg_metrics > best_agg_metric and split_name == "val":
                         best_epoch, best_agg_metric = cur_epoch, agg_metrics
                         self._save_checkpoint(cur_epoch, is_best=True)
+                        self._save_test_results({"val": val_log})
 
                     val_log.update({"best_epoch": best_epoch})
                     self.log_stats(val_log, split_name)
@@ -73,6 +74,8 @@ class PropertyExperiment(Experiment):
                 test_logs[split_name] = self.eval_epoch(
                     split_name=split_name, cur_epoch=cur_epoch, skip_reload=skip_reload
                 )
+                print("Evaluating on {}.".format(split_name))
+                self.log_stats(test_logs[split_name], split_name)
         return test_logs
 
     def train_epoch(self, epoch):

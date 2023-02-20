@@ -15,6 +15,7 @@ from omegaconf import OmegaConf
 from molrep.data.datasets.base_dataset import MoleculeDataset
 from molrep.data.datasets.mpnn_dataset import MPNNDataset
 from molrep.data.datasets.graph_dataset import GraphDataset
+from molrep.data.datasets.graphformer_dataset import GraphformerDataset
 
 from molrep.common.registry import registry
 
@@ -22,6 +23,7 @@ __all__ = [
     'MoleculeDataset',
     'MPNNDataset',
     'GraphDataset',
+    'GraphformerDataset',
     # 'MATDataset',
     # 'SequenceDataset',
     # 'VAEDataset',

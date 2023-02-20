@@ -9,16 +9,12 @@ Errica et al "A Fair Comparison of Graph Neural Networks for Graph Classificatio
 """
 
 
-import threading
-
 import torch
 from torch_geometric import data
 from torch_geometric.data import Data
 from typing import List, Optional
-from torch.utils.data import DataLoader
 
-from molrep.common.utils import worker_init
-from molrep.data.datasets.base_dataset import MoleculeDataset, MoleculeSampler
+from molrep.data.datasets.base_dataset import MoleculeDataset
 from molrep.common.registry import registry
 
 
@@ -64,48 +60,6 @@ class GraphDataset(MoleculeDataset):
             "pygdata": batch_data,
             "targets": batch_data.y,
         }
-
-    # def bulid_dataloader(self, config=None, is_train=True, **kwargs):
-    #     if config is not None:
-    #         num_workers = config.run_cfg.get("num_workers", 0)
-    #         class_balance = config.run_cfg.get("class_balance", False)
-    #         follow_batch = config.run_cfg.get("follow_batch", [])
-
-    #         seed = config.run_cfg.get("seed", 42)
-    #         batch_size = config.run_cfg.get("batch_size", 50)
-
-    #     else:
-    #         num_workers = kwargs["num_workers"] if "num_workers" in kwargs.keys() else 0
-    #         class_balance = kwargs["class_balance"] if "class_balance" in kwargs.keys() else False
-    #         follow_batch = kwargs["follow_batch"] if "follow_batch" in kwargs.keys() else []
-
-    #         seed = kwargs["seed"] if "seed" in kwargs.keys() else 42
-    #         batch_size = kwargs["batch_size"] if "batch_size" in kwargs.keys() else 50
-
-    #     shuffle = (is_train == True)
-    #     self._context = None
-    #     self._timeout = 0
-    #     is_main_thread = threading.current_thread() is threading.main_thread()
-    #     if not is_main_thread and num_workers > 0:
-    #         self._context = 'forkserver'  # In order to prevent a hanging
-    #         self._timeout = 3600  # Just for sure that the DataLoader won't hang
-
-    #     self._sampler = MoleculeSampler(
-    #         dataset=self._data,
-    #         class_balance=class_balance,
-    #         shuffle=shuffle,
-    #         seed=seed
-    #     )
-
-    #     return DataLoader(
-    #                     dataset=self._data,
-    #                     batch_size=batch_size,
-    #                     sampler=self._sampler,
-    #                     num_workers=num_workers,
-    #                     collate_fn=lambda data_list: self.collate_fn(data_list, follow_batch),
-    #                     timeout=self._timeout,
-    #                     worker_init_fn=worker_init,
-    #     )
 
     def targets(self) -> List[List[Optional[float]]]:
         """

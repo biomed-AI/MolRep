@@ -10,12 +10,12 @@ model:
   arch: cmpnn
   model_type: cmpnn_default
   
-  dim_embedding: 256
+  dim_embedding: 128
   ffn_hidden_size: 256
   ffn_num_layers: 2
 
   depth: 2
-  dropout: 0.1
+  dropout: 0.5
 
   activation: "ReLU"
   undirected: False
@@ -27,14 +27,13 @@ model:
   use_input_features: False
 
 datasets:
-  name: "ogbg-molbbbp"
+  name: "ogbg-molhiv"
   task_type: "Classification"
   split_type: "defined"
   metric_type: "auc"
 
-  path: ""
   smiles_column: "smiles"
-  target_columns: ["p_np"]
+  target_columns: ["HIV_active"]
 
 run:
   task: "property_prediction"

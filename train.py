@@ -38,7 +38,7 @@ def now():
 def parse_args():
     parser = argparse.ArgumentParser(description="Training")
     parser.add_argument("--cfg-path", required=True, help="path to configuration file.")
-    parser.add_argument("--job_id", type=str, required=False, default='now', help=".")
+    parser.add_argument("--job-id", type=str, required=False, default='now', help=".")
     parser.add_argument(
         "--options",
         nargs="+",

@@ -13,6 +13,8 @@ class Logger:
         self.filepath = filepath
         if not Path(self.filepath).parent.exists():
             os.makedirs(Path(self.filepath).parent)
+        if Path(self.filepath).exists():
+            os.remove(self.filepath)
         if mode not in ['w', 'a']:
             assert False, 'Mode must be one of w, r or a'
         else:
