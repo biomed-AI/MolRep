@@ -1,0 +1,17 @@
+
+model:
+  name: attr_masking
+  emb_dim: 256
+
+  num_atom_type: 119
+  num_edge_type: 5
+  mask_rate: 0.15
+  mask_edge: 0
+
+  gnn:
+    gnn_type: gin
+
+    model:
+      hidden_size: 256
+      JK: last
+      dropout: 0.1

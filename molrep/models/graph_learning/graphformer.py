@@ -19,7 +19,7 @@ class Graphformer(BaseModel):
     """
 
     MODEL_CONFIG_DICT = {
-        "graphformer_default": "configs/models/graphformer_default.yaml",
+        "default": "configs/models/graphformer_default.yaml",
     }
 
     def __init__(self, dim_target, model_configs):

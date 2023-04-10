@@ -54,7 +54,12 @@ class PropertyExperiment(Experiment):
                     self.log_stats(val_log, split_name)
 
             else:
-                self._save_checkpoint(cur_epoch, is_best=False)
+                # if no validation split is provided, we just save the checkpoint at the end of each epoch.
+                if not self.evaluate_only:
+                    self._save_checkpoint(cur_epoch, is_best=False)
+
+            if self.evaluate_only:
+                break
 
         # evaluate phase: evaluate
         test_epoch = "best" if len(self.valid_splits) > 0 else cur_epoch

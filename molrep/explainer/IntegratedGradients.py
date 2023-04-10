@@ -136,7 +136,7 @@ class IntegratedGradients(BaseExplainer):
                                , end: Tuple = None
                                , num_steps: int = 50
                                , config = None):
-        model_name = config.model_cfg.arch
+        model_name = config.model_cfg.name
         dataset_cls = registry.get_dataset_class((self.model_processer_mapping[model_name]))
 
         nodes_interp = self._interp_array(start.x.cpu().detach().numpy(), end.x.cpu().detach().numpy(), num_steps)

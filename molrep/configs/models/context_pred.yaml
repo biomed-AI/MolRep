@@ -1,0 +1,13 @@
+
+model:
+  name: ContextPred
+  csize: 3
+  num_layer: 5
+
+  gnn:
+    gnn_type: gin
+
+    model:
+      hidden_size: 256
+      JK: last
+      dropout: 0.1

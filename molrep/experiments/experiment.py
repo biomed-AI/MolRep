@@ -9,13 +9,12 @@ from molrep.common.utils import *
 from molrep.common.registry import registry
 from molrep.models.losses import get_loss_func
 from molrep.common.logger import Logger
-from molrep.data.datasets.base_dataset import MoleculeSampler
+from molrep.dataset.datasets.base_dataset import MoleculeSampler
 
 from molrep.common.dist_utils import (
     get_rank,
     get_world_size,
-    is_main_process,
-    main_process,
+    init_distributed_mode,
 )
 
 @registry.register_experiment("base")
@@ -44,16 +43,21 @@ class Experiment:
         self._loss_func = None
 
         self.start_epoch = 0
-        self.use_distributed = False
 
         # self.setup_seeds()
         self.setup_output_dir()
         self.setup_logger()
 
+        if self.use_distributed:
+            init_distributed_mode(self.config.run_cfg)
+
     @property
     def device(self):
         if self._device is None:
-            self._device = torch.device(self.config.run_cfg.device)
+            if self.use_distributed:
+                self._device = torch.device("cuda", self.config.run_cfg.gpu)
+            else:
+                self._device = torch.device(self.config.run_cfg.device)
         return self._device
 
     @property
@@ -84,7 +88,7 @@ class Experiment:
     @property
     def loss_func(self):
         if self._loss_func is None:
-            self._loss_func = get_loss_func(self.config.datasets_cfg.task_type, self.config.model_cfg.arch)
+            self._loss_func = get_loss_func(self.config.datasets_cfg.task_type, self.config.model_cfg.name)
         return self._loss_func
 
     @property
@@ -158,6 +162,10 @@ class Experiment:
         return self._dataloaders
 
     @property
+    def use_distributed(self):
+        return self.config.run_cfg.get("distributed", False)
+
+    @property
     def metric_type(self):
         _metric_type = self.config.datasets_cfg.metric_type
         return [str(_metric_type)] if isinstance(_metric_type, str) else list(_metric_type)
@@ -212,14 +220,17 @@ class Experiment:
     @property
     def train_loader(self):
         train_dataloader = self.dataloaders["train"]
-
         return train_dataloader
+
+    @property
+    def use_molecular_sampler(self):
+        return self.config.run_cfg.get("use_molecular_sampler", True)
 
     def setup_output_dir(self):
         lib_root = Path(registry.get_path("repo_root"))
 
         output_dir = lib_root / "outputs" / self.config.run_cfg.get("task", "property_prediction")
-        output_dir = output_dir / f"{self.config.model_cfg.arch}_{self.config.datasets_cfg.name}"
+        output_dir = output_dir / f"{self.config.model_cfg.name}_{self.config.datasets_cfg.name}"
         output_dir = output_dir / self.job_id
         result_dir = output_dir / "result"
 
@@ -267,7 +278,12 @@ class Experiment:
                     self.log_stats(val_log, split_name)
 
             else:
-                self._save_checkpoint(cur_epoch, is_best=False)
+                # if no validation split is provided, we just save the checkpoint at the end of each epoch.
+                if not self.evaluate_only:
+                    self._save_checkpoint(cur_epoch, is_best=False)
+
+            if self.evaluate_only:
+                break
 
         # testing phase
         test_epoch = "best" if len(self.valid_splits) > 0 else cur_epoch
@@ -394,7 +410,6 @@ class Experiment:
         model.load_state_dict(checkpoint["model"])
         return model
 
-
     def create_loaders(
         self,
         datasets,
@@ -423,17 +438,16 @@ class Experiment:
                     num_replicas=get_world_size(),
                     rank=get_rank(),
                 )
-                if not self.use_dist_eval_sampler:
-                    # e.g. retrieval evaluation
-                    sampler = sampler if is_train else None
             else:
-                # sampler = None
-                sampler = MoleculeSampler(
-                    dataset=dataset,
-                    class_balance=class_balance,
-                    shuffle=is_train,
-                    seed=seed
-                )
+                if self.use_molecular_sampler:
+                    sampler = MoleculeSampler(
+                        dataset=dataset,
+                        class_balance=class_balance,
+                        shuffle=is_train,
+                        seed=seed
+                    )
+                else:
+                    sampler = None
 
             loader = DataLoader(
                 dataset,

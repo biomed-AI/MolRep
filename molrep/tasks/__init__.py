@@ -15,6 +15,7 @@ from molrep.common.registry import registry
 from molrep.tasks.base_task import BaseTask
 from molrep.tasks.property_prediction import PropertyTask
 from molrep.tasks.molecular_explainer import ExplainerTask
+from molrep.tasks.molecular_pretraining import PretraingTask
 
 
 def setup_task(cfg):
@@ -31,4 +32,5 @@ __all__ = [
     'BaseTask',
     'PropertyTask',
     'ExplainerTask',
+    'PretraingTask'
 ]

@@ -28,7 +28,7 @@ class MPNNEmbeddings:
     def __init__(self, cfg, data_df, additional_data=None, features_generator=None, atom_descriptors=None):
 
         self.whole_data_df = data_df
-        self.model_name = cfg.model_cfg.arch
+        self.model_name = cfg.model_cfg.name
         self.dataset_config = cfg.datasets_cfg
         self.dataset_name = self.dataset_config["name"]
         self.additional_data = additional_data

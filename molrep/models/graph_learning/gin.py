@@ -18,10 +18,10 @@ class GIN(BaseModel):
     """
 
     MODEL_CONFIG_DICT = {
-        "gin_default": "configs/models/gin_default.yaml",
+        "default": "configs/models/gin_default.yaml",
     }
 
-    def __init__(self, dim_target, model_configs, max_num_nodes=200):
+    def __init__(self, model_configs, dim_target=None, max_num_nodes=200):
         super(GIN, self).__init__()
         self.dim_target = dim_target
         self.max_num_nodes = max_num_nodes
@@ -49,10 +49,10 @@ class GIN(BaseModel):
             self.gnn_convs.append(GINConv(self.hidden_size))
             self.batch_norms.append(nn.BatchNorm1d(self.hidden_size))
 
-        if self.JK == "concat":
+        if dim_target is not None and self.JK == "concat":
             self.fc = nn.Linear((self.num_layers + 1) * self.hidden_size,
                                  self.dim_target)
-        else:
+        elif dim_target is not None:
             self.fc = nn.Linear(self.hidden_size, self.dim_target)
 
     @classmethod
@@ -135,15 +135,21 @@ class GIN(BaseModel):
 
         return ModelOutputs(
             logits=output,
-            node_features=self.unbatch(node_feats, data, is_atom=True), # (batch_size, node hidden features)
-            edge_features=self.unbatch(edge_feats, data, is_atom=False), # (batch_size, edge hidden features)
+            node_features=node_feats, # (batch_size * node_num, hidden features)
+            edge_features=edge_feats, # (batch_size * edge_num, hidden features)
         )
 
-    def featurize(self, data):
-        if isinstance(data, dict):
-            data = data["pygdata"]
+    def get_node_representation(self, *argv):
+        if len(argv) == 3:
+            x, edge_index, edge_attrs = argv[0], argv[1], argv[2]
+        elif len(argv) == 1:
+            data = argv[0]
+            if isinstance(data, dict):
+                data = data["pygdata"]
+            x, edge_index, edge_attrs = data.x, data.edge_index, data.edge_attr
+        else:
+            raise ValueError("unmatched number of arguments.")
 
-        x, edge_index, edge_attrs, batch = data.x, data.edge_index, data.edge_attr, data.batch
         node_feats = self.node_encoder(x)
         edge_feats = self.edge_encoder(edge_attrs)
 
@@ -161,21 +167,24 @@ class GIN(BaseModel):
 
         ### Different implementations of Jk-concat
         if self.JK == "concat":
-            output = torch.cat(x_list, dim=1)
+            node_representation = torch.cat(x_list, dim=1)
         elif self.JK == "last":
-            output = x_list[-1]
+            node_representation = x_list[-1]
         elif self.JK == "max":
             x_list = [x.unsqueeze_(0) for x in x_list]
-            output = torch.max(torch.cat(x_list, dim=0), dim=0)[0]
+            node_representation = torch.max(torch.cat(x_list, dim=0), dim=0)[0]
         elif self.JK == "sum":
             x_list = [x.unsqueeze_(0) for x in x_list]
-            output = torch.sum(torch.cat(x_list, dim=0), dim=0)[0]
+            node_representation = torch.sum(torch.cat(x_list, dim=0), dim=0)[0]
         else:
             raise ValueError("not implemented.")
+        return node_representation
 
-        output = F.dropout(output, self.dropout, training=self.training)
-        output = self.pooling(output, batch)
-        return output
+    def featurize(self, data):
+        node_representation = self.get_node_representation(data)
+        graph_output = F.dropout(node_representation, self.dropout, training=self.training)
+        graph_output = self.pooling(graph_output, data.batch)
+        return graph_output
 
     def unbatch(self, x, data, is_atom=True):
         if isinstance(data, dict):
@@ -250,7 +259,6 @@ class GINConv(MessagePassing):
             if hasattr(c, 'reset_parameters'):
                 c.reset_parameters()
         nn.init.constant_(self.eps.data, 0)
-
 
     def forward(self, x, edge_index, edge_attr):
         out = self.mlp((1 + self.eps) * x +

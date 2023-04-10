@@ -7,7 +7,7 @@
 
 
 model:
-  arch: cmpnn
+  name: cmpnn
   model_type: cmpnn_default
 
   dim_embedding: 128

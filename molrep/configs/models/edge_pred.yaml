@@ -1,0 +1,10 @@
+
+model:
+  name: EdgePred
+  gnn:
+    gnn_type: gin
+
+    model:
+      hidden_size: 256
+      JK: last
+      dropout: 0.1

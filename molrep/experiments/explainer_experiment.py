@@ -108,7 +108,7 @@ class ExplainerExperiment(Experiment):
             optimizer=self.optimizer,
             lr_scheduler=self.lr_scheduler,
             loss_func=self.loss_func,
-            scaler=self.feature_scaler,
+            scaler=self.scaler,
             device=self.device,
         )
 
@@ -131,7 +131,7 @@ class ExplainerExperiment(Experiment):
 
         model.eval()
         kwargs = {"eval_explainer": eval_explainer, "is_testing": split_name in self.test_splits}
-        return self.task.evaluation(self.model, self.explainer, data_loader, loss_func=self.loss_func, scaler=self.feature_scaler, device=self.device, **kwargs)
+        return self.task.evaluation(self.model, self.explainer, data_loader, loss_func=self.loss_func, scaler=self.scaler, device=self.device, **kwargs)
 
     def _save_test_results(self, test_results):
         """

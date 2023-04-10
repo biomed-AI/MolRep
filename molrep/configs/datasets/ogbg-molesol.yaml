@@ -1,6 +1,7 @@
 
 ogbg-molesol:
   name: "ogbg-molesol"
+  task: "property_prediction"
   task_type: "regression"
   split_type: "defined"
   metric_type: "rmse"

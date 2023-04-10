@@ -2,8 +2,10 @@
 build
 __pycache__
 cache
+del
 outputs
 examples
+projects
 .vscode
 Results.md
 algos.cpython-37m-x86_64-linux-gnu.so

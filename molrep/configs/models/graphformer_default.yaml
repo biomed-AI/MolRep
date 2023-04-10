@@ -7,7 +7,7 @@
 
 
 model:
-  arch: graphformer
+  name: graphformer
   model_type: graphformer_default
 
   n_layers: 12

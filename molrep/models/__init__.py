@@ -13,43 +13,34 @@
 from omegaconf import OmegaConf
 from molrep.common.registry import registry
 
-from molrep.models.sequence_based.MAT import MAT
-from molrep.models.sequence_based.CoMPT import CoMPT
-from molrep.models.sequence_based.BiLSTM import BiLSTM
-from molrep.models.sequence_based.SALSTM import SALSTM
-from molrep.models.sequence_based.Transformer import Transformer
-
 from molrep.models.graph_learning.gin import GIN
-from molrep.models.graph_learning.ECC import ECC
-from molrep.models.graph_learning.GAT import GAT
-from molrep.models.graph_learning.DGCNN import DGCNN
-from molrep.models.graph_learning.DiffPool import DiffPool
-from molrep.models.graph_learning.GraphSAGE import GraphSAGE
-from molrep.models.graph_learning.GraphNet import GraphNet
+from molrep.models.graph_learning.gat import GAT
+from molrep.models.graph_learning.diffpool import DiffPool
+from molrep.models.graph_learning.graphsage import GraphSAGE
+from molrep.models.graph_learning.graphnet import GraphNet
 from molrep.models.graph_learning.graphformer import Graphformer
 
-from molrep.models.graph_learning.MPNN import MPNN
+from molrep.models.graph_learning.mpnn import MPNN
 from molrep.models.graph_learning.cmpnn import CMPNN
-from molrep.models.graph_learning.DMPNN import DMPNN
+from molrep.models.graph_learning.dmpnn import DMPNN
 
-from molrep.models.unsupervised_based.VAE import VAE
-from molrep.models.unsupervised_based.RandomForest import RandomForest
-from molrep.models.unsupervised_based.XGboost import XGboost
+from molrep.models.interactions.PLNLP.PLNLP import PLNLP
+from molrep.models.interactions.CFLP.CFLP import CFLP
 
-from molrep.models.interactions.link_models.PLNLP.PLNLP import PLNLP
-from molrep.models.interactions.link_models.CFLP.CFLP import CFLP
+from molrep.models.pretraining.attr_masking import AttrMasking
+from molrep.models.pretraining.edge_pred import EdgePred
+from molrep.models.pretraining.context_pred import ContextPred
 
 from molrep.models.optims import LinearWarmupStepLRScheduler, LinearWarmupCosineLRScheduler
 
 __all__ = [
     "load_model",
     "MPNN", "DMPNN", "CMPNN",
-    "GIN", "ECC", "GAT", "DGCNN",
-    "DiffPool", "GraphSAGE", "GraphNet",
+    "GIN", "GAT", "DiffPool", 
+    "GraphSAGE", "GraphNet",
     "Graphformer",
-    'MAT', 'CoMPT', 'BiLSTM', 'SALSTM',
-    'Transformer', 'RandomForest', 'XGboost',
-    'PLNLP', 'CFLP'
+    'PLNLP', 'CFLP',
+    'AttrMasking', 'EdgePred', 'ContextPred'
 ]
 
 

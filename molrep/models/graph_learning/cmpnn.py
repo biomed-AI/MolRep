@@ -32,7 +32,7 @@ class CMPNN(BaseModel):
     """
 
     MODEL_CONFIG_DICT = {
-        "cmpnn_default": "configs/models/cmpnn_default.yaml",
+        "default": "configs/models/cmpnn_default.yaml",
     }
 
     def __init__(self, dim_features, dim_target, model_configs, max_num_nodes=200):
@@ -45,7 +45,6 @@ class CMPNN(BaseModel):
         self.dim_features = dim_features
         self.dim_target = dim_target
         self.max_num_nodes = max_num_nodes
-
         self.model_configs = model_configs
 
         self.create_encoder()
@@ -153,11 +152,11 @@ class CMPNN(BaseModel):
         edge_feats = self.encoder.encoder.f_bonds[1:, :]
         return ModelOutputs(
             logits=output,
-            node_features=self.unbatch(node_feats, data, is_atom=True), # (batch_size, node hidden features)
-            edge_features=self.unbatch(edge_feats, data, is_atom=False), # (batch_size, edge hidden features)
+            node_features=node_feats, # (batch_size, node hidden features)
+            edge_features=edge_feats, # (batch_size, edge hidden features)
         )
 
-    def unbatch(self, x, data, is_atom=True,):
+    def unbatch(self, x, data, is_atom=True):
         mol_graph = data['smiles']
         if is_atom:
             sizes = [int(a_size) for (_, a_size) in mol_graph.a_scope]

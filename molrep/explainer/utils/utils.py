@@ -6,7 +6,7 @@ from typing import Callable, List, MutableMapping, Optional, Text
 import torch
 import numpy as np
 
-from molrep.data import Batch
+from molrep.dataset import Batch
 
 def make_constant_like(data, node_vec: np.ndarray,
                        edge_vec: np.ndarray):

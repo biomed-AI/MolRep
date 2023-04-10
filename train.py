@@ -22,8 +22,8 @@ from molrep.common.config import Config
 from molrep.common.registry import registry
 
 # imports modules for registration
-from molrep.data.datasets import *
-from molrep.data.builders import *
+from molrep.dataset.datasets import *
+from molrep.dataset.builders import *
 from molrep.tasks import *
 from molrep.models import *
 from molrep.explainer import *

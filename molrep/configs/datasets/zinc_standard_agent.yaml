@@ -1,0 +1,9 @@
+
+zinc_standard_agent:
+  name: zinc_standard_agent
+  task: "molecular_pretraining"
+
+  storage:
+    - zinc_standard_agent/raw/zinc_combined_apr_8_2019.csv
+  smiles_column: "smiles"
+  id_column: ["zinc_id"]

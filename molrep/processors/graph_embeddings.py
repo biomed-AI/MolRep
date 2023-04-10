@@ -21,19 +21,10 @@ from molrep.processors.features import mol_to_graph_data_obj
 
 @registry.register_processor("graph")
 class GraphEmbeddings():
-    # def __init__(self, data_df, model_name, features_path, dataset_config,
-    #              additional_data=None,
-    #              use_node_attrs=True, use_node_degree=False, use_one=False, max_reductions=10,
-    #              precompute_kron_indices=True,
-    #              save_temp_data=True):
-    def __init__(self, cfg, data_df,
-                 additional_data=None,
-                 use_node_attrs=True, use_node_degree=False, use_one=False,
-                 max_reductions=10, precompute_kron_indices=True,
-                 save_temp_data=False):
+    def __init__(self, cfg, data_df, additional_data=None):
 
         self.whole_data_df = data_df
-        self.model_name = cfg.model_cfg.arch
+        self.model_name = cfg.model_cfg.name
         self.dataset_config = cfg.datasets_cfg
 
         self.dataset_name = self.dataset_config["name"]
@@ -45,18 +36,6 @@ class GraphEmbeddings():
 
         self.smiles_col = self.dataset_config["smiles_column"]
         self.target_cols = self.dataset_config["target_columns"]
-
-        self.use_node_degree = use_node_degree
-        self.use_node_attrs = use_node_attrs
-        self.use_one = use_one
-
-        self.temp_dir = self.features_path.parent / 'raw'
-        if not self.temp_dir.exists():
-            os.makedirs(self.temp_dir)
-
-        self.KRON_REDUCTIONS = max_reductions
-        self.precompute_kron_indices = precompute_kron_indices
-        self.save_temp_data = save_temp_data
 
     @property
     def dim_features(self):
@@ -74,7 +53,6 @@ class GraphEmbeddings():
         """
         Load and featurize data stored in a CSV file.
         """
-
         features_path = self.features_path
 
         if os.path.exists(features_path):

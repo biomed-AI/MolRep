@@ -5,6 +5,7 @@ Created on 2020.05.19
 @author: Jiahua Rao, Hui Yang, Jiancong Xie
 '''
 
+import re
 import random
 import time
 import os
@@ -84,7 +85,7 @@ class StandardScaler:
 def compare_metrics(agg_metrics, best_agg_metric, metric_type):
     if metric_type in ["auc", "acc", "prc", "precision", "recall", "f1", "r2", "pearson", "spearman"]:
         return agg_metrics > best_agg_metric
-    elif metric_type in ["rmse", "mse"]:
+    elif metric_type in ["rmse", "mse", "loss"]:
         return agg_metrics < best_agg_metric
     else:
         raise NotImplementedError
@@ -136,6 +137,13 @@ def del_file(path):
 def delete_file_if_exists(path_file):
     if os.path.exists(path_file) and os.path.isfile(path_file):
         os.remove(path_file)
+
+def is_url(input_url):
+    """
+    Check if an input string is a url. look for http(s):// and ignoring the case
+    """
+    is_url = re.match(r"^(?:http)s?://", input_url, re.IGNORECASE) is not None
+    return is_url
 
 
 def create_logger(configs):

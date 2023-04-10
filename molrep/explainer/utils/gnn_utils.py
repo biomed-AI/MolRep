@@ -5,7 +5,7 @@ import numpy as np
 
 from rdkit import Chem
 from torch_geometric import data
-from molrep.data.datasets.graph_dataset import GraphDataset
+from molrep.dataset.datasets.graph_dataset import GraphDataset
 from molrep.processors.utils.graph_utils import *
 
 from networkx import normalized_laplacian_matrix

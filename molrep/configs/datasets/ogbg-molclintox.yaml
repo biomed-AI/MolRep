@@ -1,6 +1,7 @@
 
 ogbg-molclintox:
   name: "ogbg-molclintox"
+  task: "property_prediction"
   task_type: "classification"
   split_type: "defined"
   metric_type: "auc"

@@ -5,7 +5,7 @@ from typing import Optional, Text
 from molrep.explainer.base_explainer import BaseExplainer
 from molrep.common.registry import registry
 
-@registry.register_explainer("base")
+@registry.register_explainer("cam")
 class CAM(BaseExplainer):
     """CAM: Decompose output as a linear sum of nodes and edges.
     CAM (Class Activation Maps) assumes the model has a global average pooling
@@ -27,10 +27,6 @@ class CAM(BaseExplainer):
         """Gets attribtutions."""
         model.train()
 
-        output = model(data)
-        if not isinstance(output, tuple):
-            output = (output,)
-
         node_act, edge_act = model.get_gap_activations(data)
         weights = model.get_prediction_weights()
 
@@ -38,4 +34,4 @@ class CAM(BaseExplainer):
         edge_weights = torch.einsum('ij,j', edge_act, weights) if edge_act is not None else None
         
         model.eval()
-        return node_weights, edge_weights, output
+        return node_weights, edge_weights

@@ -6,8 +6,8 @@ from tqdm import trange
 
 
 from molrep.models.scalers import StandardScaler
-from molrep.data.datasets.mpnn_dataset import MPNNDataset as MoleculeDataset
-from molrep.data.datasets.mpnn_dataset import MoleculeDatapoint
+from molrep.dataset.datasets.mpnn_dataset import MPNNDataset as MoleculeDataset
+from molrep.dataset.datasets.mpnn_dataset import MoleculeDatapoint
 
 
 def get_data_from_smiles(smiles: List[str], logger = None) -> MoleculeDataset:

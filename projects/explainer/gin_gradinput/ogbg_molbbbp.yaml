@@ -8,7 +8,7 @@
 
 model:
   arch: gin
-  model_type: gin_default
+  model_type: default
   
   num_layers: 2
   hidden_size: 64

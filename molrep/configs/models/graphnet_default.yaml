@@ -7,7 +7,7 @@
 
 
 model:
-  arch: graphnet
+  name: graphnet
   model_type: graphnet_default
 
   dim_node_hidden: 256

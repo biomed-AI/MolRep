@@ -50,10 +50,6 @@ class GradCAM(BaseExplainer):
         """Gets attribtutions."""
         model.train()
 
-        output = model(data)
-        if not isinstance(output, tuple):
-            output = (output,)
-
         acts, grads = model.get_intermediate_activations_gradients(data)
         node_w, edge_w = [], None
         layer_indices = [-1] if self.last_layer_only else list(range(len(acts)))
@@ -66,4 +62,4 @@ class GradCAM(BaseExplainer):
         edge_weights = self.reduce_fn(torch.cat(edge_w, dim=1), dim=1) if edge_w is not None else None
         
         model.eval()
-        return node_weights, edge_weights, output
+        return node_weights, edge_weights

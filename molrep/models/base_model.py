@@ -2,8 +2,11 @@
 
 import os
 import torch.nn as nn
+from omegaconf import OmegaConf
 
 from molrep.common.registry import registry
+from molrep.common.dist_utils import download_cached_file
+from molrep.common.utils import is_url
 
 class BaseModel(nn.Module):
 
@@ -19,12 +22,57 @@ class BaseModel(nn.Module):
         return list(self.parameters())[0].device
 
     @classmethod
-    def default_config_path(cls, model_type):
+    def default_config_path(cls, model_type='default'):
         return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT[model_type])
 
     @classmethod
     def from_config(cls, cfg=None):
         raise NotImplementedError
+
+    def load_checkpoint(self, url_or_filename):
+        """
+        Load from a finetuned checkpoint.
+
+        This should expect no mismatch in the model keys and the checkpoint keys.
+        """
+
+        if is_url(url_or_filename):
+            cached_file = download_cached_file(
+                url_or_filename, check_hash=False, progress=True
+            )
+            checkpoint = torch.load(cached_file, map_location="cpu")
+        elif os.path.isfile(url_or_filename):
+            checkpoint = torch.load(url_or_filename, map_location="cpu")
+        else:
+            raise RuntimeError("checkpoint url or path is invalid")
+
+        if "model" in checkpoint.keys():
+            state_dict = checkpoint["model"]
+        else:
+            state_dict = checkpoint
+
+        msg = self.load_state_dict(state_dict, strict=False)
+
+        print("Missing keys {}".format(msg.missing_keys))
+        print("load checkpoint from %s" % url_or_filename)
+        return msg
+
+
+    @classmethod
+    def from_pretrained(cls, model_type):
+        """
+        Build a pretrained model from default configuration file, specified by model_type.
+
+        Args:
+            - model_type (str): model type, specifying architecture and checkpoints.
+
+        Returns:
+            - model (nn.Module): pretrained or finetuned model, depending on the configuration.
+        """
+        model_cfg = OmegaConf.load(cls.default_config_path(model_type)).model
+        model = cls.from_config(model_cfg)
+
+        return model
 
     def featurize(self, data):
         pass
@@ -67,7 +115,9 @@ class AtomEncoder(nn.Module):
 
     def forward(self, x):
         x_embedding = 0
+        print(x.shape)
         for i in range(x.shape[1]):
+            print(i)
             x_embedding += self.atom_embedding_list[i](x[:,i].long())
         return x_embedding
 
