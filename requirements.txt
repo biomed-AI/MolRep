@@ -1,9 +1,9 @@
 ase==3.20.1
-certifi==2020.6.20
+certifi>=2022.12.07
 chardet==3.0.4
 cycler==0.10.0
 decorator==4.4.2
-future==0.18.2
+future>=0.18.3
 gensim==3.8.3
 googledrivedownloader==0.4
 h5py==2.10.0
