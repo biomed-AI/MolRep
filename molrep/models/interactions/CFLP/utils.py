@@ -17,7 +17,7 @@ from sknetwork.utils import membership_matrix
 from sknetwork.hierarchy import Ward, cut_straight
 from sknetwork.clustering import Louvain, KMeans, PropagationClustering
 from geomloss import SamplesLoss
-import molrep.models.interactions.link_models.CFLP.pysbm as pysbm
+import molrep.models.interactions.CFLP.pysbm as pysbm
 
 
 def load_t_files(model_configs, dataset_configs, T_file, adj_train):

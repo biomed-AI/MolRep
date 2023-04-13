@@ -6,9 +6,9 @@ import torch_geometric.transforms as T
 from torch_geometric.utils import to_undirected
 from torch_sparse import coalesce, SparseTensor
 
-from molrep.models.interactions.link_models.PLNLP.loss import *
-from molrep.models.interactions.link_models.PLNLP.utils import *
-from molrep.models.interactions.link_models.PLNLP.layers import *
+from molrep.models.interactions.PLNLP.loss import *
+from molrep.models.interactions.PLNLP.utils import *
+from molrep.models.interactions.PLNLP.layers import *
 
 
 class PLNLP(nn.Module):

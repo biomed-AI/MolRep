@@ -17,10 +17,12 @@ class PropertyExperiment(Experiment):
             cfg=cfg, task=task, datasets=datasets, scaler=scaler, model=model, job_id=job_id,
         )
 
+        self.test_every_epochs = self.config.run_cfg.get("type", None) == 'train_test'
+
     def train(self):
         start_time = time.time()
         best_agg_metric = 0
-        best_epoch = 0
+        best_epoch = -1
 
         self.log_config()
         # resume from checkpoint if specified
@@ -53,6 +55,23 @@ class PropertyExperiment(Experiment):
                     val_log.update({"best_epoch": best_epoch})
                     self.log_stats(val_log, split_name)
 
+            elif len(self.test_splits) > 0 and self.test_every_epochs:
+                for split_name in self.test_splits:
+                    print("Evaluating on {}.".format(split_name))
+
+                    test_log = self.eval_epoch(
+                        split_name=split_name, cur_epoch=cur_epoch
+                    )
+                    
+                    agg_metrics = test_log[self.metric_type[0]]
+                    if compare_metrics(agg_metrics, best_agg_metric, self.metric_type[0]) and split_name == "test":
+                        best_epoch, best_agg_metric = cur_epoch, agg_metrics
+                        self._save_checkpoint(cur_epoch, is_best=True)
+                        self._save_test_results({"test": test_log})
+
+                    test_log.update({"best_epoch": best_epoch})
+                    self.log_stats(test_log, split_name)
+
             else:
                 # if no validation split is provided, we just save the checkpoint at the end of each epoch.
                 if not self.evaluate_only:
@@ -62,7 +81,7 @@ class PropertyExperiment(Experiment):
                 break
 
         # evaluate phase: evaluate
-        test_epoch = "best" if len(self.valid_splits) > 0 else cur_epoch
+        test_epoch = "best" if best_epoch >= 0 else cur_epoch
         test_results = self.evaluate(cur_epoch=test_epoch, skip_reload=self.evaluate_only)
         self._save_test_results(test_results)
 

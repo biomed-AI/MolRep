@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from molrep.models.interactions.link_models.PLNLP.negative_sample import global_neg_sample, global_perm_neg_sample, local_neg_sample
+from molrep.models.interactions.PLNLP.negative_sample import global_neg_sample, global_perm_neg_sample, local_neg_sample
 
 
 def get_pos_neg_edges(split, split_edge, edge_index=None, num_nodes=None, neg_sampler_name=None, num_neg=None):

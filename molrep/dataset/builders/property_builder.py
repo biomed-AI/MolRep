@@ -14,6 +14,7 @@ import json
 import numpy as np
 import pandas as pd
 
+from rdkit import Chem
 from pathlib import Path
 
 from sklearn.model_selection import train_test_split, StratifiedKFold, KFold
@@ -58,11 +59,12 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
 
         elif dataset_path.suffix == '.sdf':
             self.whole_data_df = self._load_sdf_files(dataset_path)
-        
+
         else:
             raise print(f"File Format must be in ['CSV', 'SDF'] or in OGB-Benchmark")
 
         self.smiles_col = self.config.datasets_cfg.smiles_column
+        self.target_cols = self.config.datasets_cfg.target_columns
         self.num_tasks = self.config.datasets_cfg.num_tasks
         self.multiclass_num_classes = self.config.datasets_cfg.get("multiclass_num_classes", 1)
         self.multi_class = self.multiclass_num_classes > 1
@@ -196,11 +198,11 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
         DISCLAIMER: train_test_split returns a SUBSET of the input indexes,
             whereas StratifiedKFold.split returns the indexes of the k subsets, starting from 0 to ...!
         """
-        self.outer_k = self.config.run_cfg.outer_k
-        self.inner_k = self.config.run_cfg.inner_k
-        self.test_size = self.config.run_cfg.test_size
-        self.validation_size = self.config.run_cfg.validation_size
-        self.split_type = self.dataset_config.split_type
+        self.outer_k = self.config.run_cfg.get("outer_k", None)
+        self.inner_k = self.config.run_cfg.get("inner_k", None)
+        self.test_size = self.config.run_cfg.get("test_size", None)
+        self.validation_size = self.config.run_cfg.get("validation_size", None)
+        self.split_type = self.dataset_config.get("split_type", "random")
 
         assert (self.outer_k is not None and self.outer_k > 0) or self.outer_k is None
         assert (self.inner_k is not None and self.inner_k > 0) or self.inner_k is None
@@ -249,6 +251,7 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
             train_o_targets = targets[train_o_split]
 
             if self.inner_k is None:  # holdout model selection strategy
+                assert self.validation_size is not None
                 # if self.validation_size == 0:
                 #     train_i_split, val_i_split = train_o_split, []
                 # elif self.validation_size == -1:
@@ -269,6 +272,7 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
                                                                   random_state=self.seed)
                 elif self.split_type == 'defined':
                     train_i_split, val_i_split = defined_split(self.defined_splits, 'valid')
+
                 else:
                     assert f"{self.split_type} must be in [random, stratified, scaffold] or defined by yourself."
 
@@ -393,3 +397,23 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
         scaled_targets = scaler.transform(train_targets).tolist()
         dataset.set_targets(scaled_targets)
         return dataset, scaler
+
+    def _load_sdf_files(self, input_file, clean_mols=True):
+        suppl = Chem.SDMolSupplier(str(input_file), clean_mols, False, False)
+
+        df_rows = []
+        for ind, mol in enumerate(suppl):
+            if mol is None:
+                continue
+            smiles = Chem.MolToSmiles(mol)
+            df_row = [ind+1, smiles, mol]
+            df_rows.append(df_row)
+        mol_df = pd.DataFrame(df_rows, columns=('mol_id', 'smiles', 'mol')).set_index('mol_id')
+        try:
+            raw_df = pd.read_csv(str(input_file) + '.csv').set_index('gdb9_index')
+        except KeyError:
+            raw_df = pd.read_csv(str(input_file) + '.csv')
+            new = raw_df.mol_id.str.split('_', n = 1, expand=True)
+            raw_df['mol_id'] = new[1]
+            raw_df.set_index('mol_id')
+        return pd.concat([mol_df, raw_df], axis=1, join='inner').reset_index(drop=True)

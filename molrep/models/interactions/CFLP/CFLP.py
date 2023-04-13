@@ -18,7 +18,7 @@ from torch_geometric.utils import to_networkx, to_scipy_sparse_matrix
 from torch_geometric.nn import GCNConv, SAGEConv, JumpingKnowledge
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 
-from molrep.models.interactions.link_models.CFLP.utils import *
+from molrep.models.interactions.CFLP.utils import *
 
 
 class CFLP(nn.Module):

@@ -1,8 +1,8 @@
 
 
 model:
-  arch: graphformer
-  model_type: graphformer_default
+  name: graphformer
+  model_type: default
 
   n_layers: 12
   num_heads: 32

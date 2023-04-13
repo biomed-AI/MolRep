@@ -7,7 +7,7 @@ import numpy as np
 from numpy import linalg as la
 from sklearn import cluster as cl
 
-from molrep.models.interactions.link_models.CFLP.pysbm import additional_types
+from molrep.models.interactions.CFLP.pysbm import additional_types
 from .exceptions import NoFreeNodeException
 from .objective_function_iclex import IntegratedCompleteLikelihoodExact
 from .objective_functions import *

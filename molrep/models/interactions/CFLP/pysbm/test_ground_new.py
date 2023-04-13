@@ -3,12 +3,12 @@ import time
 import networkx as nx
 import csv
 
-from molrep.models.interactions.link_models.CFLP.pysbm import sbm
-from molrep.models.interactions.link_models.CFLP.pysbm.parallel_execution import parallel_execution
-from molrep.models.interactions.link_models.CFLP.pysbm.parallel_execution import TEMP_DIRECTORY
-from molrep.models.interactions.link_models.CFLP.pysbm.parallel_execution import TEMP_FILE_NAMES
-from molrep.models.interactions.link_models.CFLP.pysbm.parallel_execution import SUCCESS_MESSAGE_AND_SAVE_EVERY_X_PERCENT
-from molrep.models.interactions.link_models.CFLP.pysbm.test_ground import NormalizedMutualInformation, PlantedPartitionGenerator, SBMGenerator, SimplePartition
+from molrep.models.interactions.CFLP.pysbm import sbm
+from molrep.models.interactions.CFLP.pysbm.parallel_execution import parallel_execution
+from molrep.models.interactions.CFLP.pysbm.parallel_execution import TEMP_DIRECTORY
+from molrep.models.interactions.CFLP.pysbm.parallel_execution import TEMP_FILE_NAMES
+from molrep.models.interactions.CFLP.pysbm.parallel_execution import SUCCESS_MESSAGE_AND_SAVE_EVERY_X_PERCENT
+from molrep.models.interactions.CFLP.pysbm.test_ground import NormalizedMutualInformation, PlantedPartitionGenerator, SBMGenerator, SimplePartition
 import random as rd
 import os
 import pickle

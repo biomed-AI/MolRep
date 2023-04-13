@@ -6,7 +6,7 @@ import networkx as nx
 import numpy as np
 
 # from pysbm import additional_types
-from molrep.models.interactions.link_models.CFLP.pysbm import additional_types
+from molrep.models.interactions.CFLP.pysbm import additional_types
 from .partition import Partition
 from .exceptions import NoFreeNodeException
 

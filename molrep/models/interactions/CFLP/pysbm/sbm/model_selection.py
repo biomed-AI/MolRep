@@ -6,7 +6,7 @@ import math
 from .peixotos_hierarchical_sbm_tools import log_binom
 
 # from pysbm import sbm
-from molrep.models.interactions.link_models.CFLP.pysbm import sbm
+from molrep.models.interactions.CFLP.pysbm import sbm
 import networkx as nx
 
 

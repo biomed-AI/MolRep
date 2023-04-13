@@ -51,6 +51,7 @@ class Experiment:
         if self.use_distributed:
             init_distributed_mode(self.config.run_cfg)
 
+
     @property
     def device(self):
         if self._device is None:
