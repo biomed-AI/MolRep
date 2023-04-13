@@ -31,15 +31,13 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
 
     model_processer_mapping = {
         "mpnn": "mpnn", "dmpnn": "mpnn", "cmpnn": "mpnn",
-        "graphsage": "graph", "graphnet": "graph", "gin": "graph",
-        "graphformer": "graph",
+        "graphsage": "graph", "graphnet": "graph", "gin": "graph", "graphformer": "graph",
         "bilstm": "sequence", "salstm": "sequence", "transformer": "sequence",
     }
 
     model_dataset_mapping = {
         "mpnn": "mpnn", "dmpnn": "mpnn", "cmpnn": "mpnn",
-        "graphsage": "graph", "graphnet": "graph", "gin": "graph",
-        "graphformer": "graphformer",
+        "graphsage": "graph", "graphnet": "graph", "gin": "graph", "graphformer": "graphformer",
         "bilstm": "sequence", "salstm": "sequence", "transformer": "sequence",
     }
 

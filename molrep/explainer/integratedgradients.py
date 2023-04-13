@@ -50,23 +50,17 @@ class IntegratedGradients(BaseExplainer):
     def attribute(self, data, model, **kwargs):
         model.train()
         config = kwargs['config']
+        if isinstance(data, dict):
+            data = data["pygdata"]
 
-        output = model(data)
-        if not isinstance(output, tuple):
-            output = (output,)
+        n_nodes = data.x.shape[0]
+        n_edges = data.edge_attr.shape[0] if data.edge_attr is not None else 0
 
-        # node_feats = model.get_node_feats(data)
-        # edge_feats = model.get_edge_feats(data)
-
-        n_nodes = node_feats.shape[0]
-        n_edges = edge_feats.shape[0] if edge_feats is not None else 0
-
-        node_null = np.zeros((1, node_feats.size()[1]))
-        edge_null = np.zeros((1, edge_feats.size()[1])) if edge_feats is not None else None
+        node_null = np.zeros((1, data.x.size()[1]))
+        edge_null = np.zeros((1, data.edge_attr.size()[1])) if data.edge_attr is not None else None
         self.reference_fn = self.make_reference_fn(node_null, edge_null)
 
         n = self.num_steps
-        data = data["pygdata"]
 
         sizes = degree(data.batch, dtype=torch.long).tolist()
         node_feat_list = data.x.split(sizes, dim=0)
@@ -76,7 +70,7 @@ class IntegratedGradients(BaseExplainer):
         # print(node_null.shape, data.x.size(), ref.x.size())
         interp_data, node_steps, edge_steps = self.interpolate_graphs(ref, data, n, config)
 
-        _, atom_grads, _, bond_grads = model.get_gradients({"pygdata": interp_data})
+        _, atom_grads, _, bond_grads = model.get_gradients(interp_data)
         # Node shapes: [n_nodes * n, nodes.shape[-1]] -> [n_nodes*n].
         atom_grads = torch.tensor(atom_grads, dtype=torch.float)
         node_steps = torch.tensor(node_steps, dtype=torch.float, device=atom_grads.device)
@@ -96,7 +90,7 @@ class IntegratedGradients(BaseExplainer):
             bond_weights = None
 
         model.eval()
-        return atom_weights, bond_weights, output
+        return atom_weights, bond_weights
 
     def make_reference_fn(self, node_vec, edge_vec):
         """Make reference function."""

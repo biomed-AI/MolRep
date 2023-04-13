@@ -7,6 +7,7 @@ from typing import Optional, Text
 from molrep.explainer.base_explainer import BaseExplainer
 from molrep.common.registry import registry
 
+
 @registry.register_explainer("gradcam")
 class GradCAM(BaseExplainer):
     """GradCAM: intermediate activations and gradients as input importance.
