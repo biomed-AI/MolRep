@@ -12,3 +12,4 @@ ogbg-molclintox:
   target_columns: ['FDA_APPROVED', 'CT_TOX']
   num_tasks: 2
   multiclass_num_classes: 1
+  feature: full

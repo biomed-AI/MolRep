@@ -31,13 +31,15 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
 
     model_processer_mapping = {
         "mpnn": "mpnn", "dmpnn": "mpnn", "cmpnn": "mpnn",
-        "graphsage": "graph", "graphnet": "graph", "gin": "graph", "graphformer": "graph",
+        "diffpool": "graph", "gat": "graph", "graphsage": "graph",
+        "graphnet": "graph", "gin": "graph", "graphformer": "graph",
         "bilstm": "sequence", "salstm": "sequence", "transformer": "sequence",
     }
 
     model_dataset_mapping = {
         "mpnn": "mpnn", "dmpnn": "mpnn", "cmpnn": "mpnn",
-        "graphsage": "graph", "graphnet": "graph", "gin": "graph", "graphformer": "graphformer",
+        "diffpool": "graph", "gat": "graph", "graphsage": "graph",
+        "graphnet": "graph", "gin": "graph", "graphformer": "graphformer",
         "bilstm": "sequence", "salstm": "sequence", "transformer": "sequence",
     }
 
@@ -79,6 +81,7 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
         processor_cls = registry.get_processor_class(self.model_processer_mapping[self.model_name])(self.config, self.whole_data_df)
         processor_cls.process()
 
+        self.config.datasets_cfg.dim_target = self.dataset_config.num_tasks
         self.config.datasets_cfg.dim_features = processor_cls.dim_features
         self.config.datasets_cfg.max_num_nodes = processor_cls.max_num_nodes
         self.config.datasets_cfg.dim_edge_features = processor_cls.dim_edge_features
@@ -173,10 +176,10 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
         split_dir.mkdir(parents=True, exist_ok=True)
         splits_filename = split_dir / f"{self.dataset_name}_{self.dataset_config.split_type}_splits_seed{self.config.run_cfg.seed}.json"
 
-        if splits_filename.exists():
-            splits = json.load(open(splits_filename, "r"))
+        # if splits_filename.exists():
+        #     splits = json.load(open(splits_filename, "r"))
 
-        elif self.dataset_name.startswith('ogb'):
+        if self.dataset_name.startswith('ogb'):
             dataset = PygGraphPropPredDataset(self.dataset_name, root=self.cache_root)
             split_idx = dataset.get_idx_split()
             splits = [{"test": list(split_idx['test'].data.numpy()),

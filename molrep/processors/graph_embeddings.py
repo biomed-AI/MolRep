@@ -20,7 +20,7 @@ from molrep.processors.features import mol_to_graph_data_obj
 
 
 @registry.register_processor("graph")
-class GraphEmbeddings():
+class GraphEmbeddings:
     def __init__(self, cfg, data_df, additional_data=None):
 
         self.whole_data_df = data_df
@@ -32,7 +32,11 @@ class GraphEmbeddings():
 
         self.features_dir = Path(registry.get_path("features_root")) / self.dataset_name
         self.features_dir.mkdir(parents=True, exist_ok=True)
-        self.features_path = self.features_dir / (self.model_name + ".pt")
+        if self.dataset_config.feature == 'simple':
+            print('using simple feature')
+            self.features_path = self.features_dir / (self.model_name + "_simple.pt")
+        else:
+            self.features_path = self.features_dir / (self.model_name + ".pt")
 
         self.smiles_col = self.dataset_config["smiles_column"]
         self.target_cols = self.dataset_config["target_columns"]
@@ -80,6 +84,12 @@ class GraphEmbeddings():
                 data.id = torch.tensor([i])
                 data.y = torch.tensor([labels[i]])
                 data.smiles = smiles_list[i]
+
+                if self.dataset_config.feature == 'simple':
+                    # only retain the top two node/edge features
+                    data.x = data.x[:,:2]
+                    data.edge_attr = data.edge_attr[:,:2]
+
                 dataset.append(data)
 
             self._dim_features = dataset[0].x.size(1)

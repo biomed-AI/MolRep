@@ -7,8 +7,8 @@
 
 
 model:
-  arch: cmpnn
-  model_type: cmpnn_default
+  name: cmpnn
+  model_type: default
   
   dim_embedding: 128
   ffn_hidden_size: 256

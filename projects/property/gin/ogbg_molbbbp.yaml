@@ -7,12 +7,11 @@
 
 
 model:
-  arch: gin
-  model_type: gin_default
-  
+  name: gin
+  model_type: default
+
   num_layers: 5
   hidden_size: 300
-
   aggregation: mean
 
   dropout: 0.5
@@ -29,7 +28,7 @@ datasets:
 
 run:
   task: "property_prediction"
-  device: "cpu"
+  device: "cuda"
   distributed: False
   evaluate_only: False
   type: "train_val_test"

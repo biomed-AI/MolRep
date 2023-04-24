@@ -64,7 +64,8 @@ class GraphSAGE(BaseModel):
         return model
 
     def forward(self, data):
-        data = data["pygdata"]
+        if isinstance(data, dict):
+            data = data["pygdata"]
         x, edge_index, batch = data.x, data.edge_index, data.batch
         node_feats = self.node_encoder(x)
 

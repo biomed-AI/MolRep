@@ -110,3 +110,4 @@ ogbg-moltoxcast:
                    'Tanguay_ZF_120hpf_SWIM_up', 'Tanguay_ZF_120hpf_TRUN_up', 'Tanguay_ZF_120hpf_TR_up', 'Tanguay_ZF_120hpf_YSE_up']
   num_tasks: 617
   multiclass_num_classes: 1
+  feature: full

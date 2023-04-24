@@ -23,8 +23,8 @@ registry.register_path("repo_root", repo_root)
 cache_root = os.path.join(repo_root, "cache")
 registry.register_path("cache_root", cache_root)
 
-feature_root = os.path.join(cache_root, "features")
+feature_root = os.path.join(repo_root, "features")
 registry.register_path("features_root", feature_root)
 
-split_root = os.path.join(cache_root, "splits")
+split_root = os.path.join(repo_root, "splits")
 registry.register_path("split_root", split_root)

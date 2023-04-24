@@ -7,14 +7,9 @@
 
 
 model:
-  name: graphnet
+  name: graphsage
   model_type: default
 
-  dim_node_hidden: 256
-  dim_edge_hidden: 32
-
-  num_step_set2set: 2
-  num_layer_set2set: 2
-
-  num_layers: 2
-  aggregation_type: mean
+  dim_embedding: 32
+  num_layers: 3
+  aggregation: add

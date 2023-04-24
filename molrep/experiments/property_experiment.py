@@ -21,7 +21,7 @@ class PropertyExperiment(Experiment):
 
     def train(self):
         start_time = time.time()
-        best_agg_metric = 0
+        best_agg_metric = 0 if self.config.datasets_cfg.task_type != 'regression' else 1e5
         best_epoch = -1
 
         self.log_config()
@@ -113,6 +113,7 @@ class PropertyExperiment(Experiment):
             optimizer=self.optimizer,
             lr_scheduler=self.lr_scheduler,
             loss_func=self.loss_func,
+            scaler=self.scaler,
             device=self.device,
         )
 
@@ -135,5 +136,9 @@ class PropertyExperiment(Experiment):
             model = self._reload_best_model(model)
 
         model.eval()
-        return self.task.evaluation(self.model, data_loader, loss_func=self.loss_func, scaler=self.scaler, device=self.device)
+        return self.task.evaluation(self.model,
+                                    data_loader,
+                                    loss_func=self.loss_func,
+                                    scaler=self.scaler,
+                                    device=self.device)
 

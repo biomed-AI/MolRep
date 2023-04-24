@@ -38,7 +38,7 @@ class ExplainerExperiment(Experiment):
 
     def train(self):
         start_time = time.time()
-        best_agg_metric = 0
+        best_agg_metric = 0 if self.config.datasets_cfg.task_type != 'regression' else 1e5
         best_epoch = 0
 
         self.log_config()
@@ -131,7 +131,13 @@ class ExplainerExperiment(Experiment):
 
         model.eval()
         kwargs = {"eval_explainer": eval_explainer, "is_testing": split_name in self.test_splits}
-        return self.task.evaluation(self.model, self.explainer, data_loader, loss_func=self.loss_func, scaler=self.scaler, device=self.device, **kwargs)
+        return self.task.evaluation(self.model,
+                                    self.explainer,
+                                    data_loader,
+                                    loss_func=self.loss_func,
+                                    scaler=self.scaler,
+                                    device=self.device,
+                                    **kwargs)
 
     def _save_test_results(self, test_results):
         """

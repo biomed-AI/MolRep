@@ -60,6 +60,7 @@ class PropertyTask(BaseTask):
             optimizer,
             lr_scheduler,
             loss_func,
+            scaler=None,
             device="cpu",
     ):
         """
@@ -95,13 +96,18 @@ class PropertyTask(BaseTask):
             else:
                 loss = loss_func(logits, labels) * class_weights * mask
 
+            # Inverse scale if regression
+            if self.regression and scaler is not None:
+                logits = torch.FloatTensor(scaler.inverse_transform(logits.detach().cpu().numpy())).to(device)
+                labels = torch.FloatTensor(scaler.inverse_transform(labels.detach().cpu().numpy())).to(device)
+
             loss = loss.sum() / mask.sum()
             loss.backward()
             optimizer.step()
             lr_scheduler.step(cur_epoch=epoch, cur_step=i)
 
-            y_preds.extend(logits.data.cpu().numpy().tolist())
-            y_labels.extend(target_batch)
+            y_preds.extend(logits.detach().cpu().numpy().tolist())
+            y_labels.extend(labels.detach().cpu().numpy().tolist())
             loss_all += loss.item() * labels.size()[0]
 
         results = self.evaluate_predictions(preds=y_preds, targets=y_labels,
@@ -144,8 +150,9 @@ class PropertyTask(BaseTask):
 
             if self.classification:
                 logits = torch.sigmoid(logits)
-            y_preds.extend(logits.data.cpu().numpy().tolist())
-            y_labels.extend(target_batch)
+
+            y_preds.extend(logits.detach().cpu().numpy().tolist())
+            y_labels.extend(labels.detach().cpu().numpy().tolist())
             loss_all += loss.item() * labels.size()[0]
 
         results = self.evaluate_predictions(preds=y_preds, targets=y_labels,

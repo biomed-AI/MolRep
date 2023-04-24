@@ -12,3 +12,4 @@ ogbg-molbbbp:
   target_columns: ["p_np"]
   num_tasks: 1
   multiclass_num_classes: 1
+  feature: full

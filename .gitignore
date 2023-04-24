@@ -2,6 +2,8 @@
 build
 __pycache__
 cache
+features
+splits
 del
 outputs
 examples

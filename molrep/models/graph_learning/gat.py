@@ -33,7 +33,7 @@ class GAT(BaseModel):
         self.dim_embedding = dim_embedding
         self.max_num_nodes = max_num_nodes
 
-        self.node_encoder = AtomEncoder(dim_input)
+        self.node_encoder = AtomEncoder(dim_features)
 
         if self.aggregation == 'max':
             self.fc_max = nn.Linear(dim_embedding, dim_embedding)

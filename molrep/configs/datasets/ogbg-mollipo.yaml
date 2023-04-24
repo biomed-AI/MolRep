@@ -1,13 +1,14 @@
 ogbg-mollipo:
   name: "ogbg-mollipo"
   task: "property_prediction"
-  task: "property_prediction"
   task_type: "regression"
   split_type: "defined"
   metric_type: "rmse"
 
+  scaler_targets: True
   storage:
     - ogbg_mollipo/mapping/mol.csv.gz
   smiles_column: "smiles"
   target_columns: ['exp']
   num_tasks: 1
+  feature: full

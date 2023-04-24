@@ -1,8 +1,8 @@
 
 
 model:
-  arch: cmpnn
-  model_type: cmpnn_default
+  name: cmpnn
+  model_type: default
 
 datasets:
   name: "ogbg-molesol"

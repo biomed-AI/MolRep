@@ -7,3 +7,4 @@ zinc_standard_agent:
     - zinc_standard_agent/raw/zinc_combined_apr_8_2019.csv
   smiles_column: "smiles"
   id_column: ["zinc_id"]
+  feature: simple

@@ -12,3 +12,4 @@ ogbg-molhiv:
   target_columns: ["HIV_active"]
   num_tasks: 1
   multiclass_num_classes: 1
+  feature: full

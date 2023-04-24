@@ -115,9 +115,7 @@ class AtomEncoder(nn.Module):
 
     def forward(self, x):
         x_embedding = 0
-        print(x.shape)
         for i in range(x.shape[1]):
-            print(i)
             x_embedding += self.atom_embedding_list[i](x[:,i].long())
         return x_embedding
 

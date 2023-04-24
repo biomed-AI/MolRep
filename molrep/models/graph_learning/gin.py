@@ -21,7 +21,7 @@ class GIN(BaseModel):
         "default": "configs/models/gin_default.yaml",
     }
 
-    def __init__(self, model_configs, dim_target=None, max_num_nodes=200):
+    def __init__(self, model_configs, dim_target, max_num_nodes=200):
         super(GIN, self).__init__()
         self.dim_target = dim_target
         self.max_num_nodes = max_num_nodes
@@ -67,6 +67,10 @@ class GIN(BaseModel):
             model_configs=model_configs,
         )
         return model
+    
+    @classmethod
+    def from_pretrained(cls, model_type):
+        return super().from_pretrained(model_type)
 
     def reset_parameters(self):
         for emb in self.node_encoder.atom_embedding_list:

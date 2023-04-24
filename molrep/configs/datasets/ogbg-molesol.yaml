@@ -6,9 +6,10 @@ ogbg-molesol:
   split_type: "defined"
   metric_type: "rmse"
 
-  scaler_targets: False
+  scaler_targets: True
   storage:
     - ogbg_molesol/mapping/mol.csv.gz
   smiles_column: "smiles"
   target_columns: ['measured log solubility in mols per litre']
   num_tasks: 1
+  feature: full

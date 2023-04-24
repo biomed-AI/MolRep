@@ -89,7 +89,7 @@ class Experiment:
     @property
     def loss_func(self):
         if self._loss_func is None:
-            self._loss_func = get_loss_func(self.config.datasets_cfg.task_type, self.config.model_cfg.name)
+            self._loss_func = get_loss_func(self.config.datasets_cfg.task_type, self.config.model_cfg.name, reduction='none')
         return self._loss_func
 
     @property
@@ -246,7 +246,7 @@ class Experiment:
 
     def train(self):
         start_time = time.time()
-        best_agg_metric = 0
+        best_agg_metric = 0 if self.config.datasets_cfg.task_type != 'regression' else 1e5
         best_epoch = 0
 
         self.log_config()
@@ -375,7 +375,7 @@ class Experiment:
             "config": self.config.to_dict(),
             'data_scaler': {
                 'means': self.scaler.means,
-                'stds': self.scaler.stds
+                'stds': self.scaler.stds,
             } if self.scaler is not None else None,
             "epoch": cur_epoch,
         }

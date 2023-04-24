@@ -143,7 +143,6 @@ class DiffPool(BaseModel):
         model = cls(
             dim_features=dim_features,
             dim_target=dim_target,
-            dataset_configs=dataset_configs,
             model_configs=model_configs,
         )
         return model

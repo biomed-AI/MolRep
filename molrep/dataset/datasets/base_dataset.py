@@ -70,7 +70,7 @@ class MoleculeDataset(Dataset):
         Returns the targets associated with each molecule.
         :return: A list of lists of floats (or None) containing the targets.
         """
-        return [d.targets for d in self._data]
+        return [d.y for d in self._data]
 
     def num_tasks(self) -> int:
         """

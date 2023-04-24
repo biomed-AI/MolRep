@@ -7,8 +7,8 @@
 
 
 model:
-  arch: gin
-  model_type: gin_default
+  name: gin
+  model_type: default
   
   num_layers: 5
   hidden_size: 300

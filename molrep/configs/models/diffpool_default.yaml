@@ -7,14 +7,10 @@
 
 
 model:
-  name: graphnet
+  name: diffpool
   model_type: default
 
-  dim_node_hidden: 256
-  dim_edge_hidden: 32
-
-  num_step_set2set: 2
-  num_layer_set2set: 2
-
   num_layers: 2
-  aggregation_type: mean
+  gnn_dim_hidden: 64
+  dim_embedding: 128
+  dim_embedding_MLP: 64
