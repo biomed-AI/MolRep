@@ -15,7 +15,7 @@ from typing import List, Optional
 
 import numpy as np
 
-import algos
+from . import algos
 from molrep.dataset.datasets.base_dataset import MoleculeDataset
 from molrep.common.registry import registry
 

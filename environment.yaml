@@ -58,11 +58,6 @@ dependencies:
   - mkl-service=2.3.0=py37he8ac12f_0
   - mkl_fft=1.2.0=py37h23d657b_0
   - mkl_random=1.1.1=py37h0573a6f_0
-  - nb_conda=2.2.1=py37_0
-  - nb_conda_kernels=2.3.1=py37h06a4308_0
-  - nbclient=0.5.1=py_0
-  - nbconvert=6.0.7=py37_0
-  - nbformat=5.1.2=pyhd3eb1b0_1
   - ncurses=6.2=he6710b0_1
   - nest-asyncio=1.4.3=pyhd3eb1b0_0
   - notebook=6.1.6=py37h06a4308_0
@@ -142,7 +137,15 @@ dependencies:
     - requests==2.25.1
     - sqlalchemy==1.4.1
     - sqlparse==0.4.1
+    - torch==1.7.1+cu110
+    - torchvision==0.8.2+cu110
     - tqdm==4.56.0
     - typing-extensions==3.7.4.3
     - urllib3==1.26.2
     - xgboost==1.3.3
+    - scikit-network==0.20.0
+    - geomloss==0.2.4
+    - ogb==1.3.6
+    - Cython==0.29.34
+    - -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - -f https://download.pytorch.org/whl/torch_stable.html
