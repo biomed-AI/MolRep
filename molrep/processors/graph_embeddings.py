@@ -53,9 +53,26 @@ class GraphEmbeddings:
     def max_num_nodes(self):
         return self._max_num_nodes
 
+    @staticmethod
+    def preprocess(smiles):
+        if smiles is not None:
+            if not isinstance(smiles, list):
+                smiles = [smiles]
+            rdkit_mol_objs_list = [AllChem.MolFromSmiles(s) for s in smiles]
+            dataset = []
+            for i in range(len(smiles)):
+                rdkit_mol = rdkit_mol_objs_list[i]
+                if rdkit_mol is None:
+                    continue
+                data = mol_to_graph_data_obj(rdkit_mol)
+                data.id = torch.tensor([i])
+                data.smiles = smiles[i]
+                dataset.append(data)
+            return dataset
+
     def process(self):
         """
-        Load and featurize data stored in a CSV file.
+        Load and featurize data stored in a CSV file or the Input SMILES.
         """
         features_path = self.features_path
 

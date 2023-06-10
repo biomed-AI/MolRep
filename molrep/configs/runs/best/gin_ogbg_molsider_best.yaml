@@ -1,5 +1,25 @@
+# Copyright (c) 2022, Sun Yat-sen Univeristy, inc.
+# All rights reserved.
 
-ogbg-molsider:
+# @author: Jiahua Rao
+# @license: BSD-3-Clause, For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+# @contact: jiahua.rao@gmail.com
+
+
+model:
+  name: gin
+  model_type: default
+  trained: "model_checkpoints/gin_ogbg-molsider_best.pth"
+  pretrained: ""
+  
+  num_layers: 4
+  hidden_size: 256
+
+  aggregation: mean
+
+  dropout: 0.5
+
+datasets:
   name: "ogbg-molsider"
   task: "property_prediction"
   task_type: "classification"
@@ -11,6 +31,34 @@ ogbg-molsider:
   smiles_column: "smiles"
   target_columns: ['Hepatobiliary disorders', 'Metabolism and nutrition disorders', 'Product issues', 'Eye disorders', 'Investigations', 'Musculoskeletal and connective tissue disorders', 'Gastrointestinal disorders', 'Social circumstances', 'Immune system disorders', 'Reproductive system and breast disorders', 'Neoplasms benign, malignant and unspecified (incl cysts and polyps)', 'General disorders and administration site conditions', 'Endocrine disorders', 'Surgical and medical procedures', 'Vascular disorders', 'Blood and lymphatic system disorders', 'Skin and subcutaneous tissue disorders', 'Congenital, familial and genetic disorders', 'Infections and infestations', 'Respiratory, thoracic and mediastinal disorders', 'Psychiatric disorders', 'Renal and urinary disorders', 'Pregnancy, puerperium and perinatal conditions', 'Ear and labyrinth disorders', 'Cardiac disorders', 'Nervous system disorders', 'Injury, poisoning and procedural complications']
   num_tasks: 27
-  dim_target: 27
   multiclass_num_classes: 1
   feature: full
+
+  dim_target: 27
+  dim_features: 9
+  max_num_nodes: 492
+  dim_edge_features: 3
+
+run:
+  task: "property_prediction"
+  device: "cuda"
+  distributed: False
+  evaluate_only: False
+  type: "train_val_test"
+
+  # optimization-specific
+  optimizer: Adam
+  lr_sched: "linear_warmup_step_lr"
+  init_lr: 0.027229552714241507
+  max_lr: 0.008150858097303407
+  min_lr: 0.00036157227231856744
+  step_size: 8
+  warmup_epochs: 11
+  weight_decay: 0.03884734440981434
+  num_epochs: 126
+
+  batch_size: 477
+  seed: 42
+
+  num_workers: 4
+  class_balance: False

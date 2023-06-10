@@ -11,5 +11,6 @@ ogbg-molbace:
   smiles_column: "smiles"
   target_columns: ["Class"]
   num_tasks: 1
+  dim_target: 1
   multiclass_num_classes: 1
   feature: full

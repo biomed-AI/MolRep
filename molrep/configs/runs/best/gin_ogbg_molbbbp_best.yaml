@@ -9,22 +9,33 @@
 model:
   name: gin
   model_type: default
-  
-  num_layers: 5
+
+  trained: "model_checkpoints/gin_ogbg-molbbbp_best.pth"
+  pretrained: ""
+
+  num_layers: 4
   hidden_size: 256
 
+  JK: last
   aggregation: mean
 
   dropout: 0.5
 
+
 datasets:
-  name: "ogbg-molhiv"
+  name: "ogbg-molbbbp"
+  task: "property_prediction"
   task_type: "classification"
   split_type: "defined"
   metric_type: "auc"
 
   smiles_column: "smiles"
-  target_columns: ["HIV_active"]
+  target_columns: ["p_np"]
+
+  dim_target: 1
+  dim_features: 9
+  max_num_nodes: 132
+  dim_edge_features: 3
 
 run:
   task: "property_prediction"
@@ -36,16 +47,17 @@ run:
   # optimization-specific
   optimizer: Adam
   lr_sched: "linear_warmup_step_lr"
-  init_lr: 0.001
-  max_lr: 0.001
-  min_lr: 0.000001
-  step_size: 10
-  warmup_epochs: 2.0
-  weight_decay: 0.1
-  num_epochs: 200
+  init_lr: 0.02739791672713491
+  max_lr: 0.047343600396275214
+  min_lr: 0.0028009532088013717
+  step_size: 19
+  warmup_epochs: 5
+  weight_decay: 0.09703696731619636
+  num_epochs: 104
 
-  batch_size: 32
+  batch_size: 208
   seed: 42
 
   num_workers: 4
   class_balance: False
+

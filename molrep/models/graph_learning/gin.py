@@ -19,6 +19,15 @@ class GIN(BaseModel):
 
     MODEL_CONFIG_DICT = {
         "default": "configs/models/gin_default.yaml",
+        "best": {
+            "ogbg-molbbbp": "configs/runs/best/gin_ogbg_molbbbp_best.yaml",
+            "ogbg-molbace": "configs/runs/best/gin_ogbg_molbace_best.yaml",
+            "ogbg-molclintox": "configs/runs/best/gin_ogbg_molclintox_best.yaml",
+            "ogbg-molhiv": "configs/runs/best/gin_ogbg_molhiv_best.yaml",
+            "ogbg-molsider": "configs/runs/best/gin_ogbg_molsider_best.yaml",
+            "ogbg-moltox21": "configs/runs/best/gin_ogbg_moltox21_best.yaml",
+            "ogbg-molfreesolv": "configs/runs/best/gin_ogbg_molfreesolv_best.yaml",
+        }
     }
 
     def __init__(self, model_configs, dim_target, max_num_nodes=200):
@@ -67,10 +76,6 @@ class GIN(BaseModel):
             model_configs=model_configs,
         )
         return model
-    
-    @classmethod
-    def from_pretrained(cls, model_type):
-        return super().from_pretrained(model_type)
 
     def reset_parameters(self):
         for emb in self.node_encoder.atom_embedding_list:

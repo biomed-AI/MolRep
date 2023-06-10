@@ -11,5 +11,6 @@ ogbg-molbbbp:
   smiles_column: "smiles"
   target_columns: ["p_np"]
   num_tasks: 1
+  dim_target: 1
   multiclass_num_classes: 1
   feature: full

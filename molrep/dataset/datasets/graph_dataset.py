@@ -52,6 +52,10 @@ class GraphDataset(MoleculeDataset):
     def construct_dataset(cls, indices, features_path):
         features = torch.load(features_path)
         return cls([features[idx] for idx in indices])
+    
+    @classmethod
+    def construct_dataset_from_data(cls, data_list, **kwargs):
+        return cls(data_list)
 
     def collate_fn(self, batch, **kwargs):
         follow_batch = kwargs["follow_batch"] if "follow_batch" in kwargs.keys() else []

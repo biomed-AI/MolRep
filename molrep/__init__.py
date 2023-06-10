@@ -11,7 +11,13 @@
 
 import os
 
+from molrep.dataset.datasets import *
+from molrep.dataset.builders import *
+from molrep.tasks import *
 from molrep.models import *
+from molrep.explainer import *
+from molrep.processors import *
+from molrep.experiments import *
 from molrep.common.registry import registry
 
 root_dir = os.path.dirname(os.path.abspath(__file__))

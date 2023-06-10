@@ -43,6 +43,10 @@ class MoleculeDataset(Dataset):
     @classmethod
     def construct_dataset(cls, indices, features_path, **kwargs):
         raise NotImplementedError
+    
+    @classmethod
+    def construct_dataset_from_data(cls, smiles, **kwargs):
+        raise NotImplementedError
 
     def collate_fn(self, batch, **kwargs):
         raise NotImplementedError

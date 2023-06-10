@@ -9,6 +9,8 @@
 model:
   name: gin
   model_type: default
+  trained: "model_checkpoints/gin_ogbg-molhiv_best.pth"
+  pretrained: ""
   
   num_layers: 5
   hidden_size: 256
@@ -26,6 +28,11 @@ datasets:
   smiles_column: "smiles"
   target_columns: ["HIV_active"]
 
+  dim_target: 1
+  dim_features: 9
+  max_num_nodes: 222
+  dim_edge_features: 3
+
 run:
   task: "property_prediction"
   device: "cuda"
@@ -36,15 +43,15 @@ run:
   # optimization-specific
   optimizer: Adam
   lr_sched: "linear_warmup_step_lr"
-  init_lr: 0.001
-  max_lr: 0.001
-  min_lr: 0.000001
-  step_size: 10
-  warmup_epochs: 2.0
-  weight_decay: 0.1
-  num_epochs: 200
+  init_lr: 0.031613208291481724
+  max_lr: 0.034941422863329935
+  min_lr: 0.006922426308786771
+  step_size: 20
+  warmup_epochs: 20
+  weight_decay: 0.001126722210751067
+  num_epochs: 154
 
-  batch_size: 32
+  batch_size: 508
   seed: 42
 
   num_workers: 4

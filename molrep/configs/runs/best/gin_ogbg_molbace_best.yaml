@@ -9,22 +9,25 @@
 model:
   name: gin
   model_type: default
-  
-  num_layers: 5
-  hidden_size: 256
 
+  num_layers: 6
+  hidden_size: 128
   aggregation: mean
 
   dropout: 0.5
 
 datasets:
-  name: "ogbg-molhiv"
+  name: "ogbg-molbace"
   task_type: "classification"
   split_type: "defined"
   metric_type: "auc"
 
+  storage:
+    - ogbg_molbace/mapping/mol.csv.gz
   smiles_column: "smiles"
-  target_columns: ["HIV_active"]
+  target_columns: ["Class"]
+  num_tasks: 1
+  multiclass_num_classes: 1
 
 run:
   task: "property_prediction"
@@ -36,7 +39,7 @@ run:
   # optimization-specific
   optimizer: Adam
   lr_sched: "linear_warmup_step_lr"
-  init_lr: 0.001
+  init_lr: 0.0001
   max_lr: 0.001
   min_lr: 0.000001
   step_size: 10
@@ -44,7 +47,7 @@ run:
   weight_decay: 0.1
   num_epochs: 200
 
-  batch_size: 32
+  batch_size: 50
   seed: 42
 
   num_workers: 4

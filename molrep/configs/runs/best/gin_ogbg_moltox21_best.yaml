@@ -9,6 +9,8 @@
 model:
   name: gin
   model_type: default
+  trained: "model_checkpoints/gin_ogbg-moltox21_best.pth"
+  pretrained: ""
 
   num_layers: 4
   hidden_size: 256
@@ -16,15 +18,25 @@ model:
 
   dropout: 0.5
 
+
 datasets:
-  name: "ogbg-molbbbp"
+  name: "ogbg-moltox21"
   task: "property_prediction"
   task_type: "classification"
   split_type: "defined"
   metric_type: "auc"
 
+  storage:
+    - ogbg_moltox21/mapping/mol.csv.gz
   smiles_column: "smiles"
-  target_columns: ["p_np"]
+  target_columns: ['NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase', 'NR-ER', 'NR-ER-LBD', 'NR-PPAR-gamma', 'SR-ARE', 'SR-ATAD5', 'SR-HSE', 'SR-MMP', 'SR-p53']
+  num_tasks: 12
+  multiclass_num_classes: 1
+
+  dim_target: 12
+  dim_features: 9
+  max_num_nodes: 132
+  dim_edge_features: 3
 
 run:
   task: "property_prediction"
@@ -36,15 +48,15 @@ run:
   # optimization-specific
   optimizer: Adam
   lr_sched: "linear_warmup_step_lr"
-  init_lr: 9.310900188401472e-06
-  max_lr: 0.02018108791282571
-  min_lr: 0.005368407531446403
-  step_size: 9
-  warmup_epochs: 4.0
-  weight_decay: 0.07315485684513329
-  num_epochs: 229
+  init_lr: 0.00159545751532301
+  max_lr: 0.08306550997229022
+  min_lr: 0.0035342983104220964
+  step_size: 3
+  warmup_epochs: 7
+  weight_decay: 0.03192863598569226
+  num_epochs: 221
 
-  batch_size: 45
+  batch_size: 166
   seed: 42
 
   num_workers: 4

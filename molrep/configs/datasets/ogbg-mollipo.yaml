@@ -11,4 +11,5 @@ ogbg-mollipo:
   smiles_column: "smiles"
   target_columns: ['exp']
   num_tasks: 1
+  dim_target: 1
   feature: full

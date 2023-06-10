@@ -9,22 +9,34 @@
 model:
   name: gin
   model_type: default
-  
-  num_layers: 5
-  hidden_size: 256
+  trained: "model_checkpoints/gin_ogbg-molclintox_best.pth"
+  pretrained: ""
 
+  num_layers: 4
+  hidden_size: 256
   aggregation: mean
 
   dropout: 0.5
 
+
 datasets:
-  name: "ogbg-molhiv"
+  name: "ogbg-molclintox"
+  task: "property_prediction"
   task_type: "classification"
   split_type: "defined"
   metric_type: "auc"
 
+  storage:
+    - ogbg_molclintox/mapping/mol.csv.gz
   smiles_column: "smiles"
-  target_columns: ["HIV_active"]
+  target_columns: ['FDA_APPROVED', 'CT_TOX']
+  num_tasks: 2
+  multiclass_num_classes: 1
+
+  dim_target: 2
+  dim_features: 9
+  max_num_nodes: 136
+  dim_edge_features: 3
 
 run:
   task: "property_prediction"
@@ -36,15 +48,15 @@ run:
   # optimization-specific
   optimizer: Adam
   lr_sched: "linear_warmup_step_lr"
-  init_lr: 0.001
-  max_lr: 0.001
-  min_lr: 0.000001
-  step_size: 10
-  warmup_epochs: 2.0
-  weight_decay: 0.1
-  num_epochs: 200
+  init_lr: 0.019429358324651064
+  max_lr: 0.06423475494568413
+  min_lr: 0.009293218879466382
+  step_size: 19
+  warmup_epochs: 19
+  weight_decay: 0.08143845805526607
+  num_epochs: 215
 
-  batch_size: 32
+  batch_size: 249
   seed: 42
 
   num_workers: 4

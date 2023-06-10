@@ -11,5 +11,6 @@ ogbg-moltox21:
   smiles_column: "smiles"
   target_columns: ['NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase', 'NR-ER', 'NR-ER-LBD', 'NR-PPAR-gamma', 'SR-ARE', 'SR-ATAD5', 'SR-HSE', 'SR-MMP', 'SR-p53']
   num_tasks: 12
+  dim_target: 12
   multiclass_num_classes: 1
   feature: full

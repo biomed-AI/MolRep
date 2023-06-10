@@ -12,4 +12,5 @@ ogbg-molesol:
   smiles_column: "smiles"
   target_columns: ['measured log solubility in mols per litre']
   num_tasks: 1
+  dim_target: 1
   feature: full

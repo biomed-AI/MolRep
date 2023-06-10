@@ -12,4 +12,5 @@ ogbg-molfreesolv:
   smiles_column: "smiles"
   target_columns: ['expt']
   num_tasks: 1
+  dim_target: 1
   feature: full

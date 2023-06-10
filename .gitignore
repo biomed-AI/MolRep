@@ -1,4 +1,5 @@
 .DS_Store
+.gitignore
 build
 __pycache__
 cache
@@ -8,6 +9,7 @@ del
 outputs
 examples
 projects
+model_checkpoints
 .vscode
 Results.md
 algos.c

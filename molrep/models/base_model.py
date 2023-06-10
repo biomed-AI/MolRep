@@ -1,10 +1,12 @@
 
 
 import os
+import torch
 import torch.nn as nn
-from omegaconf import OmegaConf
+from torch_geometric.data import Batch
 
 from molrep.common.registry import registry
+from molrep.common.config import Config
 from molrep.common.dist_utils import download_cached_file
 from molrep.common.utils import is_url
 
@@ -24,6 +26,10 @@ class BaseModel(nn.Module):
     @classmethod
     def default_config_path(cls, model_type='default'):
         return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT[model_type])
+
+    @classmethod
+    def best_config_path(cls, property_name='ogbg-molbbbp'):
+        return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT['best'][property_name])
 
     @classmethod
     def from_config(cls, cfg=None):
@@ -59,7 +65,7 @@ class BaseModel(nn.Module):
 
 
     @classmethod
-    def from_pretrained(cls, model_type):
+    def from_pretrained(cls, property_name, checkpoint=None):
         """
         Build a pretrained model from default configuration file, specified by model_type.
 
@@ -69,13 +75,36 @@ class BaseModel(nn.Module):
         Returns:
             - model (nn.Module): pretrained or finetuned model, depending on the configuration.
         """
-        model_cfg = OmegaConf.load(cls.default_config_path(model_type)).model
-        model = cls.from_config(model_cfg)
+        cfg = Config.build_best_configs(cfg_path = cls.best_config_path(property_name))
+        model = cls.from_config(cfg)
 
-        return model
+        if checkpoint is None:
+            checkpoint = os.path.join(registry.get_path("repo_root"), cfg.model_cfg.trained)
+
+        if checkpoint != "":
+            model.load_checkpoint(checkpoint)
+        return model, cfg
 
     def featurize(self, data):
         pass
+
+    @torch.no_grad()
+    def predict(self, loader, task=None, **kwargs):
+        predictions = []
+        for idx, batch in enumerate(loader):
+            for k, v in batch.items():
+                if type(v) == torch.Tensor or issubclass(type(v), Batch):
+                    batch[k] = v.to(self.device, non_blocking=True)
+            output = self.forward(batch).logits
+            if task == 'classification':
+                output = output.sigmoid()
+            if task == 'multiclass-classification':
+                output = output.reshape((output.size(0), -1, kwargs['num_classes']))
+                multiclass_softmax = nn.Softmax(dim=2)
+                output = multiclass_softmax(output)
+            predictions.append(output.cpu().data.numpy())
+        predictions = np.concatenate(predictions, axis=0)
+        return predictions
 
     def get_gradients(self, data):
         raise NotImplementedError("The model does not implement the Explainer function.")

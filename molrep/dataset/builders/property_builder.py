@@ -17,6 +17,7 @@ import pandas as pd
 from rdkit import Chem
 from pathlib import Path
 
+from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split, StratifiedKFold, KFold
 from molrep.common.data_split import scaffold_split, defined_split
 
@@ -77,7 +78,6 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
 
     def build(self):
         self.model_name = self.config.model_cfg.name
-
         processor_cls = registry.get_processor_class(self.model_processer_mapping[self.model_name])(self.config, self.whole_data_df)
         processor_cls.process()
 
@@ -89,6 +89,28 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
         self.splits = self.setup_splits()
         datasets, scaler = self.construct_datasets()
         return datasets, scaler
+
+    def process(self, smiles):
+        self.model_name = self.config.model_cfg.name
+        dataset_cls = registry.get_dataset_class(self.model_dataset_mapping[self.model_name])
+        processor_cls = registry.get_processor_class(self.model_processer_mapping[self.model_name])
+
+        data = processor_cls.preprocess(smiles=smiles)
+        dataset = dataset_cls.construct_dataset_from_data(data)
+
+        follow_batch = self.config.run_cfg.get("follow_batch", [])
+        atom_messages = self.config.model_cfg.get("atom_messages", False)
+        kwargs = {"atom_messages": atom_messages, "follow_batch": follow_batch}
+
+        collate_fn = getattr(dataset, "collate_fn", None)
+        loader = DataLoader(
+            dataset,
+            batch_size=1,
+            shuffle=False,
+            collate_fn=lambda data_list: collate_fn(data_list, **kwargs),
+            drop_last=False,
+        )
+        return data, loader
 
     def construct_datasets(self):
         scaler = None

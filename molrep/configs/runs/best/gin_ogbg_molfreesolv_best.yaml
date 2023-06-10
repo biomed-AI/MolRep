@@ -9,22 +9,33 @@
 model:
   name: gin
   model_type: default
-  
-  num_layers: 5
-  hidden_size: 256
+  trained: "model_checkpoints/gin_ogbg-molfreesolv_best.pth"
+  pretrained: ""
 
+  num_layers: 5
+  hidden_size: 300
   aggregation: mean
 
   dropout: 0.5
 
 datasets:
-  name: "ogbg-molhiv"
-  task_type: "classification"
+  name: "ogbg-molfreesolv"
+  task: "property_prediction"
+  task_type: "regression"
   split_type: "defined"
-  metric_type: "auc"
+  metric_type: "rmse"
 
+  scaler_targets: True
+  storage:
+    - ogbg_molfreesolv/mapping/mol.csv.gz
   smiles_column: "smiles"
-  target_columns: ["HIV_active"]
+  target_columns: ['expt']
+  num_tasks: 1
+
+  dim_target: 1
+  dim_features: 9
+  max_num_nodes: 24
+  dim_edge_features: 3
 
 run:
   task: "property_prediction"
@@ -36,15 +47,15 @@ run:
   # optimization-specific
   optimizer: Adam
   lr_sched: "linear_warmup_step_lr"
-  init_lr: 0.001
-  max_lr: 0.001
-  min_lr: 0.000001
-  step_size: 10
-  warmup_epochs: 2.0
-  weight_decay: 0.1
-  num_epochs: 200
+  init_lr: 0.005879984087034745
+  max_lr: 0.09704202440948992
+  min_lr: 0.00011048889064999626
+  step_size: 2
+  warmup_epochs: 11
+  weight_decay: 0.08112470378432846
+  num_epochs: 217
 
-  batch_size: 32
+  batch_size: 228
   seed: 42
 
   num_workers: 4

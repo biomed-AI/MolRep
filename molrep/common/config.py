@@ -14,7 +14,7 @@ from molrep.common.registry import registry
 
 
 class Config:
-    def __init__(self, args):
+    def __init__(self, args=None, cfg_path=None):
         self.config = {}
         self.args = args
 
@@ -107,6 +107,19 @@ class Config:
             {"datasets": config["datasets"]},
         )
         return dataset_config
+
+    @classmethod
+    def build_best_configs(cls, cfg_path):
+        config = OmegaConf.load(cfg_path)
+        runner_config = cls.build_runner_config(config)
+        model_config = cls.build_model_config(config)
+        dataset_config = cls.build_dataset_config(config)
+
+        # Override the default configuration with user options.
+        config = OmegaConf.merge(
+            {"model_cfg": model_config.model, "datasets_cfg": dataset_config.datasets, 'run_cfg': runner_config}
+        )
+        return config
 
     def _convert_to_dot_list(self, opts):
         if opts is None:

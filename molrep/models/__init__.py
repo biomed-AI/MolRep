@@ -10,7 +10,6 @@
 """
 
 
-from omegaconf import OmegaConf
 from molrep.common.registry import registry
 
 from molrep.models.graph_learning.gin import GIN
@@ -44,7 +43,7 @@ __all__ = [
 ]
 
 
-def load_model(name, model_type, is_eval=False, device="cpu", checkpoint=None):
+def load_model(name, property_name, is_eval=False, device="cpu", checkpoint=None):
     """
     Load supported models.
     Args:
@@ -58,10 +57,7 @@ def load_model(name, model_type, is_eval=False, device="cpu", checkpoint=None):
         model (torch.nn.Module): model.
     """
 
-    model = registry.get_model_class(name).from_config(model_type=model_type)
-
-    if checkpoint is not None:
-        model.load_checkpoint(checkpoint)
+    model, _ = registry.get_model_class(name).from_pretrained(property_name=property_name, checkpoint=checkpoint)
 
     if is_eval:
         model.eval()
@@ -83,8 +79,12 @@ def load_preprocess(config):
         Key is "train" or "eval" for processors used in training and evaluation respectively.
     """
 
+    name = config.datasets_cfg.get("task", "property_prediction")
+    processor = registry.get_builder_class(name)(config)
+    return processor
 
-def load_model_and_preprocess(name, model_type, is_eval=False, device="cpu"):
+
+def load_model_and_preprocess(name, property_name, is_eval=False, device="cpu", checkpoint=None):
     """
     Load model and its related preprocessors.
     List all available models and types in registry:
@@ -92,7 +92,7 @@ def load_model_and_preprocess(name, model_type, is_eval=False, device="cpu"):
     >>> print(model_zoo)
     Args:
         name (str): name of the model.
-        model_type (str): type of the model.
+        property_name (str): type of the property.
         is_eval (bool): whether the model is in eval mode. Default: False.
         device (str): device to use. Default: "cpu".
     Returns:
@@ -100,6 +100,16 @@ def load_model_and_preprocess(name, model_type, is_eval=False, device="cpu"):
         processors (dict): preprocessors for molecular inputs.
     """
 
+    model, config = registry.get_model_class(name).from_pretrained(property_name=property_name, checkpoint=checkpoint)
+
+    if is_eval:
+        model.eval()
+
+    if device == "cpu":
+        model = model.float()
+
+    mol_processor = load_preprocess(config=config)
+    return model.to(device), mol_processor
 
 
 class ModelZoo:
