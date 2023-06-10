@@ -141,6 +141,7 @@ class ModelZoo:
                     for name, types in self.model_zoo.items()
                 ]
             )
+            + "=" * 50
         )
 
     def __iter__(self):
