@@ -20,4 +20,4 @@ pip install torch_scatter==2.0.6 torch_sparse==0.6.9 torch_cluster==1.5.9 torch_
 pip install torch-geometric==1.6.3
 
 # setup for graphormer
-python setup.py build_ext --inplace
+python graphormer_setup.py build_ext --inplace

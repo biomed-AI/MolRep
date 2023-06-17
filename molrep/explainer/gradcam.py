@@ -25,9 +25,13 @@ class GradCAM(BaseExplainer):
     Localization" (https://arxiv.org/abs/1610.02391).
     """
 
+    EXPLAINER_CONFIG_DICT = {
+        "default": "configs/explainer/gradcam_default.yaml",
+    }
+
     def __init__(self,
                  last_layer_only: bool = True,
-                 reduce_fn = torch.mean,
+                 reduce_fn: Text = 'mean',
                  name: Optional[Text] = None):
         """GradCAM constructor.
         Args:
@@ -40,14 +44,14 @@ class GradCAM(BaseExplainer):
         self.name = name or self.__class__.__name__
         self.last_layer_only = last_layer_only
         self.sample_size = 1
-        self.reduce_fn = reduce_fn
+        self.reduce_fn = torch.mean if reduce_fn == 'mean' else None
         try:
             reduce_fn(torch.Tensor([[0], [1]]), dim=0)
         except BaseException:
             raise ValueError(
                 'reduce_fn should have a signature like tf.reduce_mean!')
 
-    def attribute(self, data, model, **kwargs):
+    def explain(self, data, model, **kwargs):
         """Gets attribtutions."""
         model.train()
 

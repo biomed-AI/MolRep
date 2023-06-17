@@ -9,6 +9,7 @@
  @contact: jiahua.rao@gmail.com
 """
 
+
 from omegaconf import OmegaConf
 from molrep.common.registry import registry
 
@@ -109,7 +110,7 @@ class Config:
         return dataset_config
 
     @classmethod
-    def build_best_configs(cls, cfg_path):
+    def build_best_model_configs(cls, cfg_path):
         config = OmegaConf.load(cfg_path)
         runner_config = cls.build_runner_config(config)
         model_config = cls.build_model_config(config)
@@ -118,6 +119,14 @@ class Config:
         # Override the default configuration with user options.
         config = OmegaConf.merge(
             {"model_cfg": model_config.model, "datasets_cfg": dataset_config.datasets, 'run_cfg': runner_config}
+        )
+        return config
+
+    @classmethod
+    def build_explainer_configs(cls, cfg_path):
+        config = OmegaConf.load(cfg_path)
+        config = OmegaConf.merge(
+            {'explainer_cfg': config}
         )
         return config
 
@@ -152,7 +161,7 @@ class Config:
 
     @property
     def explainer_cfg(self):
-        return self.config.run.explainer
+        return self.config.run_cfg.explainer
 
     def to_dict(self):
         return OmegaConf.to_container(self.config)

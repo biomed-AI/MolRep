@@ -75,7 +75,7 @@ class BaseModel(nn.Module):
         Returns:
             - model (nn.Module): pretrained or finetuned model, depending on the configuration.
         """
-        cfg = Config.build_best_configs(cfg_path = cls.best_config_path(property_name))
+        cfg = Config.build_best_model_configs(cfg_path = cls.best_config_path(property_name))
         model = cls.from_config(cfg)
 
         if checkpoint is None:
@@ -89,7 +89,7 @@ class BaseModel(nn.Module):
         pass
 
     @torch.no_grad()
-    def predict(self, loader, task=None, **kwargs):
+    def predict(self, loader, task='classification', **kwargs):
         predictions = []
         for idx, batch in enumerate(loader):
             for k, v in batch.items():

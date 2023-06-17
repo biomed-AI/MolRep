@@ -5,6 +5,7 @@ from typing import Optional, Text
 from molrep.explainer.base_explainer import BaseExplainer
 from molrep.common.registry import registry
 
+
 @registry.register_explainer("cam")
 class CAM(BaseExplainer):
     """CAM: Decompose output as a linear sum of nodes and edges.
@@ -19,11 +20,18 @@ class CAM(BaseExplainer):
     (https://arxiv.org/abs/1512.04150).
     """
 
+    EXPLAINER_CONFIG_DICT = {
+        "default": "configs/explainer/cam_default.yaml",
+    }
+
     def __init__(self, name: Optional[Text] = None):
         self.name = name or self.__class__.__name__
         self.sample_size = 1
 
-    def attribute(self, data, model, **kwargs):
+    def explain(self, data, model, **kwargs):
+        if isinstance(data, dict):
+            data = data["pygdata"]
+
         """Gets attribtutions."""
         model.train()
 
@@ -33,5 +41,11 @@ class CAM(BaseExplainer):
         node_weights = torch.einsum('ij,j', node_act, weights) if node_act is not None else None
         edge_weights = torch.einsum('ij,j', edge_act, weights) if edge_act is not None else None
         
+        if node_weights is not None:
+            node_weights = model.unbatch(node_weights, data, is_atom=True)
+        
+        if edge_weights is not None:
+            edge_weights = model.unbatch(edge_weights, data, is_atom=False)
+
         model.eval()
         return node_weights, edge_weights

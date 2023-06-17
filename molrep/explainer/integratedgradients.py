@@ -31,6 +31,10 @@ class IntegratedGradients(BaseExplainer):
     (https://www.pnas.org/content/116/24/11624).
     """
 
+    EXPLAINER_CONFIG_DICT = {
+        "default": "configs/explainer/ig_default.yaml",
+    }
+
     model_processer_mapping = {
         "mpnn": "mpnn", "dmpnn": "mpnn", "cmpnn": "mpnn",
         "graphsage": "graph", "graphnet": "graph", "gin": "graph",
@@ -47,7 +51,7 @@ class IntegratedGradients(BaseExplainer):
         self.sample_size = num_steps
 
 
-    def attribute(self, data, model, **kwargs):
+    def explain(self, data, model, **kwargs):
         model.train()
         config = kwargs['config']
         if isinstance(data, dict):

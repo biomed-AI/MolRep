@@ -1,5 +1,6 @@
 .DS_Store
 .gitignore
+.vscode
 build
 __pycache__
 cache
@@ -7,10 +8,9 @@ features
 splits
 del
 outputs
-examples
 projects
+molrep.egg-info
 model_checkpoints
-.vscode
 Results.md
 algos.c
 algos.cpython-37m-x86_64-linux-gnu.so

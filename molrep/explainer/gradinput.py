@@ -23,11 +23,15 @@ class GradInput(BaseExplainer):
     (https://arxiv.org/pdf/1312.6034.pdf).
     """
 
+    EXPLAINER_CONFIG_DICT = {
+        "default": "configs/explainer/gradinput_default.yaml",
+    }
+
     def __init__(self, name: Optional[Text] = None):
         self.name = name or self.__class__.__name__
         self.sample_size = 1
 
-    def attribute(self, data, model, **kwargs):
+    def explain(self, data, model, **kwargs):
         """Gets attribtutions."""
         model.train()
         atom_features, atom_grads, bond_features, bond_grads = model.get_gradients(data)

@@ -6,6 +6,8 @@
  @license: BSD-3-Clause, For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  @contact: jiahua.rao@gmail.com
 """
+
+
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -20,15 +22,6 @@ import torch.backends.cudnn as cudnn
 import molrep.tasks as tasks
 from molrep.common.config import Config
 from molrep.common.registry import registry
-
-# imports modules for registration
-from molrep.dataset.datasets import *
-from molrep.dataset.builders import *
-from molrep.tasks import *
-from molrep.models import *
-from molrep.explainer import *
-from molrep.processors import *
-from molrep.experiments import *
 
 
 def now():
