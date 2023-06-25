@@ -42,7 +42,7 @@ run:
   step_size: 9
   warmup_epochs: 4.0
   weight_decay: 0.07315485684513329
-  num_epochs: 229
+  num_epochs: 50
 
   batch_size: 45
   seed: 42

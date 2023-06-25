@@ -17,12 +17,14 @@ class PropertyExperiment(Experiment):
             cfg=cfg, task=task, datasets=datasets, scaler=scaler, model=model, job_id=job_id,
         )
 
+        self.patience = self.config.run_cfg.get("patience", 20)
         self.test_every_epochs = self.config.run_cfg.get("type", None) == 'train_test'
 
     def train(self):
         start_time = time.time()
         best_agg_metric = 0 if self.config.datasets_cfg.task_type != 'regression' else 1e5
         best_epoch = -1
+        not_improve_epochs = 0
 
         self.log_config()
         # resume from checkpoint if specified
@@ -38,6 +40,7 @@ class PropertyExperiment(Experiment):
                 self.log_stats(split_name="train", stats=train_stats)
 
             # evaluation phase
+            break_flag = False
             if len(self.valid_splits) > 0:
                 for split_name in self.valid_splits:
                     print("Evaluating on {}.".format(split_name))
@@ -48,9 +51,14 @@ class PropertyExperiment(Experiment):
                     
                     agg_metrics = val_log[self.metric_type[0]]
                     if compare_metrics(agg_metrics, best_agg_metric, self.metric_type[0]) and split_name == "val":
+                        not_improve_epochs = 0
                         best_epoch, best_agg_metric = cur_epoch, agg_metrics
                         self._save_checkpoint(cur_epoch, is_best=True)
                         self._save_test_results({"val": val_log})
+                    else:
+                        not_improve_epochs += 1
+                        if self.patience is not None and not_improve_epochs >= self.patience:
+                            break_flag = True
 
                     val_log.update({"best_epoch": best_epoch})
                     self.log_stats(val_log, split_name)
@@ -65,9 +73,14 @@ class PropertyExperiment(Experiment):
                     
                     agg_metrics = test_log[self.metric_type[0]]
                     if compare_metrics(agg_metrics, best_agg_metric, self.metric_type[0]) and split_name == "test":
+                        not_improve_epochs = 0
                         best_epoch, best_agg_metric = cur_epoch, agg_metrics
                         self._save_checkpoint(cur_epoch, is_best=True)
                         self._save_test_results({"test": test_log})
+                    else:
+                        not_improve_epochs += 1
+                        if self.patience is not None and not_improve_epochs >= self.patience:
+                            break_flag = True
 
                     test_log.update({"best_epoch": best_epoch})
                     self.log_stats(test_log, split_name)
@@ -78,6 +91,10 @@ class PropertyExperiment(Experiment):
                     self._save_checkpoint(cur_epoch, is_best=False)
 
             if self.evaluate_only:
+                break
+
+            if break_flag:
+                print("Early Stopping.")
                 break
 
         # evaluate phase: evaluate

@@ -10,6 +10,10 @@
 """
 
 
+import torch
+import os, yaml
+from itertools import groupby
+
 from omegaconf import OmegaConf
 from molrep.common.registry import registry
 
@@ -21,12 +25,18 @@ class Config:
 
         # Register the config and configuration for setup
         registry.register("configuration", self)
+        user_config = self._build_opt_list(self.args.options)
+        user_config_dict = self._build_config_dict(user_config)
+
+        if self.args.cfg_path is None or not os.path.exists(self.args.cfg_path):
+            cfg_path = os.path.join(registry.get_path("repo_root"), "projects", "user_defined.yaml")
+            with open(cfg_path, 'w') as outfile:
+                yaml.dump(user_config_dict, outfile, default_flow_style=False)
+            self.args.cfg_path = cfg_path
 
         config = OmegaConf.load(self.args.cfg_path)
-        user_config = self._build_opt_list(self.args.options)
-
         runner_config = self.build_runner_config(config)
-        model_config = self.build_model_config(config, **user_config)
+        model_config = self.build_model_config(config, **user_config_dict)
         dataset_config = self.build_dataset_config(config)
 
         # Override the default configuration with user options.
@@ -36,7 +46,7 @@ class Config:
 
     def _build_opt_list(self, opts):
         opts_dot_list = self._convert_to_dot_list(opts)
-        return OmegaConf.from_dotlist(opts_dot_list)
+        return OmegaConf.to_container(OmegaConf.from_dotlist(opts_dot_list))
 
     @staticmethod
     def build_model_config(config, **kwargs):
@@ -57,6 +67,7 @@ class Config:
             model_config,
             OmegaConf.load(model_config_path),
             {"model": config["model"]},
+            {"model": kwargs["model"]},
         )
         return model_config
 
@@ -99,7 +110,10 @@ class Config:
         task = datasets.get("task_type", None)
         assert name is not None and task is not None, "Missing dataset name or type."
         dataset_config_path = builder_cls.default_config_path(task=task, name=name)
-        default_config = {"datasets": OmegaConf.load(dataset_config_path)[name]}
+        if dataset_config_path is not None:
+            default_config = {"datasets": OmegaConf.load(dataset_config_path)[name]}
+        else:
+            default_config = {"datasets": {}}
 
         # hiararchy override, customized config > default config
         dataset_config = OmegaConf.merge(
@@ -143,6 +157,49 @@ class Config:
             return opts
 
         return [(opt + "=" + value) for opt, value in zip(opts[0::2], opts[1::2])]
+
+    def _build_config_dict(self, opts):
+        cfg_dict = {
+            "model": {},
+            "datasets": {},
+            "run": {}
+        }
+
+        # model configs: model_name, and other model parameters
+        model_name = opts.pop("model_name", None)
+        if model_name is None or registry.get_model_class(model_name) is None:
+            print(f"Missing Model name or Model has not been registered.")
+            print(f"Using the default gnn_model: GIN.")
+            model_name = 'gin'
+        cfg_dict["model"]["name"] = model_name
+
+        # dataset configs:
+        try:
+            # must included:
+            cfg_dict["datasets"]["name"] = opts.pop("dataset_name")
+            cfg_dict["datasets"]["storage"] = [opts.pop("dataset_path")]
+            cfg_dict["datasets"]["task_type"] = opts.pop("task_type")
+            cfg_dict["datasets"]["smiles_column"] = opts.pop("smiles_column")
+            target_columns = opts.pop("target_columns")
+            cfg_dict["datasets"]["target_columns"] = target_columns if type(target_columns) == list else [target_columns]
+        except:
+            raise print(f"Missing dataset configs: ['dataset_name', 'dataset_path', 'task_type', 'smiles_column', 'target_columns']. ")
+
+        # use default if not included
+        cfg_dict["datasets"]["task"] = opts.pop("task", "property_prediction")
+        cfg_dict["datasets"]["split_type"] = opts.pop("split_type", "random")
+        default_metric_type = "auc" if cfg_dict["datasets"]["task_type"] == "classification" else "rmse"
+        cfg_dict["datasets"]["metric_type"] = opts.pop("metric_type", default_metric_type)
+
+        cfg_dict["datasets"]["num_tasks"] = opts.pop("num_tasks", len(cfg_dict["datasets"]["target_columns"]))
+        cfg_dict["datasets"]["dim_target"] = opts.pop("dim_target", len(cfg_dict["datasets"]["target_columns"]))
+        cfg_dict["datasets"]["multiclass_num_classes"] = opts.pop("multiclass_num_classes", 1)
+        cfg_dict["datasets"]["feature"] = opts.pop("feature", "full")
+
+        # run configs:
+        cfg_dict["run"]["task"] = cfg_dict["datasets"]["task"]
+        cfg_dict["run"]["device"] = opts.pop("device", "cuda" if torch.cuda.is_available() else "cpu")
+        return cfg_dict
 
     def get_config(self):
         return self.config

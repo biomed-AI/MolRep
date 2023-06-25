@@ -48,7 +48,10 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
         super().__init__(cfg)
 
     def _download_and_load_data(self):
-        dataset_path = Path(os.path.join(self.cache_root, self.dataset_config.storage[0]))
+        if os.path.isabs(self.dataset_config.storage[0]):
+            dataset_path = self.dataset_config.storage[0]
+        else:
+            dataset_path = Path(os.path.join(self.repo_root, self.dataset_config.storage[0]))
 
         if self.dataset_name.startswith('ogb'):
             if not os.path.exists(dataset_path):
@@ -126,7 +129,7 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
 
             indices = self.splits[0]["model_selection"][0]
             if 'validation' in indices.keys():
-                trainset_indices = indices['train'] + indices['validation']
+                trainset_indices = list(indices['train']) + list(indices['validation'])
             else:
                 trainset_indices = indices['train']
             testset_indices = self.splits[0]["test"]
@@ -211,6 +214,10 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
             with open(splits_filename, "w") as f:
                 json.dump(splits, f, cls=NumpyEncoder)
 
+        elif os.path.exists(splits_filename):
+            with open(splits_filename, "r") as f:
+                splits = json.load(f)
+
         else:
             splits = self._make_splits(splits_filename)
 
@@ -223,8 +230,8 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
         """
         self.outer_k = self.config.run_cfg.get("outer_k", None)
         self.inner_k = self.config.run_cfg.get("inner_k", None)
-        self.test_size = self.config.run_cfg.get("test_size", None)
-        self.validation_size = self.config.run_cfg.get("validation_size", None)
+        self.test_size = self.config.run_cfg.get("test_size", 0.2)
+        self.validation_size = self.config.run_cfg.get("validation_size", 0.1)
         self.split_type = self.dataset_config.get("split_type", "random")
 
         assert (self.outer_k is not None and self.outer_k > 0) or self.outer_k is None

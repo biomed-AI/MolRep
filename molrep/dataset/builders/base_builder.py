@@ -27,10 +27,10 @@ class BaseDatasetBuilder:
 
     TASK_CONFIG_DICT = {
         "property_prediction": "molrep/configs/runs/property_prediction.yaml",
-        "property_hyperseach": "molrep/configs/runs/property_prediction.yaml",
-        "molecular_explainer": "molrep/configs/runs/property_prediction.yaml",
-        "molecular_pretraining": "molrep/configs/runs/property_prediction.yaml",
-        "molecular_interaction": "molrep/configs/runs/property_prediction.yaml",
+        "property_hyperseach": "molrep/configs/runs/property_hyperseach.yaml",
+        "molecular_explainer": "molrep/configs/runs/molecular_explainer.yaml",
+        "molecular_pretraining": "molrep/configs/runs/molecular_pretraining.yaml",
+        "molecular_interaction": "molrep/configs/runs/molecular_interaction.yaml",
     }
 
     DATASET_CONFIG_DICT = {
@@ -78,9 +78,12 @@ class BaseDatasetBuilder:
         self.dataset_name = self.dataset_config.name
 
         self.cache_root = registry.get_path("cache_root")
+        self.repo_root = registry.get_path("repo_root")
 
     @classmethod
     def default_config_path(cls, task, name):
+        if name not in cls.DATASET_CONFIG_DICT[task]:
+            return None
         return os.path.join(registry.get_path("repo_root"), cls.DATASET_CONFIG_DICT[task][name])
 
     @classmethod

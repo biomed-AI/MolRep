@@ -30,5 +30,5 @@ run:
   batch_size: 32
   seed: 42
 
-  num_workers: 0
+  num_workers: 4
   class_balance: False
