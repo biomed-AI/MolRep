@@ -52,6 +52,9 @@ class PropertyPredictionBuilder(BaseDatasetBuilder):
             dataset_path = self.dataset_config.storage[0]
         else:
             dataset_path = Path(os.path.join(self.repo_root, self.dataset_config.storage[0]))
+            check_in_repo_root = os.path.exists(dataset_path)
+            if not check_in_repo_root:
+                dataset_path = Path(os.path.join(self.cache_root, self.dataset_config.storage[0]))
 
         if self.dataset_name.startswith('ogb'):
             if not os.path.exists(dataset_path):

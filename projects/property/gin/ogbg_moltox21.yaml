@@ -1,0 +1,57 @@
+# Copyright (c) 2022, Sun Yat-sen Univeristy, inc.
+# All rights reserved.
+
+# @author: Jiahua Rao
+# @license: BSD-3-Clause, For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+# @contact: jiahua.rao@gmail.com
+
+
+model:
+  name: gin
+  model_type: default
+
+  num_layers: 4
+  hidden_size: 256
+  aggregation: mean
+
+  dropout: 0.5
+
+
+datasets:
+  name: "ogbg-moltox21"
+  task: "property_prediction"
+  task_type: "classification"
+  split_type: "defined"
+  metric_type: "auc"
+
+  storage:
+    - ogbg_moltox21/mapping/mol.csv.gz
+  smiles_column: "smiles"
+  target_columns: ['NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase', 'NR-ER', 'NR-ER-LBD', 'NR-PPAR-gamma', 'SR-ARE', 'SR-ATAD5', 'SR-HSE', 'SR-MMP', 'SR-p53']
+  num_tasks: 12
+  multiclass_num_classes: 1
+
+
+run:
+  task: "property_prediction"
+  device: "cuda"
+  distributed: False
+  evaluate_only: False
+  type: "train_val_test"
+
+  # optimization-specific
+  optimizer: Adam
+  lr_sched: "linear_warmup_step_lr"
+  init_lr: 0.0001
+  max_lr: 0.001
+  min_lr: 0.000001
+  step_size: 10
+  warmup_epochs: 2.0
+  weight_decay: 0.1
+  num_epochs: 200
+
+  batch_size: 50
+  seed: 42
+
+  num_workers: 4
+  class_balance: False

@@ -1,0 +1,20 @@
+datasets:
+  dim_target: 1
+  feature: full
+  metric_type: auc
+  multiclass_num_classes: 1
+  name: bbbp
+  num_tasks: 1
+  smiles_column: smiles
+  split_type: random
+  storage:
+  - cache/ogbg_molbbbp/mapping/mol.csv
+  target_columns:
+  - p_np
+  task: property_prediction
+  task_type: classification
+model:
+  name: gin
+run:
+  device: cuda
+  task: property_prediction

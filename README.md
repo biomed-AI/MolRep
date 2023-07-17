@@ -47,6 +47,42 @@ To install the required packages, follow there instructions (tested on a linux t
 
 Where `<your_conda_path>` is your conda path, and `<CUDA_VERSION>` is an optional argument that can be either `cpu`, `cu92`, `cu100`, `cu101`, `cu110`. If you do not provide a cuda version, the script will default to `cu110`. The script will create a virtual environment named `MolRep`, with all the required packages needed to run our code. **Important:** do NOT run this command using `bash` instead of `source`!
 
+
+## Repository Directory Structure
+```
+MolRep
+│
+└───cache
+│
+└───docs
+│
+└───examples
+│
+└───features
+│
+└───molrep
+     │
+     └───common
+     │
+     └───configs
+     │
+     └───datasets
+     │
+     └───experiments
+     │
+     └───explainer
+     │
+     └───models
+     │
+     └───processors
+     │
+     └───tasks
+│
+└───projects
+
+
+```
+
 ## Data
 
 Data (including Explainable Dataset) could be download from [Google_Driver](https://drive.google.com/drive/folders/1vGlhE3TJ4AhvUCa3ODdFw3O-zOMH1s7J?usp=sharing)

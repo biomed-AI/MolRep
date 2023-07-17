@@ -26,17 +26,17 @@ class Config:
         # Register the config and configuration for setup
         registry.register("configuration", self)
         user_config = self._build_opt_list(self.args.options)
-        user_config_dict = self._build_config_dict(user_config)
 
         if self.args.cfg_path is None or not os.path.exists(self.args.cfg_path):
+            user_config = self._build_config_dict(user_config)
             cfg_path = os.path.join(registry.get_path("repo_root"), "projects", "user_defined.yaml")
             with open(cfg_path, 'w') as outfile:
-                yaml.dump(user_config_dict, outfile, default_flow_style=False)
+                yaml.dump(user_config, outfile, default_flow_style=False)
             self.args.cfg_path = cfg_path
 
         config = OmegaConf.load(self.args.cfg_path)
         runner_config = self.build_runner_config(config)
-        model_config = self.build_model_config(config, **user_config_dict)
+        model_config = self.build_model_config(config, **user_config)
         dataset_config = self.build_dataset_config(config)
 
         # Override the default configuration with user options.
@@ -67,7 +67,7 @@ class Config:
             model_config,
             OmegaConf.load(model_config_path),
             {"model": config["model"]},
-            {"model": kwargs["model"]},
+            {"model": kwargs["model"]} if "model" in kwargs.keys() else {"model": {}},
         )
         return model_config
 
