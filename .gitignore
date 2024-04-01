@@ -8,7 +8,7 @@ features
 splits
 del
 outputs
-# projects
+projects
 molrep.egg-info
 model_checkpoints
 Results.md
