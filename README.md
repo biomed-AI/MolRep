@@ -158,7 +158,7 @@ The following table shows the supported tasks, datasets and models in our librar
 ### Model Zoo
 Model zoo summarizes supported models in MolRep, to view:
 ```python
->>> from molrep.models import model_zoo
+>>> from molrep import model_zoo
 >>> print(model_zoo)
 # ==================================================
 # Architectures                  Types
@@ -180,15 +180,16 @@ Model zoo summarizes supported models in MolRep, to view:
 # xgboost                        machine_learning
 # randomforest                   machine_learning
 # graphcl                        pre_learning
+# ==================================================
 ```
 
 ## Molecular Property Prediction & Explainer
 ```python
 >>> import torch
->>> from molrep.models import load_model_and_preprocess
+>>> from molrep import load_model_and_preprocess
 >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# loads CMPNN base model, with trained checkpoints on HIV dataset.
->>> model, mol_processors, _ = load_model_and_preprocess(name="cmpnn", model_type="classification", trained_on="hiv", is_eval=True, device=device)
+# loads GIN base model, with trained checkpoints on HIV dataset.
+>>> model, mol_processors, _ = load_model_and_preprocess(name="gin", property_name="ogbg-molhiv", is_eval=True, device=device)
 # preprocess the molecule
 >>> mol_data = mol_processors["eval"]("Cl[C@H](/C=C/C)Br").to(device)
 # prediction

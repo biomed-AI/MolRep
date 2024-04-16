@@ -29,8 +29,11 @@ from molrep.models.pretraining.miga_utils import calc_contrastive_loss, do_AttrM
 @registry.register_model("miga")
 class MIGA(BaseModel):
     """
-    MIGA: 
+    MIGA: Cross-modal Graph Contrastive Learning with Cellular Images
     """
+    MODEL_TYPES_DICT = {
+        "pretraining": ("default")
+    }
 
     MODEL_CONFIG_DICT = {
         "default": "configs/models/miga.yaml",

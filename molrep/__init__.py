@@ -120,7 +120,7 @@ class ModelZoo:
 
     def __init__(self) -> None:
         self.model_zoo = {
-            k: list(v.MODEL_CONFIG_DICT.keys())
+            k: list(v.MODEL_TYPES_DICT.keys())
             for k, v in registry.mapping["model_name_mapping"].items()
         }
 
@@ -137,6 +137,7 @@ class ModelZoo:
                     for name, types in self.model_zoo.items()
                 ]
             )
+            + "\n"
             + "=" * 50
         )
 
@@ -170,7 +171,6 @@ def load_explainer(explainer_name):
 
 def expalin_and_visualize(explainer, model, data, device=None, **kwargs):
     '''
-    
         >>> from IPython.display import SVG
         >>> SVG(expalin_and_visualize(explainer, model, data)[0])
     '''

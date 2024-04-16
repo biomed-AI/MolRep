@@ -75,7 +75,12 @@ class BaseModel(nn.Module):
         Returns:
             - model (nn.Module): pretrained or finetuned model, depending on the configuration.
         """
-        cfg = Config.build_best_model_configs(cfg_path = cls.best_config_path(property_name))
+        if 'best' in cls.MODEL_CONFIG_DICT.keys() and property_name in cls.MODEL_CONFIG_DICT['best']:
+            cfg_path = cls.best_config_path(property_name)
+        else:
+            cfg_path = cls.default_config_path()
+
+        cfg = Config.build_best_model_configs(cfg_path = cfg_path)
         model = cls.from_config(cfg)
 
         if checkpoint is None:

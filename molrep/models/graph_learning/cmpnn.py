@@ -30,6 +30,9 @@ class CMPNN(BaseModel):
     """
     A CMPNN is a model which contains a message passing network following by feed-forward layers.
     """
+    MODEL_TYPES_DICT = {
+        "graph_learning": ("default")
+    }
 
     MODEL_CONFIG_DICT = {
         "default": "configs/models/cmpnn_default.yaml",

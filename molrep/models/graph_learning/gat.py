@@ -16,6 +16,9 @@ class GAT(BaseModel):
     """
     GAT is a model which contains a message passing network following by feed-forward layers.
     """
+    MODEL_TYPES_DICT = {
+        "graph_learning": ("default")
+    }
 
     MODEL_CONFIG_DICT = {
         "default": "configs/models/gat_default.yaml",

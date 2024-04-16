@@ -13,6 +13,9 @@ class AttrMasking(BaseModel):
     """
     Attribution Masking
     """
+    MODEL_TYPES_DICT = {
+        "pretraining": ("default")
+    }
 
     MODEL_CONFIG_DICT = {
         "default": "configs/models/attr_masking.yaml",

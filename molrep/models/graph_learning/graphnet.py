@@ -14,6 +14,9 @@ class GraphNet(BaseModel):
     """
     GraphNet is a model which contains a message passing network following by feed-forward layers.
     """
+    MODEL_TYPES_DICT = {
+        "graph_learning": ("default")
+    }
 
     MODEL_CONFIG_DICT = {
         "default": "configs/models/graphnet_default.yaml",

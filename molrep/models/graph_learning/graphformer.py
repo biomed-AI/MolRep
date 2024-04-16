@@ -17,6 +17,9 @@ class Graphformer(BaseModel):
     """
     Graphformer is a model which contains a message passing network following by feed-forward layers.
     """
+    MODEL_TYPES_DICT = {
+        "graph_learning": ("default")
+    }
 
     MODEL_CONFIG_DICT = {
         "default": "configs/models/graphformer_default.yaml",

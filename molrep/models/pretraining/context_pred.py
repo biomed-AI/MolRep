@@ -14,6 +14,9 @@ class ContextPred(BaseModel):
     """
     Attribution Masking
     """
+    MODEL_TYPES_DICT = {
+        "pretraining": ("default")
+    }
 
     MODEL_CONFIG_DICT = {
         "default": "configs/models/context_pred.yaml",

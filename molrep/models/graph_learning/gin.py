@@ -16,6 +16,9 @@ class GIN(BaseModel):
     """
     GIN is a model which contains a message passing network following by feed-forward layers.
     """
+    MODEL_TYPES_DICT = {
+        "graph_learning": ("default", "best")
+    }
 
     MODEL_CONFIG_DICT = {
         "default": "configs/models/gin_default.yaml",

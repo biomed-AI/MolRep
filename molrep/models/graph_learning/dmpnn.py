@@ -24,6 +24,9 @@ from molrep.processors.features import BatchMolGraph, get_atom_feature_dims, get
 @registry.register_model("dmpnn")
 class DMPNN(BaseModel):
     """A :class:`DMPNN` is a model which contains a message passing network following by feed-forward layers."""
+    MODEL_TYPES_DICT = {
+        "graph_learning": ("default")
+    }
 
     MODEL_CONFIG_DICT = {
         "default": "configs/models/dmpnn_default.yaml",
