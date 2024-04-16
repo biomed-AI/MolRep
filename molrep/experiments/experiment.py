@@ -2,6 +2,7 @@
 
 import os
 import datetime
+from omegaconf import OmegaConf
 
 from torch.utils.data import DataLoader, DistributedSampler
 
@@ -243,6 +244,10 @@ class Experiment:
 
         self.result_dir = result_dir
         self.output_dir = output_dir
+
+        cfg_path = self.output_dir / "configs.yaml"
+        with open(cfg_path, "w") as f:
+            OmegaConf.save(self.config.config, f)
 
     def train(self):
         start_time = time.time()

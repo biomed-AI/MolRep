@@ -12,6 +12,10 @@ from molrep.common.utils import is_url
 
 class BaseModel(nn.Module):
 
+    MODEL_TYPES_DICT = {
+        "base": ("default")
+    }
+
     MODEL_CONFIG_DICT = {
         "base_model": "",
     }
@@ -29,7 +33,10 @@ class BaseModel(nn.Module):
 
     @classmethod
     def best_config_path(cls, property_name='ogbg-molbbbp'):
-        return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT['best'][property_name])
+        if (property_name in cls.MODEL_CONFIG_DICT['best']):
+            return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT['best'][property_name])
+        else:
+            return os.path.join(registry.get_path("library_root"), cls.MODEL_CONFIG_DICT['best']['default'])
 
     @classmethod
     def from_config(cls, cfg=None):
@@ -75,12 +82,7 @@ class BaseModel(nn.Module):
         Returns:
             - model (nn.Module): pretrained or finetuned model, depending on the configuration.
         """
-        if 'best' in cls.MODEL_CONFIG_DICT.keys() and property_name in cls.MODEL_CONFIG_DICT['best']:
-            cfg_path = cls.best_config_path(property_name)
-        else:
-            cfg_path = cls.default_config_path()
-
-        cfg = Config.build_best_model_configs(cfg_path = cfg_path)
+        cfg = Config.build_best_model_configs(cfg_path = cls.best_config_path(property_name))
         model = cls.from_config(cfg)
 
         if checkpoint is None:

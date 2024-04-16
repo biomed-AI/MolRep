@@ -29,6 +29,7 @@ from molrep.models.interactions.CFLP.CFLP import CFLP
 from molrep.models.pretraining.attr_masking import AttrMasking
 from molrep.models.pretraining.edge_pred import EdgePred
 from molrep.models.pretraining.context_pred import ContextPred
+from molrep.models.pretraining.miga import MIGA
 
 from molrep.models.optims import LinearWarmupStepLRScheduler, LinearWarmupCosineLRScheduler
 
@@ -38,5 +39,5 @@ __all__ = [
     "GraphSAGE", "GraphNet",
     "Graphformer",
     'PLNLP', 'CFLP',
-    'AttrMasking', 'EdgePred', 'ContextPred'
+    'AttrMasking', 'EdgePred', 'ContextPred', 'MIGA'
 ]

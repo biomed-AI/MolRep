@@ -36,6 +36,9 @@ class CMPNN(BaseModel):
 
     MODEL_CONFIG_DICT = {
         "default": "configs/models/cmpnn_default.yaml",
+        "best": {
+            'default': "configs/runs/default/cmpnn_default.yaml"
+        }
     }
 
     def __init__(self, dim_features, dim_target, model_configs, max_num_nodes=200):
